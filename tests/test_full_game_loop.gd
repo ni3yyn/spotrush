@@ -81,6 +81,20 @@ static func run_all_tests() -> Dictionary:
 	else:
 		failed += 1
 		errors.append("Rematch reset failed to restore pristine state")
+
+	# Test 5: UI ChallengeView instantiation and option setup across all types
+	var ch_view_scene = load("res://scenes/game/ChallengeView.tscn")
+	if ch_view_scene != null:
+		var ch_view = ch_view_scene.instantiate()
+		for d in [1, 2, 3]:
+			for r in range(6):
+				var test_ch = ChallengeGenerator.generate_challenge(r, d, 2000 + r)
+				ch_view.load_challenge(test_ch)
+		ch_view.free()
+		passed += 1
+	else:
+		failed += 1
+		errors.append("Could not load ChallengeView scene")
 		
 	return {
 		"name": "FullGameLoopTests",

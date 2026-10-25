@@ -74,7 +74,7 @@ func _on_time_tick(remaining: float, total: float) -> void:
 func _on_player_choice(choice: Variant) -> void:
 	GameManager.submit_answer(choice)
 
-func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
+func _on_answer_feedback(_player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
 	feedback_panel.visible = true
 	
 	var text = ""
@@ -101,8 +101,8 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 		var p2_score = GameManager.match_controller.score_manager.get_player_score(p2_id)
 		lbl_score_p2.text = "OPPONENT: %d" % p2_score
 
-func _on_round_ended(round_num: int, scores: Dictionary) -> void:
+func _on_round_ended(_round_num: int, _scores: Dictionary) -> void:
 	challenge_view.lock_input()
 
-func _on_match_ended(results: Dictionary) -> void:
+func _on_match_ended(_results: Dictionary) -> void:
 	SceneRouter.goto_results()

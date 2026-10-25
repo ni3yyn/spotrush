@@ -85,7 +85,7 @@ func _start_active_round() -> void:
 	
 	# Only host or single-player generates challenge
 	if game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
-		var difficulty = 1 + int(float(current_round_index) / float(maxi(1, total_rounds / 3)))
+		var difficulty = 1 + int(float(current_round_index) / maxf(1.0, float(total_rounds) / 3.0))
 		difficulty = clampi(difficulty, 1, 4)
 		current_challenge = ChallengeGenerator.generate_challenge(current_round_index, difficulty)
 		round_duration = current_challenge.time_limit

@@ -19,25 +19,47 @@ func _ready() -> void:
 	btn_action_done.pressed.connect(_on_action_done_pressed)
 	btn_action_done.visible = false
 
+func _ensure_nodes() -> void:
+	if instruction_label == null and has_node("%InstructionLabel"):
+		instruction_label = %InstructionLabel
+	if badge_label == null and has_node("%BadgeLabel"):
+		badge_label = %BadgeLabel
+	if draw_canvas == null and has_node("%DrawCanvas"):
+		draw_canvas = %DrawCanvas
+	if options_container == null and has_node("%OptionsContainer"):
+		options_container = %OptionsContainer
+	if btn_action_done == null and has_node("%BtnActionDone"):
+		btn_action_done = %BtnActionDone
+
 func load_challenge(challenge: ChallengeDefinition) -> void:
+	_ensure_nodes()
 	current_challenge = challenge
 	tapped_indices.clear()
 	is_input_locked = false
 	
-	instruction_label.text = challenge.instruction
-	badge_label.text = challenge.type.replace("_", " ").to_upper()
+	if instruction_label != null:
+		instruction_label.text = challenge.instruction
+	if badge_label != null:
+		badge_label.text = challenge.type.replace("_", " ").to_upper()
 	
 	_setup_options()
-	draw_canvas.queue_redraw()
+	if draw_canvas != null:
+		draw_canvas.queue_redraw()
 
 func lock_input() -> void:
+	_ensure_nodes()
 	is_input_locked = true
-	btn_action_done.disabled = true
-	for child in options_container.get_children():
-		if child is Button:
-			child.disabled = true
+	if btn_action_done != null:
+		btn_action_done.disabled = true
+	if options_container != null:
+		for child in options_container.get_children():
+			if child is Button:
+				child.disabled = true
 
 func _setup_options() -> void:
+	_ensure_nodes()
+	if options_container == null:
+		return
 	for child in options_container.get_children():
 		child.queue_free()
 		
@@ -45,18 +67,21 @@ func _setup_options() -> void:
 		return
 		
 	if current_challenge.input_mode == "choice":
-		btn_action_done.visible = false
+		if btn_action_done != null:
+			btn_action_done.visible = false
 		for opt in current_challenge.options:
 			var btn = Button.new()
 			btn.text = str(opt)
 			btn.custom_minimum_size = Vector2(100, 64)
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			btn.theme_override_font_sizes["font_size"] = 22
+			btn.add_theme_font_size_override("font_size", 22)
 			
 			var style = StyleBoxFlat.new()
 			style.bg_color = GameConfig.COLOR_MINT
 			style.set_corner_radius_all(14)
 			btn.add_theme_stylebox_override("normal", style)
+			btn.add_theme_stylebox_override("pressed", style)
+			btn.add_theme_stylebox_override("hover", style)
 			btn.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
 			
 			var opt_val = opt
