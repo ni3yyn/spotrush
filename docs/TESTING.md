@@ -13,7 +13,7 @@ Or if `godot` is in your system PATH:
 godot --headless res://tests/TestRunner.tscn
 ```
 
-### Verified Test Suites (98 Passed, 0 Failed, 0 Errors, 0 Warnings)
+### Verified Test Suites (154 Passed, 0 Failed, 0 Errors, 0 Warnings)
 1. **`TestChallengeGeneration` (44 tests)**:
    - Challenge generation across all difficulty tiers (Easy, Medium, Hard, Expert).
    - Quantity estimation option presence and visual count integrity.
@@ -65,6 +65,20 @@ godot --headless res://tests/TestRunner.tscn
    - Tap index recording on `ChallengeCanvas`.
    - Canvas input locking when match round ends.
    - Palette color mapping resolution.
+9. **`TestGameplayDepth` (56 tests)**:
+   - Dynamic streak calculation and progression bonus (+50 per streak, capped at +250).
+   - Streak reset to 0 upon failure, with high-water mark preserved in stats.
+   - Inhibitory control (No-Go): patient withholding rewards 1000 pts.
+   - Inhibitory control (No-Go): impulsive tap penalized with -150 pts fault deduction.
+   - Inhibitory control (Go): rapid tap rewards speed bonus; timeout marked as failure.
+   - Side comparison difficulty scaling: margin tiers [8-12], [5-7], [3-4], [1-2].
+   - Visual fairness: identical dot sizing and equal bounds in side comparison.
+   - Estimation distractor plausibility and exact visual count verification.
+   - Shape target contour recognition: uniform color enforcement.
+   - Multi-attribute combined conditional challenge validation (targets, distractors, faults).
+   - Comparative shape majority validation ("YES" / "NO").
+   - Color count threshold validation ("YES" / "NO").
+   - Pristine rematch state reset across controller, score manager, and streaks.
 
 ---
 

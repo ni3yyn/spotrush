@@ -74,21 +74,40 @@ func _on_time_tick(remaining: float, total: float) -> void:
 func _on_player_choice(choice: Variant) -> void:
 	GameManager.submit_answer(choice)
 
-func _on_answer_feedback(_player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
+func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
 	feedback_panel.visible = true
+	
+	var local_id = NetworkSession.get_local_id() if is_multiplayer else 1
+	var stats = GameManager.match_controller.score_manager.get_player_stats(local_id)
+	var streak = stats.get("current_streak", 0)
 	
 	var text = ""
 	if is_correct:
 		feedback_panel.modulate = GameConfig.COLOR_MINT
-		text = "CORRECT! +%d PTS\n%s" % [score_delta, details]
+		if "Withheld" in details:
+			text = "PERFECT RESTRAINT! +%d PTS\n%s" % [score_delta, details]
+		elif streak >= 3:
+			text = "🔥 HOT STREAK x%d! +%d PTS\n%s" % [streak, score_delta, details]
+		elif streak == 2:
+			text = "STREAK x2! +%d PTS\n%s" % [score_delta, details]
+		else:
+			text = "CORRECT! +%d PTS\n%s" % [score_delta, details]
 	else:
 		feedback_panel.modulate = GameConfig.COLOR_ACCENT_RED
-		text = "MISSED! %d PTS\n%s" % [score_delta, details]
+		if "Don't Tap" in details:
+			text = "IMPULSE FAULT! %d PTS\n%s" % [score_delta, details]
+		else:
+			text = "MISSED! %d PTS\n%s" % [score_delta, details]
 		
 	lbl_feedback.text = text
 	
+	# Tactile bounce entrance animation
+	feedback_panel.pivot_offset = feedback_panel.size * 0.5
+	feedback_panel.scale = Vector2(0.88, 0.88)
+	var tw = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(feedback_panel, "scale", Vector2.ONE, 0.22)
+	
 	# Update score display
-	var local_id = NetworkSession.get_local_id() if is_multiplayer else 1
 	var my_score = GameManager.match_controller.score_manager.get_player_score(local_id)
 	lbl_score_p1.text = "YOU: %d" % my_score if is_multiplayer else "SCORE: %d" % my_score
 	

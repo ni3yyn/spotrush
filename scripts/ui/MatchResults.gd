@@ -69,7 +69,8 @@ func _populate_results() -> void:
 	
 	lbl_accuracy.text = "Accuracy: %.1f%%" % accuracy
 	lbl_avg_time.text = "Avg Response Time: %.2fs" % avg_time
-	lbl_correct_stats.text = "Correct: %d  |  Wrong: %d  |  Timeouts: %d" % [correct, incorrect, missed]
+	var max_streak = my_stats.get("max_streak", 0)
+	lbl_correct_stats.text = "Correct: %d  |  Wrong: %d  |  Timeouts: %d  |  Streak: %d" % [correct, incorrect, missed, max_streak]
 	
 	if best_idx >= 0:
 		lbl_best_round.text = "Best Round: Round %d (+%d pts)" % [best_idx + 1, best_score]

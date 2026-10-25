@@ -156,21 +156,29 @@ func _setup_options() -> void:
 	elif current_challenge.input_mode == "withhold_response":
 		if btn_action_done != null:
 			btn_action_done.visible = true
-			btn_action_done.disabled = false
 			var should_withhold = current_challenge.visual_data.get("should_withhold", false)
 			if should_withhold:
-				btn_action_done.text = "DON'T TAP! (WITHHOLD ACTION)"
+				btn_action_done.disabled = true
+				btn_action_done.text = "⛔ INHIBIT ACTION — WAIT FOR TIMER"
 				var style_inhibit = StyleBoxFlat.new()
-				style_inhibit.bg_color = Color("991B1B") # Dark red warning
+				style_inhibit.bg_color = Color("381A1A")
+				style_inhibit.border_width_left = 2
+				style_inhibit.border_width_right = 2
+				style_inhibit.border_color = Color("EF4444", 0.6)
 				style_inhibit.set_corner_radius_all(14)
 				btn_action_done.add_theme_stylebox_override("normal", style_inhibit)
-				btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
+				btn_action_done.add_theme_stylebox_override("disabled", style_inhibit)
+				btn_action_done.add_theme_color_override("font_color", Color("FCA5A5"))
+				btn_action_done.add_theme_color_override("font_disabled_color", Color("FCA5A5"))
 			else:
-				btn_action_done.text = "TAP NOW!"
+				btn_action_done.disabled = false
+				btn_action_done.text = "⚡ TAP FAST NOW!"
 				var style_tap = StyleBoxFlat.new()
 				style_tap.bg_color = GameConfig.COLOR_MINT
 				style_tap.set_corner_radius_all(14)
 				btn_action_done.add_theme_stylebox_override("normal", style_tap)
+				btn_action_done.add_theme_stylebox_override("hover", style_tap)
+				btn_action_done.add_theme_stylebox_override("pressed", style_tap)
 				btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
 
 func _update_action_done_label() -> void:

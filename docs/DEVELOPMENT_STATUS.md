@@ -121,11 +121,48 @@ Investigation of the rendering pipeline (`ChallengeGenerator` → `ChallengeDefi
 
 ---
 
-## 4. Verification Results
+## 4. Phase 3: Gameplay Depth, Mechanical Variety & Replayability
 
-### 4.1 Automated Test Suite
+### 4.1 Six Distinct Cognitive Challenge Families
+1. **Quantity Estimation (Almost Right)**:
+   - Dynamic clustering vs uniform scatter based on difficulty tier.
+   - Distinct, plausible distractors generated via step offsets (`-step, +step, -2*step, +2*step`).
+   - Guarantees rendered dot count strictly matches the correct answer.
+2. **Side Comparison (Which Side)**:
+   - Margin difficulty scaling: Tier 1 [8-12 dots], Tier 2 [5-7 dots], Tier 3 [3-4 dots], Tier 4 [1-2 dots].
+   - Visual fairness enforced: identical dot diameters (15px) and symmetrical bounding boxes (0.08-0.42 vs 0.58-0.92) prevent accidental area or density cues.
+3. **Color Target Selection (Target Rush)**:
+   - Minimum distance spatial separation (`_generate_spaced_positions`, min_dist = 0.08) prevents overlapping dots.
+   - Scaled distractor palette (White -> Blue -> Red -> Yellow) as difficulty increases.
+   - Real-time selection tracking with visual checkmarks and confirmation feedback.
+4. **Shape Target Selection (Shape Hunter)**:
+   - All shapes share uniform color (Mint in Tiers 1-2, Amber in Tiers 3-4), forcing pure geometric contour discrimination.
+   - Target shapes (Triangle, Square, Diamond) set against distractor shapes with precise polygon hit testing.
+5. **Inhibitory Control (Don't Tap — Authentic Go / No-Go)**:
+   - Elimination of misleading "withhold button".
+   - No-Go condition displays a pulsing danger aura and a disabled "⛔ INHIBIT ACTION — WAIT FOR TIMER" banner. Withholding until timer expires authoritatively rewards 1000 pts.
+   - Impulse faults (tapping screen or button) immediately penalize -150 pts.
+   - Go condition displays "⚡ TAP FAST NOW!" enabling rapid reaction scoring.
+6. **Combined Condition Challenges (Brain Twist)**:
+   - **Variant 1 (Multi-Attribute Tap)**: e.g. "Tap all RED TRIANGLES", ignoring Blue Triangles, Red Circles, and White Squares.
+   - **Variant 2 (Shape Majority Comparison)**: "Are there MORE Triangles than Squares? (YES/NO)".
+   - **Variant 3 (Color Count Threshold)**: "Are there at least 14 RED dots? (YES/NO)".
+
+### 4.2 Streak Bonus & Authoritative Scoring
+- Added dynamic streak tracking: `current_streak` and high-water `max_streak`.
+- Streak bonus: +50 points per streak level above 1, capped at +250 points (`base 1000 + max speed 500 + streak 250 = up to 1750 pts/round`).
+- Streak reset to 0 upon any incorrect answer or impulse fault.
+- Tactile feedback cards in `GameScreen`: `STREAK x2!`, `🔥 HOT STREAK x3+!`, `PERFECT RESTRAINT! +1000 PTS`.
+- Authoritative scores synchronized across host and client via network protocol.
+- Clean rematch reset restoring all match controller, score manager, streak, and timer state.
+
+---
+
+## 5. Verification Results
+
+### 5.1 Automated Test Suite
 - **Command**: `& 'path/to/godot' --headless res://tests/TestRunner.tscn`
-- **Result**: **98 Passed, 0 Failed, 0 Warnings, 0 Errors** across 8 test suites:
+- **Result**: **154 Passed, 0 Failed, 0 Warnings, 0 Errors** across 9 test suites:
   - `TestChallengeGeneration`: 44 passed
   - `TestAnswerValidation`: 7 passed
   - `TestScoring`: 7 passed
@@ -134,11 +171,12 @@ Investigation of the rendering pipeline (`ChallengeGenerator` → `ChallengeDefi
   - `TestMultiplayerSimulation`: 6 passed
   - `TestUiSceneFlow`: 6 passed
   - `TestChallengeRendering`: 10 passed
+  - `TestGameplayDepth`: 56 passed
 
-### 4.2 Real Two-Process ENet Network Integration Test
+### 5.2 Real Two-Process ENet Network Integration Test
 - **Command**: `powershell -ExecutionPolicy Bypass -File tests/real_network/run_real_enet_test.ps1`
 - **Result**: **PASSED (Exit Code 0)**
-- Real localhost UDP socket communication verified between two independent OS processes with authoritative challenge transmission, client answer submission, and synchronized match conclusion.
+- Verified live ENet host/client UDP communication on port 7025 with procedural challenge transmission, authoritative validation, and score synchronization.
 
 ### 4.3 GPU Rasterization Visual Proof
 - **Command**: `& 'path/to/godot' res://tests/CapturePreview.tscn`

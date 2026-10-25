@@ -16,6 +16,8 @@ func register_player(player_id: int, player_name: String = "") -> void:
 			"correct_count": 0,
 			"incorrect_count": 0,
 			"missed_count": 0,
+			"current_streak": 0,
+			"max_streak": 0,
 			"response_times": [],
 			"round_scores": [],
 			"best_round_score": 0,
@@ -27,7 +29,8 @@ func calculate_round_score(
 	is_timeout: bool,
 	response_time: float,
 	time_limit: float,
-	is_withhold_challenge: bool = false
+	is_withhold_challenge: bool = false,
+	streak: int = 0
 ) -> int:
 	if is_timeout:
 		if is_withhold_challenge and is_correct:
@@ -42,7 +45,8 @@ func calculate_round_score(
 	var base: int = GameConfig.BASE_CORRECT_SCORE
 	var speed_ratio: float = clampf(1.0 - (response_time / maxf(time_limit, 0.001)), 0.0, 1.0)
 	var speed_bonus: int = int(round(speed_ratio * float(GameConfig.MAX_SPEED_BONUS)))
-	return base + speed_bonus
+	var streak_bonus: int = mini(250, maxi(0, (streak - 1) * 50))
+	return base + speed_bonus + streak_bonus
 
 func record_submission(
 	player_id: int,
@@ -56,8 +60,23 @@ func record_submission(
 	if not player_stats.has(player_id):
 		register_player(player_id)
 		
-	var score_change: int = calculate_round_score(is_correct, is_timeout, response_time, time_limit, is_withhold_challenge)
 	var stats: Dictionary = player_stats[player_id]
+	if is_correct:
+		stats["current_streak"] = stats.get("current_streak", 0) + 1
+		if stats["current_streak"] > stats.get("max_streak", 0):
+			stats["max_streak"] = stats["current_streak"]
+	else:
+		stats["current_streak"] = 0
+		
+	var current_streak: int = stats.get("current_streak", 0)
+	var score_change: int = calculate_round_score(
+		is_correct,
+		is_timeout,
+		response_time,
+		time_limit,
+		is_withhold_challenge,
+		current_streak
+	)
 	
 	stats["total_score"] = maxi(0, stats["total_score"] + score_change)
 	stats["round_scores"].append(score_change)
@@ -120,6 +139,8 @@ func get_player_stats(player_id: int) -> Dictionary:
 	var res = raw.duplicate(true)
 	res["accuracy"] = accuracy
 	res["avg_response_time"] = avg_time
+	res["current_streak"] = raw.get("current_streak", 0)
+	res["max_streak"] = raw.get("max_streak", 0)
 	return res
 
 func determine_match_result() -> Dictionary:

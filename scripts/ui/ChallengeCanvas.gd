@@ -184,10 +184,12 @@ func _draw_shape_item(center: Vector2, it: Dictionary, is_tapped: bool) -> void:
 	var col = _resolve_color(it.get("color", "MINT"))
 	var shape = it.get("shape", "circle")
 	
-	# Subtle breathing pulse for Don't Tap trigger items
+	# Subtle breathing pulse and warning aura for Don't Tap trigger items
 	if current_challenge.input_mode == "withhold_response" and it.get("color", "") == "RED":
 		var pulse_scale = 1.0 + (sin(pulse_time * 6.0) * 0.1)
 		sz *= pulse_scale
+		var aura_col = Color(0.96, 0.25, 0.37, 0.35 + (sin(pulse_time * 6.0) * 0.15))
+		draw_arc(center, sz * 0.75, 0, TAU, 32, aura_col, 2.5, true)
 		
 	# Draw drop shadow for tactile depth
 	_draw_shape_primitive(shape, center + Vector2(0, 3.0), sz, COLOR_SHADOW)
