@@ -49,6 +49,7 @@ res://
 │   │   ├── MainMenu.gd
 │   │   ├── GameScreen.gd
 │   │   ├── ChallengeView.gd
+│   │   ├── ChallengeCanvas.gd   (Dedicated native _draw() renderer)
 │   │   ├── LocalLobby.gd
 │   │   └── MatchResults.gd
 │   └── data/
@@ -63,6 +64,9 @@ res://
 │   ├── test_full_game_loop.gd
 │   ├── test_multiplayer_simulation.gd
 │   ├── test_ui_scene_flow.gd
+│   ├── test_challenge_rendering.gd
+│   ├── CapturePreview.tscn
+│   ├── capture_visual_preview.gd
 │   └── real_network/
 │       ├── host_process.gd
 │       ├── client_process.gd
@@ -70,39 +74,50 @@ res://
 └── docs/
     ├── DEVELOPMENT_STATUS.md
     ├── ARCHITECTURE.md
-    └── TESTING.md
+    ├── TESTING.md
+    └── screenshots/
+        ├── challenge_estimation.png
+        ├── challenge_comparison.png
+        ├── challenge_color_target.png
+        ├── challenge_shape_target.png
+        ├── challenge_dont_tap.png
+        ├── challenge_combined.png
+        └── challenge_tapped_feedback.png
 ```
 
 ---
 
-## 3. Phase 1.5 Independent Implementation Audit & Verified Reality
+## 3. Phase 2: Complete Visual Gameplay Implementation
 
-### 3.1 Discrepancies Discovered & Repaired
-During the Phase 1.5 audit, real code inspection and multi-process testing revealed several discrepancies and defects that have now been fixed:
+### 3.1 Root Cause of Empty Challenge View
+Investigation of the rendering pipeline (`ChallengeGenerator` → `ChallengeDefinition` → `GameManager` → `GameScreen` → `ChallengeView`) revealed the following root causes:
+1. **Invalid Drawing Context in GDScript**:
+   `ChallengeView.gd` connected `draw_canvas.draw` signal to `_on_canvas_draw()` on `self` (`ChallengeView`). Inside `_on_canvas_draw()`, `ChallengeView` invoked `draw_circle()`, `draw_line()`, and `draw_rect()`. In Godot 4, canvas drawing methods can only be executed by the node actively receiving `NOTIFICATION_DRAW`. Godot rejected every draw call with:
+   `ERROR: Drawing is only allowed inside this node's _draw(), functions connected to its draw signal, or when it receives NOTIFICATION_DRAW. at: draw_circle (scene/main/canvas_item.cpp:984)`.
+   Consequently, every shape and dot was dropped by the engine.
+2. **Child Panel Occlusion**:
+   In `ChallengeView.tscn`, `CanvasBackground` (a solid dark panel) was a child of `DrawCanvas`. In Godot 2D rendering, child nodes render on top of their parent, occluding the parent's canvas drawing buffer.
+3. **Container Vertical Expansion**:
+   `ChallengeView` inside `GameScreen.tscn` lacked `size_flags_vertical = SIZE_EXPAND_FILL (3)`, causing it to collapse rather than commanding the central screen space.
 
-1. **Player Identity Inversion on Client**:
-   - *Defect*: `GameScreen.gd` and `MatchResults.gd` previously hardcoded Player 1 as "YOU" and the opposing peer as "OPPONENT". In Godot multiplayer, the host is peer ID 1 and the client is assigned a random peer ID (e.g. `706392015`). Consequently, on the client's screen, their own score appeared under "OPPONENT" and the opponent's score appeared under "YOU", resulting in false "DEFEAT" displays when the client actually won.
-   - *Fix*: Refactored HUD score binding and match outcome logic to dynamically resolve `local_id = NetworkSession.get_local_id()`. The local player's identity is always mapped to "YOU" on both host and client devices.
-
-2. **Client Authoritative Score Mirroring**:
-   - *Defect*: On the client process, local `ScoreManager` instances were not authoritatively updated from host network payloads during active rounds, creating potential desynchronization if client prediction or local events differed.
-   - *Fix*: Added `set_player_score(player_id, score)` and `apply_authoritative_scores(scores_dict)` to `ScoreManager.gd`. The client now updates its local mirror strictly upon receiving `MSG_ANSWER_RESULT` and `MSG_ROUND_END` from the host.
-
-3. **Peer Disconnect Hang in MatchController**:
-   - *Defect*: If peer 2 disconnected during an active round, `MatchController` remained stuck waiting for submissions from the disconnected peer until the full timeout elapsed.
-   - *Fix*: Added `handle_peer_disconnected(peer_id)` to `MatchController.gd`. If only one player remains in a multiplayer session, the match cleanly concludes and awards the win to the active player.
-
-4. **Dynamic Font Size Theme Override Syntax Error**:
-   - *Defect*: `ChallengeView.gd` used `btn.theme_override_font_sizes["font_size"] = 22`, which is invalid syntax in Godot 4.
-   - *Fix*: Updated to the proper Godot 4 API: `btn.add_theme_font_size_override("font_size", 22)`.
-
-5. **Integer Division Warning in MatchController**:
-   - *Defect*: `total_rounds / 3` in `MatchController.gd` line 88 triggered Godot's `INTEGER_DIVISION` warning.
-   - *Fix*: Changed to float division `float(total_rounds) / 3.0`.
-
-6. **Test Execution Context & Autoload Resolution**:
-   - *Defect*: Running test scripts via `godot -s script.gd` ran in standalone mode without loading `project.godot` autoload singletons (`GameManager`, `NetworkSession`, `SceneRouter`), causing compiler errors when loading UI scenes.
-   - *Fix*: Created `res://tests/TestRunner.tscn` with a dedicated root node. Running `godot --headless res://tests/TestRunner.tscn` runs with the complete project environment and all autoloads initialized cleanly.
+### 3.2 Implemented Visual Solution
+1. **`ChallengeCanvas.gd`**:
+   Created a dedicated custom `Control` node script that directly overrides `func _draw() -> void`.
+   - Native, hardware-accelerated drawing for all 6 challenge families.
+   - Antialiased geometric primitives: circles, squares, equilateral triangles, diamonds, stars, dividing lines, pill badges, and checkmarks.
+   - Padded coordinate mapping preventing objects from clipping boundaries.
+   - Live visual feedback: mint glowing ring and dark checkmark upon tapping targets.
+   - Touch/click hit detection with generous mobile margins (minimum 28px radius).
+2. **Scene Hierarchy Polish**:
+   - `PlayFieldContainer` (`PanelContainer`) established behind `ChallengeCanvas` with rounded corners (radius 20) and a subtle 2px accent border (`#182823`).
+   - `size_flags_vertical = SIZE_EXPAND_FILL` applied to both `ChallengeView` in `GameScreen.tscn` and `PlayFieldContainer` in `ChallengeView.tscn`.
+3. **Six Playable Challenge Families Supported**:
+   - **Game A (Almost Right — Estimation)**: Mint dots scattered with controlled spacing; 4 tactile choice buttons with mint borders.
+   - **Game B (Which Side — Side Comparison)**: Left and Right zones with distinct pill headers, glowing center divider line, and bottom tactile "LEFT" / "RIGHT" buttons.
+   - **Game C (Target Rush — Color)**: Targets mixed with distractors (Yellow, Red, Blue, Mint, White); touch target selection with count progress.
+   - **Game D (Shape Hunter — Geometry)**: Triangles, squares, diamonds, and circles with exact polygon rendering and touch selection.
+   - **Game E (Don't Tap — Inhibitory Control)**: Pulsing trigger stimuli; prominent reaction button ("DON'T TAP! WITHHOLD ACTION" vs "TAP NOW!"); authoritative timeout scoring.
+   - **Game F (Brain Twist — Conditional)**: Multi-attribute visual field (Red circles vs White squares); high-contrast "YES" (Mint) and "NO" (Coral) response buttons.
 
 ---
 
@@ -110,7 +125,7 @@ During the Phase 1.5 audit, real code inspection and multi-process testing revea
 
 ### 4.1 Automated Test Suite
 - **Command**: `& 'path/to/godot' --headless res://tests/TestRunner.tscn`
-- **Result**: **88 Passed, 0 Failed, 0 Errors, 0 Warnings** across 7 test suites:
+- **Result**: **98 Passed, 0 Failed, 0 Warnings, 0 Errors** across 8 test suites:
   - `TestChallengeGeneration`: 44 passed
   - `TestAnswerValidation`: 7 passed
   - `TestScoring`: 7 passed
@@ -118,45 +133,32 @@ During the Phase 1.5 audit, real code inspection and multi-process testing revea
   - `TestFullGameLoop`: 10 passed
   - `TestMultiplayerSimulation`: 6 passed
   - `TestUiSceneFlow`: 6 passed
+  - `TestChallengeRendering`: 10 passed
 
-### 4.2 Real Two-Process ENet Network Test (OS Localhost Sockets)
+### 4.2 Real Two-Process ENet Network Integration Test
 - **Command**: `powershell -ExecutionPolicy Bypass -File tests/real_network/run_real_enet_test.ps1`
 - **Result**: **PASSED (Exit Code 0)**
-- **Verification Details**:
-  - Spawned two independent OS processes running Godot 4.7.2.
-  - Process A (Host) initialized an authoritative ENet server on port `7025`.
-  - Process B (Client) established a real UDP socket connection to `127.0.0.1:7025` and was assigned peer ID `706392015`.
-  - Host dispatched `MSG_MATCH_START` and `MSG_ROUND_START` containing procedural challenge data (`est_count_0_...`).
-  - Client received challenge, parsed payload, and transmitted `MSG_SUBMIT_ANSWER` containing answer `18`.
-  - Host authoritatively validated answer, awarded +1400 points, broadcast `MSG_ANSWER_RESULT`, advanced round, and dispatched `MSG_MATCH_END`.
-  - Both processes validated message sequencing and exited cleanly with code 0.
+- Real localhost UDP socket communication verified between two independent OS processes with authoritative challenge transmission, client answer submission, and synchronized match conclusion.
 
-### 4.3 Runtime Main Scene Smoke Test
-- **Command**: `& 'path/to/godot' --headless --fixed-fps 60 res://scenes/main/MainMenu.tscn`
-- **Result**: Verified 200 frames executed without error or memory leaks.
-
----
-
-## 5. Android Export Readiness Assessment
-- **Java Development Kit**: Confirmed installed (`javac` and Amazon Corretto).
-- **Android SDK**: Confirmed present at `C:\Users\HP\AppData\Local\Android\Sdk`.
-- **Android Platform & Build Tools**: Confirmed installed (Build Tools: `36.0.0`, `36.1.0`, `37.0.0`; Platforms: `android-36.1`).
-- **ADB**: Confirmed installed at `C:\platform-tools\adb.exe`.
-- **Export Presets**: Configured in `export_presets.cfg` with required local networking permissions:
-  - `android.permission.INTERNET`
-  - `android.permission.ACCESS_NETWORK_STATE`
-  - `android.permission.ACCESS_WIFI_STATE`
-  - `android.permission.CHANGE_WIFI_MULTICAST_STATE`
-- **Export Templates**: **Not Installed**. Per explicit user directive (*"no dont install any template!!!"*), Godot Android export templates (`android_debug.apk`) were neither downloaded nor installed. No APK was built. Once the user installs export templates via Godot editor or CLI, APK generation can be triggered immediately.
+### 4.3 GPU Rasterization Visual Proof
+- **Command**: `& 'path/to/godot' res://tests/CapturePreview.tscn`
+- **Result**: Rendered in live Godot compatibility graphics context (`AMD Radeon Graphics`) and captured 7 PNG screenshots verifying active, centered visual gameplay:
+  - `docs/screenshots/challenge_estimation.png`
+  - `docs/screenshots/challenge_comparison.png`
+  - `docs/screenshots/challenge_color_target.png`
+  - `docs/screenshots/challenge_shape_target.png`
+  - `docs/screenshots/challenge_dont_tap.png`
+  - `docs/screenshots/challenge_combined.png`
+  - `docs/screenshots/challenge_tapped_feedback.png`
 
 ---
 
-## 6. What Has Been Verified vs What Remains Pending
-- [x] **Verified**: Pure challenge generation, scoring, and validation logic (automated headless).
-- [x] **Verified**: Full single-player game loop and scene transitions.
-- [x] **Verified**: ENet networking logic, packet serialization, duplicate/stale answer rejection.
-- [x] **Verified**: Real two-process ENet multiplayer socket communication over localhost.
-- [x] **Verified**: Host authoritative game progression and client score mirroring.
-- [x] **Verified**: Client UI identity mapping ("YOU" vs "OPPONENT").
-- [ ] **Pending (Requires Physical Hardware)**: Multi-device testing over a live Android mobile hotspot between two physical smartphones. Detailed instructions are provided in `docs/TESTING.md`.
-- [ ] **Pending (Requires Export Templates)**: Release/debug APK export once export templates are authorized by the user.
+## 5. How to Play & Test Locally
+
+### Launch Single Player Mode
+```powershell
+& 'C:\Users\HP\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.2-stable_win64_console.exe' res://scenes/main/MainMenu.tscn
+```
+- Click **SINGLE PLAYER**
+- Select round count (5, 10, or 15) and click **START MATCH**
+- Observe and play the visual challenges directly on the desktop window using mouse clicks (touch emulation is enabled).

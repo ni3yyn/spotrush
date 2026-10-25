@@ -122,6 +122,7 @@ show_percentage = false
 [node name="ChallengeView" parent="SafeArea/VBoxMain" instance=ExtResource("2_chview")]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_vertical = 3
 
 [node name="FeedbackPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true

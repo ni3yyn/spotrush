@@ -13,7 +13,7 @@ Or if `godot` is in your system PATH:
 godot --headless res://tests/TestRunner.tscn
 ```
 
-### Verified Test Suites (88 Passed, 0 Failed, 0 Errors)
+### Verified Test Suites (98 Passed, 0 Failed, 0 Errors, 0 Warnings)
 1. **`TestChallengeGeneration` (44 tests)**:
    - Challenge generation across all difficulty tiers (Easy, Medium, Hard, Expert).
    - Quantity estimation option presence and visual count integrity.
@@ -54,10 +54,37 @@ godot --headless res://tests/TestRunner.tscn
    - `MatchResults.tscn` labels and action buttons.
    - Multi-round match progression through `MatchController`.
    - Results scoring accuracy verification.
+8. **`TestChallengeRendering` (10 tests)**:
+   - `ChallengeView` and `ChallengeCanvas` scene node binding.
+   - Estimation challenge data binding and 4-option generation.
+   - Side comparison split view and LEFT/RIGHT options.
+   - Color target selection and action button visibility.
+   - Shape target selection and polygon geometry verification.
+   - Don't Tap withhold stimulus and action button styling.
+   - Combined conditional YES/NO button bindings.
+   - Tap index recording on `ChallengeCanvas`.
+   - Canvas input locking when match round ends.
+   - Palette color mapping resolution.
 
 ---
 
-## 2. Real Two-Process ENet Network Integration Test
+## 2. Visual Gameplay Verification & Screenshot Capture
+To prove visual correctness on the actual GPU renderer rather than relying on headless logic alone:
+```powershell
+& 'C:\Users\HP\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.2-stable_win64_console.exe' res://tests/CapturePreview.tscn
+```
+This launches Godot's live compatibility graphics pipeline, renders each challenge family, and saves 7 verified high-resolution PNG screenshots into `docs/screenshots/`:
+- `challenge_estimation.png`: Quantity estimation with 4 option cards.
+- `challenge_comparison.png`: Side-by-side comparison with LEFT/RIGHT pills, glowing divider, and action buttons.
+- `challenge_color_target.png`: Color targets with distractors and progress counter.
+- `challenge_shape_target.png`: Antialiased triangles, squares, and circles.
+- `challenge_dont_tap.png`: Inhibitory stimuli with pulsing cue and dark red withhold button.
+- `challenge_combined.png`: Multi-attribute conditional field with YES/NO buttons.
+- `challenge_tapped_feedback.png`: Interactive tap highlights with mint glowing aura and checkmark icons.
+
+---
+
+## 3. Real Two-Process ENet Network Integration Test
 To prove that networking functions over real OS network sockets and not merely within simulated in-memory objects, SpotRush includes a dual-process test harness.
 
 ### Running the Real Network Test

@@ -100,11 +100,24 @@ Godot's multiplayer assigns Peer ID 1 to the host, while connecting clients rece
   - The other player's score is presented under **"OPPONENT"**.
   - Victory and defeat outcomes reflect the perspective of the local device.
 
-### 3.2 Responsive Screen Layout
-- Base resolution: `720x1280` portrait.
-- Stretch mode: `canvas_items`, aspect: `expand`.
-- PC desktop override: `450x800` window with centered responsive letterboxing/expand.
-- Emulate touch from mouse enabled in `project.godot` for desktop playability.
+### 3.3 Visual Challenge Rendering Pipeline (`ChallengeCanvas.gd`, `ChallengeView.gd`)
+The visual challenge area is decoupled into an orchestration view and a dedicated native rendering canvas:
+```
+GameScreen (HUD, Timer, Progression)
+  └── ChallengeView (Instruction, Badge, Options/Actions)
+        └── PlayFieldContainer (PanelContainer, rounded border frame)
+              └── ChallengeCanvas (Dedicated Control with native _draw() override)
+```
+- **Native Hardware-Accelerated `_draw()`**: `ChallengeCanvas` extends `Control` and directly overrides `func _draw() -> void`. All geometric primitives (circles, squares, equilateral triangles, diamonds, dividing lines, pill headers, and checkmarks) are rendered within the engine's active `NOTIFICATION_DRAW` context.
+- **Padded Playfield Coordinate Mapping**: Procedurally generated normalized coordinates `(0.0 to 1.0)` are mapped into an inset bounding rect with 24px padding (`pad + (x * playable_width)`), guaranteeing objects never clip into container borders.
+- **Tactile Touch Collision**: In `tap_targets` mode, touch and mouse clicks are checked against item coordinates using distance checks with generous mobile touch margins (minimum 28px radius). Tapped items immediately render an expanding mint glowing aura and a dark checkmark badge.
+- **Tactile Entrance & Animation**: Elastic scale pop-in is applied via Godot's native GPU transform matrix (`pivot_offset` and `scale`), ensuring shapes render immediately at full resolution without waiting on CPU tween callbacks.
+- **Tailored Control Panels**: `ChallengeView` dynamically generates high-contrast touch controls based on challenge semantics:
+  - Estimation: 4 wide numerical cards with mint accents.
+  - Side Comparison: "LEFT" (mint) and "RIGHT" (amber) tactile buttons with corresponding on-canvas pill headers.
+  - Target Selection: "CONFIRM SELECTIONS (X / Y TARGETS)" real-time counter button.
+  - Inhibitory Control: Distinct "DON'T TAP! (WITHHOLD ACTION)" vs "TAP NOW!" action cues.
+  - Conditional: Prominent "YES" (mint) and "NO" (coral) buttons.
 
 ---
 
@@ -113,6 +126,11 @@ Godot's multiplayer assigns Peer ID 1 to the host, while connecting clients rece
 1. **Unit & Logic Suites (`tests/test_*.gd`)**:
    - Decoupled tests run against pure GDScript classes (`ChallengeGenerator`, `AnswerValidator`, `ScoreManager`, `NetworkProtocol`, `MatchController`).
 2. **Autoload-Aware Scene Runner (`tests/TestRunner.tscn`)**:
-   - Executes headless within the complete Godot engine scene tree, with all autoload singletons initialized, verifying UI scene instantiation and node bindings.
-3. **Real Multi-Process Integration Test (`tests/real_network/`)**:
+   - Executes headless within the complete Godot engine scene tree, with all autoload singletons initialized, verifying UI scene instantiation, node bindings, and rendering dispatch.
+3. **Challenge Rendering Regression Suite (`tests/test_challenge_rendering.gd`)**:
+   - Validates that every challenge family correctly populates `ChallengeCanvas`, verifies node hierarchy, validates color mapping, and simulates tap interactions.
+4. **Real Multi-Process Integration Test (`tests/real_network/`)**:
    - PowerShell script spawns two distinct OS processes (`host_process.gd` and `client_process.gd`) communicating over OS UDP sockets via ENet to verify live handshake, challenge exchange, authoritative scoring, and exit codes.
+5. **Real GPU Rasterization Visual Verifier (`tests/CapturePreview.tscn`)**:
+   - Executes inside Godot's live compatibility graphics pipeline and exports PNG screenshots to `docs/screenshots/` verifying real pixels are rendered on screen.
+

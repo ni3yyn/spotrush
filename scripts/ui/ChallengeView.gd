@@ -3,7 +3,9 @@ extends Control
 signal option_selected(option_val: Variant)
 signal tap_item_clicked(index: int)
 
-@onready var draw_canvas: Control = %DrawCanvas
+const ChallengeCanvasScript = preload("res://scripts/ui/ChallengeCanvas.gd")
+
+@onready var challenge_canvas: Control = %ChallengeCanvas
 @onready var options_container: HBoxContainer = %OptionsContainer
 @onready var instruction_label: Label = %InstructionLabel
 @onready var badge_label: Label = %BadgeLabel
@@ -13,19 +15,32 @@ var current_challenge: ChallengeDefinition = null
 var tapped_indices: Array[int] = []
 var is_input_locked: bool = false
 
+# Backwards compatibility accessor
+var draw_canvas: Control:
+	get:
+		_ensure_nodes()
+		return challenge_canvas
+
 func _ready() -> void:
-	draw_canvas.draw.connect(_on_canvas_draw)
-	draw_canvas.gui_input.connect(_on_canvas_gui_input)
-	btn_action_done.pressed.connect(_on_action_done_pressed)
-	btn_action_done.visible = false
+	_ensure_nodes()
+	if challenge_canvas != null:
+		if not challenge_canvas.item_tapped.is_connected(_on_canvas_item_tapped):
+			challenge_canvas.item_tapped.connect(_on_canvas_item_tapped)
+		if not challenge_canvas.side_tapped.is_connected(_on_canvas_side_tapped):
+			challenge_canvas.side_tapped.connect(_on_canvas_side_tapped)
+			
+	if btn_action_done != null:
+		if not btn_action_done.pressed.is_connected(_on_action_done_pressed):
+			btn_action_done.pressed.connect(_on_action_done_pressed)
+		btn_action_done.visible = false
 
 func _ensure_nodes() -> void:
+	if challenge_canvas == null and has_node("%ChallengeCanvas"):
+		challenge_canvas = %ChallengeCanvas
 	if instruction_label == null and has_node("%InstructionLabel"):
 		instruction_label = %InstructionLabel
 	if badge_label == null and has_node("%BadgeLabel"):
 		badge_label = %BadgeLabel
-	if draw_canvas == null and has_node("%DrawCanvas"):
-		draw_canvas = %DrawCanvas
 	if options_container == null and has_node("%OptionsContainer"):
 		options_container = %OptionsContainer
 	if btn_action_done == null and has_node("%BtnActionDone"):
@@ -40,15 +55,18 @@ func load_challenge(challenge: ChallengeDefinition) -> void:
 	if instruction_label != null:
 		instruction_label.text = challenge.instruction
 	if badge_label != null:
-		badge_label.text = challenge.type.replace("_", " ").to_upper()
-	
+		badge_label.text = _get_friendly_category_name(challenge.type)
+		
+	if challenge_canvas != null:
+		challenge_canvas.set_challenge(challenge)
+		
 	_setup_options()
-	if draw_canvas != null:
-		draw_canvas.queue_redraw()
 
 func lock_input() -> void:
 	_ensure_nodes()
 	is_input_locked = true
+	if challenge_canvas != null:
+		challenge_canvas.is_interactive = false
 	if btn_action_done != null:
 		btn_action_done.disabled = true
 	if options_container != null:
@@ -60,6 +78,7 @@ func _setup_options() -> void:
 	_ensure_nodes()
 	if options_container == null:
 		return
+		
 	for child in options_container.get_children():
 		child.queue_free()
 		
@@ -69,141 +88,167 @@ func _setup_options() -> void:
 	if current_challenge.input_mode == "choice":
 		if btn_action_done != null:
 			btn_action_done.visible = false
-		for opt in current_challenge.options:
+			
+		var opts = current_challenge.options
+		for opt in opts:
 			var btn = Button.new()
 			btn.text = str(opt)
-			btn.custom_minimum_size = Vector2(100, 64)
+			btn.custom_minimum_size = Vector2(90, 64)
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			btn.add_theme_font_size_override("font_size", 22)
 			
-			var style = StyleBoxFlat.new()
-			style.bg_color = GameConfig.COLOR_MINT
-			style.set_corner_radius_all(14)
-			btn.add_theme_stylebox_override("normal", style)
-			btn.add_theme_stylebox_override("pressed", style)
-			btn.add_theme_stylebox_override("hover", style)
-			btn.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
+			var style_normal = StyleBoxFlat.new()
+			var style_hover = StyleBoxFlat.new()
+			var style_pressed = StyleBoxFlat.new()
+			
+			# Contextual button styling
+			if str(opt).to_upper() == "YES":
+				style_normal.bg_color = GameConfig.COLOR_MINT
+				style_hover.bg_color = GameConfig.COLOR_MINT_HOVER
+				style_pressed.bg_color = Color("85E2A9")
+				btn.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
+			elif str(opt).to_upper() == "NO":
+				style_normal.bg_color = GameConfig.COLOR_ACCENT_RED
+				style_hover.bg_color = Color("FB7185")
+				style_pressed.bg_color = Color("E11D48")
+				btn.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
+			elif str(opt).to_upper() == "LEFT":
+				style_normal.bg_color = GameConfig.COLOR_SURFACE
+				style_normal.border_width_left = 3
+				style_normal.border_color = GameConfig.COLOR_MINT
+				style_hover.bg_color = GameConfig.COLOR_SURFACE_LIGHT
+				style_pressed.bg_color = GameConfig.COLOR_MINT
+				btn.add_theme_color_override("font_color", GameConfig.COLOR_MINT)
+			elif str(opt).to_upper() == "RIGHT":
+				style_normal.bg_color = GameConfig.COLOR_SURFACE
+				style_normal.border_width_right = 3
+				style_normal.border_color = GameConfig.COLOR_ACCENT_YELLOW
+				style_hover.bg_color = GameConfig.COLOR_SURFACE_LIGHT
+				style_pressed.bg_color = GameConfig.COLOR_ACCENT_YELLOW
+				btn.add_theme_color_override("font_color", GameConfig.COLOR_ACCENT_YELLOW)
+			else:
+				# Estimation numerical choices
+				style_normal.bg_color = GameConfig.COLOR_SURFACE
+				style_normal.border_width_bottom = 3
+				style_normal.border_color = GameConfig.COLOR_MINT
+				style_hover.bg_color = GameConfig.COLOR_SURFACE_LIGHT
+				style_pressed.bg_color = GameConfig.COLOR_MINT
+				btn.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
+				
+			style_normal.set_corner_radius_all(14)
+			style_hover.set_corner_radius_all(14)
+			style_pressed.set_corner_radius_all(14)
+			
+			btn.add_theme_stylebox_override("normal", style_normal)
+			btn.add_theme_stylebox_override("hover", style_hover)
+			btn.add_theme_stylebox_override("pressed", style_pressed)
 			
 			var opt_val = opt
-			btn.pressed.connect(func(): _on_option_button_pressed(opt_val))
+			btn.pressed.connect(func(): _on_option_button_pressed(opt_val, btn))
 			options_container.add_child(btn)
 			
 	elif current_challenge.input_mode == "tap_targets":
-		btn_action_done.visible = true
-		btn_action_done.disabled = false
-		btn_action_done.text = "CONFIRM SELECTIONS"
-		
+		if btn_action_done != null:
+			btn_action_done.visible = true
+			btn_action_done.disabled = false
+			_update_action_done_label()
+			
 	elif current_challenge.input_mode == "withhold_response":
-		btn_action_done.visible = true
-		btn_action_done.disabled = false
-		btn_action_done.text = "TAP HERE IF REQUIRED"
+		if btn_action_done != null:
+			btn_action_done.visible = true
+			btn_action_done.disabled = false
+			var should_withhold = current_challenge.visual_data.get("should_withhold", false)
+			if should_withhold:
+				btn_action_done.text = "DON'T TAP! (WITHHOLD ACTION)"
+				var style_inhibit = StyleBoxFlat.new()
+				style_inhibit.bg_color = Color("991B1B") # Dark red warning
+				style_inhibit.set_corner_radius_all(14)
+				btn_action_done.add_theme_stylebox_override("normal", style_inhibit)
+				btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
+			else:
+				btn_action_done.text = "TAP NOW!"
+				var style_tap = StyleBoxFlat.new()
+				style_tap.bg_color = GameConfig.COLOR_MINT
+				style_tap.set_corner_radius_all(14)
+				btn_action_done.add_theme_stylebox_override("normal", style_tap)
+				btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
 
-func _on_option_button_pressed(val: Variant) -> void:
+func _update_action_done_label() -> void:
+	if btn_action_done == null or current_challenge == null:
+		return
+	var target_count = current_challenge.visual_data.get("target_count", 0)
+	if target_count > 0:
+		btn_action_done.text = "CONFIRM SELECTIONS (%d / %d TARGETS)" % [tapped_indices.size(), target_count]
+		var style = StyleBoxFlat.new()
+		style.set_corner_radius_all(14)
+		if tapped_indices.size() >= target_count:
+			style.bg_color = GameConfig.COLOR_MINT
+			btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
+		else:
+			style.bg_color = GameConfig.COLOR_SURFACE_LIGHT
+			style.border_width_left = 2
+			style.border_width_right = 2
+			style.border_color = GameConfig.COLOR_MINT
+			btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
+		btn_action_done.add_theme_stylebox_override("normal", style)
+	else:
+		btn_action_done.text = "CONFIRM SELECTIONS"
+
+func _on_option_button_pressed(val: Variant, btn: Button = null) -> void:
 	if is_input_locked:
 		return
 	lock_input()
+	
+	if btn != null:
+		var tw = create_tween()
+		tw.set_trans(Tween.TRANS_QUAD)
+		tw.tween_property(btn, "scale", Vector2(0.96, 0.96), 0.08)
+		tw.tween_property(btn, "scale", Vector2(1.0, 1.0), 0.08)
+		
 	option_selected.emit(val)
 
 func _on_action_done_pressed() -> void:
 	if is_input_locked:
 		return
 	lock_input()
+	
 	if current_challenge.input_mode == "tap_targets":
 		option_selected.emit(tapped_indices)
 	elif current_challenge.input_mode == "withhold_response":
 		option_selected.emit("TAP")
 
-func _on_canvas_gui_input(event: InputEvent) -> void:
+func _on_canvas_item_tapped(index: int, _item: Dictionary) -> void:
 	if is_input_locked or current_challenge == null:
 		return
 		
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_handle_click_at(event.position)
-	elif event is InputEventScreenTouch and event.pressed:
-		_handle_click_at(event.position)
+	if not index in tapped_indices:
+		tapped_indices.append(index)
+		tap_item_clicked.emit(index)
+		_update_action_done_label()
+		
+		# Auto-confirm when all expected targets have been discovered
+		var target_count = current_challenge.visual_data.get("target_count", 0)
+		if target_count > 0 and tapped_indices.size() >= target_count:
+			# Short delay for visual satisfaction of the last checkmark
+			var tw = create_tween()
+			tw.tween_interval(0.18)
+			tw.tween_callback(func(): _on_action_done_pressed())
 
-func _handle_click_at(pos: Vector2) -> void:
-	if current_challenge.input_mode != "tap_targets":
-		if current_challenge.input_mode == "withhold_response":
-			_on_action_done_pressed()
+func _on_canvas_side_tapped(side_name: String) -> void:
+	if is_input_locked or current_challenge == null:
 		return
 		
-	var items: Array = current_challenge.visual_data.get("items", [])
-	var canvas_size: Vector2 = draw_canvas.size
-	
-	# Check from last to first (topmost)
-	for i in range(items.size() - 1, -1, -1):
-		var it = items[i]
-		var item_pos = Vector2(it["x"] * canvas_size.x, it["y"] * canvas_size.y)
-		var item_rad = float(it.get("size", 24.0)) * 0.9
-		if pos.distance_to(item_pos) <= item_rad:
-			if not i in tapped_indices:
-				tapped_indices.append(i)
-				tap_item_clicked.emit(i)
-				draw_canvas.queue_redraw()
-				
-				# Check if all targets have been tapped
-				var target_count = current_challenge.visual_data.get("target_count", 0)
-				if target_count > 0 and tapped_indices.size() >= target_count:
-					_on_action_done_pressed()
-			break
+	if current_challenge.input_mode == "choice":
+		_on_option_button_pressed(side_name)
+	elif current_challenge.input_mode == "withhold_response":
+		_on_action_done_pressed()
 
-func _on_canvas_draw() -> void:
-	if current_challenge == null:
-		return
-		
-	var canvas_size = draw_canvas.size
-	var is_split = current_challenge.visual_data.get("split_view", false)
-	
-	if is_split:
-		# Draw dividing line
-		var mid_x = canvas_size.x * 0.5
-		draw_line(Vector2(mid_x, 10), Vector2(mid_x, canvas_size.y - 10), Color(1, 1, 1, 0.2), 3.0)
-		
-		# Draw left items
-		for it in current_challenge.visual_data.get("left_items", []):
-			_draw_single_item(it, canvas_size, false)
-			
-		# Draw right items
-		for it in current_challenge.visual_data.get("right_items", []):
-			_draw_single_item(it, canvas_size, false)
-	else:
-		var items: Array = current_challenge.visual_data.get("items", [])
-		for i in range(items.size()):
-			var it = items[i]
-			var is_tapped = (i in tapped_indices)
-			_draw_single_item(it, canvas_size, is_tapped)
-
-func _draw_single_item(it: Dictionary, canvas_size: Vector2, is_tapped: bool) -> void:
-	var center = Vector2(it["x"] * canvas_size.x, it["y"] * canvas_size.y)
-	var sz = float(it.get("size", 20.0))
-	var col = _get_color_from_string(it.get("color", "MINT"))
-	var shape = it.get("shape", "circle")
-	
-	if is_tapped:
-		# Highlight tapped item with checkmark glow
-		draw_circle(center, sz * 1.3, GameConfig.COLOR_MINT)
-		col = GameConfig.COLOR_DEEP_GREEN
-		
-	match shape:
-		"circle":
-			draw_circle(center, sz * 0.5, col)
-		"square":
-			var rect = Rect2(center - Vector2(sz * 0.5, sz * 0.5), Vector2(sz, sz))
-			draw_rect(rect, col)
-		"triangle":
-			var p1 = center + Vector2(0, -sz * 0.5)
-			var p2 = center + Vector2(-sz * 0.5, sz * 0.5)
-			var p3 = center + Vector2(sz * 0.5, sz * 0.5)
-			draw_colored_polygon(PackedVector2Array([p1, p2, p3]), col)
-		_:
-			draw_circle(center, sz * 0.5, col)
-
-func _get_color_from_string(col_name: String) -> Color:
-	match col_name.to_upper():
-		"MINT": return GameConfig.COLOR_MINT
-		"RED": return GameConfig.COLOR_ACCENT_RED
-		"BLUE": return GameConfig.COLOR_ACCENT_BLUE
-		"YELLOW", "AMBER": return GameConfig.COLOR_ACCENT_YELLOW
-		"WHITE": return GameConfig.COLOR_TEXT_LIGHT
-		_: return GameConfig.COLOR_MINT
+func _get_friendly_category_name(type: String) -> String:
+	match type:
+		GameConfig.TYPE_ESTIMATION_COUNT: return "ALMOST RIGHT • ESTIMATION"
+		GameConfig.TYPE_COMPARISON_SIDES: return "WHICH SIDE • COMPARISON"
+		GameConfig.TYPE_COLOR_TARGET: return "TARGET RUSH • COLOR"
+		GameConfig.TYPE_SHAPE_TARGET: return "SHAPE HUNTER • GEOMETRY"
+		GameConfig.TYPE_DONT_TAP: return "DON'T TAP • INHIBITION"
+		GameConfig.TYPE_COMBINED_CONDITIONAL: return "BRAIN TWIST • CONDITIONAL"
+		_: return type.replace("_", " ").to_upper()

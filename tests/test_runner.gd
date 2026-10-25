@@ -7,6 +7,7 @@ const TestNetworkingLogic = preload("res://tests/test_networking_logic.gd")
 const TestFullGameLoop = preload("res://tests/test_full_game_loop.gd")
 const TestMultiplayerSimulation = preload("res://tests/test_multiplayer_simulation.gd")
 const TestUiSceneFlow = preload("res://tests/test_ui_scene_flow.gd")
+const TestChallengeRendering = preload("res://tests/test_challenge_rendering.gd")
 
 func _ready() -> void:
 	print("\n==========================================")
@@ -24,7 +25,8 @@ func _ready() -> void:
 		TestNetworkingLogic.run_all_tests(),
 		TestFullGameLoop.run_all_tests(),
 		TestMultiplayerSimulation.run_all_tests(),
-		TestUiSceneFlow.run_all_tests()
+		TestUiSceneFlow.run_all_tests(),
+		TestChallengeRendering.run_all_tests()
 	]
 	
 	for suite in suites:
