@@ -1,0 +1,15 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[CLIENT PROCESS] Connecting to ENet host at 127.0.0.1:7025...
+[CLIENT PROCESS] Connected to Host! Unique ID: 706392015
+[CLIENT PROCESS] Received message: 'match_start'
+[CLIENT PROCESS] Match start received! Total rounds: 1
+[CLIENT PROCESS] Received message: 'round_start'
+[CLIENT PROCESS] Valid challenge received: 'Quick! Estimate the number of mint dots:'. Submitting correct answer: 18...
+[CLIENT PROCESS] Received message: 'answer_result'
+[CLIENT PROCESS] Answer result: correct=true, score_delta=+1400
+[CLIENT PROCESS] Received message: 'round_end'
+[CLIENT PROCESS] Round end received! Authoritative scores: { 1: 0, 706392015: 1400 }
+[CLIENT PROCESS] Received message: 'match_end'
+[CLIENT PROCESS] Match end received with authoritative results!
+[CLIENT PROCESS] >> REAL TWO-PROCESS TEST PASSED ON CLIENT! <<

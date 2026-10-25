@@ -192,5 +192,16 @@ func _conclude_match() -> void:
 	for pid in player_ids:
 		detailed_stats[pid] = score_manager.get_player_stats(pid)
 	results["player_stats"] = detailed_stats
-	
 	match_ended.emit(results)
+	
+func apply_authoritative_scores(scores: Dictionary) -> void:
+	score_manager.apply_authoritative_scores(scores)
+
+func handle_peer_disconnected(peer_id: int) -> void:
+	if not peer_id in player_ids:
+		return
+	player_ids.erase(peer_id)
+	
+	# If in active match and no other human peer remains
+	if current_state != MatchState.MATCH_OVER and current_state != MatchState.IDLE:
+		_conclude_match()

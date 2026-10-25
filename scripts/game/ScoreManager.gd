@@ -83,7 +83,21 @@ func record_submission(
 func get_player_score(player_id: int) -> int:
 	if player_stats.has(player_id):
 		return player_stats[player_id]["total_score"]
+	# Check string key variant in case of network serialization
+	if player_stats.has(str(player_id)):
+		return player_stats[str(player_id)]["total_score"]
 	return 0
+
+func set_player_score(player_id: int, total_score: int) -> void:
+	if not player_stats.has(player_id):
+		register_player(player_id)
+	player_stats[player_id]["total_score"] = maxi(0, total_score)
+
+func apply_authoritative_scores(scores: Dictionary) -> void:
+	for raw_key in scores.keys():
+		var pid = int(raw_key)
+		var sc = int(scores[raw_key])
+		set_player_score(pid, sc)
 
 func get_player_stats(player_id: int) -> Dictionary:
 	if not player_stats.has(player_id):

@@ -53,7 +53,41 @@ static func run_all_tests() -> Dictionary:
 	else:
 		failed += 1
 		errors.append("Duplicate round answer was NOT rejected!")
-		
+
+	# Test 5: Host handles peer disconnect during match
+	var host_mc = MatchController.new()
+	host_mc.initialize_match(GameConfig.GameMode.MULTIPLAYER_HOST, 5, [1, 2])
+	host_mc.start_match()
+	host_mc.update_process(GameConfig.COUNTDOWN_DURATION + 0.1)
+	host_mc.handle_peer_disconnected(2)
+	if host_mc.current_state == MatchController.MatchState.MATCH_OVER:
+		passed += 1
+	else:
+		failed += 1
+		errors.append("Host failed to conclude match cleanly upon peer disconnect")
+
+	# Test 6: Authoritative score synchronization
+	var client_sm = ScoreManager.new()
+	client_sm.register_player(1)
+	client_sm.register_player(2)
+	client_sm.apply_authoritative_scores({"1": 1500, "2": 2200})
+	if client_sm.get_player_score(1) == 1500 and client_sm.get_player_score(2) == 2200:
+		passed += 1
+	else:
+		failed += 1
+		errors.append("Score synchronization failed to apply authoritative scores")
+
+	# Test 7: Submission rejected when round is not active (e.g. during COUNTDOWN)
+	var idle_mc = MatchController.new()
+	idle_mc.initialize_match(GameConfig.GameMode.SINGLE_PLAYER, 3, [1])
+	idle_mc.start_match() # starts in COUNTDOWN
+	var sub_countdown = idle_mc.submit_player_answer(1, "PREMATURE")
+	if sub_countdown["status"] == "rejected":
+		passed += 1
+	else:
+		failed += 1
+		errors.append("Answer during COUNTDOWN was not rejected")
+
 	return {
 		"name": "NetworkingLogicTests",
 		"passed": passed,

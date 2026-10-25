@@ -47,9 +47,9 @@ func _on_start_host_pressed() -> void:
 	var err = NetworkSession.create_host(GameConfig.DEFAULT_PORT)
 	if err == OK:
 		lbl_host_status.text = "Server listening on Port %d" % GameConfig.DEFAULT_PORT
-		lbl_peer_count.text = "Players Connected: 1 (Host ready)"
+		lbl_peer_count.text = "Players Connected: 1 (Waiting for Player 2)"
 		btn_start_host.disabled = true
-		btn_launch_match.disabled = false # Allows host to start match once ready
+		btn_launch_match.disabled = true
 	else:
 		lbl_host_status.text = "Failed to start server (Error %d)" % err
 
@@ -76,6 +76,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if NetworkSession.is_host():
 		lbl_peer_count.text = "Players Connected: 1 (Waiting for Player 2)"
 		lbl_host_status.text = "Peer %d disconnected" % peer_id
+		btn_launch_match.disabled = true
 
 func _on_join_succeeded() -> void:
 	lbl_join_status.text = "Connected! Waiting for Host to start match..."

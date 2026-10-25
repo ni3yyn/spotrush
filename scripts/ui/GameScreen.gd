@@ -88,18 +88,18 @@ func _on_answer_feedback(_player_id: int, is_correct: bool, score_delta: int, de
 	lbl_feedback.text = text
 	
 	# Update score display
-	var p1_score = GameManager.match_controller.score_manager.get_player_score(1)
-	lbl_score_p1.text = "YOU: %d" % p1_score if is_multiplayer else "SCORE: %d" % p1_score
+	var local_id = NetworkSession.get_local_id() if is_multiplayer else 1
+	var my_score = GameManager.match_controller.score_manager.get_player_score(local_id)
+	lbl_score_p1.text = "YOU: %d" % my_score if is_multiplayer else "SCORE: %d" % my_score
 	
 	if is_multiplayer:
-		# Player 2
-		var p2_id = 2
+		var opp_id = -1
 		for pid in GameManager.match_controller.player_ids:
-			if pid != 1:
-				p2_id = pid
+			if pid != local_id:
+				opp_id = pid
 				break
-		var p2_score = GameManager.match_controller.score_manager.get_player_score(p2_id)
-		lbl_score_p2.text = "OPPONENT: %d" % p2_score
+		var opp_score = GameManager.match_controller.score_manager.get_player_score(opp_id) if opp_id != -1 else 0
+		lbl_score_p2.text = "OPPONENT: %d" % opp_score
 
 func _on_round_ended(_round_num: int, _scores: Dictionary) -> void:
 	challenge_view.lock_input()

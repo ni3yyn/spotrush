@@ -5,7 +5,7 @@ SpotRush is built as a modular, responsive 2D cognitive challenge game targeting
 
 The architecture enforces strict separation between:
 1. **Challenge Data Model & Generators (`scripts/challenges`, `scripts/game`)**: Pure, testable logic completely decoupled from networking and UI rendering.
-2. **Authoritative Match Progression & Scoring (`scripts/game`)**: State machines managing round timers, answer validation, and deterministic integer scoring.
+2. **Authoritative Match Progression & Scoring (`scripts/game`)**: State machines managing round timers, answer validation, deterministic integer scoring, and disconnect handling.
 3. **Network Transport Abstraction (`scripts/networking`)**: ENet high-level multiplayer isolated behind `NetworkSession` and structured `NetworkProtocol` packet wrappers.
 4. **Presentation & UI (`scenes/`, `scripts/ui`)**: Responsive Godot Control nodes listening to signals from `GameManager` and drawing challenges cleanly on any screen resolution.
 
@@ -70,15 +70,49 @@ Pure verification logic:
 - Fast correct answer bonus: up to +500 points depending on remaining time ratio.
 - Base points: +1,000 for correct answer.
 - Penalty: -150 for incorrect selection.
+- Authoritative mirroring:
+  - `set_player_score(player_id, score)`: Allows client to synchronize intermediate scores upon receiving `MSG_ANSWER_RESULT`.
+  - `apply_authoritative_scores(scores_dict)`: Overwrites client scores to match host authoritative record on `MSG_ROUND_END`.
 - In-memory stats recording: accuracy %, average response time, best round score, tie detection.
 
 ### 2.5 Match Controller (`MatchController.gd`)
 Central authoritative state machine:
 - States: `IDLE` -> `COUNTDOWN` -> `ACTIVE_ROUND` -> `FEEDBACK` -> `MATCH_OVER`.
 - Controls round progression and prevents duplicate answers from the same player.
+- **Disconnect Handling**: `handle_peer_disconnected(peer_id)` inspects active multiplayer participants. If a player disconnects mid-match, the controller cleanly finishes the match and declares the remaining player the victor.
 
 ### 2.6 Network Session & Protocol (`NetworkProtocol.gd`, `NetworkSession.gd`)
-- ENet UDP transport on port 7000.
-- Host is fully authoritative.
-- Packets validated with version checking (`PROTOCOL_VERSION = 1`).
-- Clean separation from engine scene tree.
+- **Transport**: ENet UDP transport on port 7000 (configurable).
+- **Authoritative Model**: The host (Peer ID 1) is the sole authority for challenge generation, answer evaluation, score calculation, and phase progression. Clients only transmit their input payloads (`MSG_SUBMIT_ANSWER`).
+- **Packet Validation**: Every payload is wrapped in `NetworkProtocol` with `PROTOCOL_VERSION = 1`, sender validation, and payload schema verification. Stale round IDs and malformed payloads are discarded.
+- **RPC Routing**: Handled via `NetworkSession.gd` using `@rpc("any_peer", "reliable")` for data delivery and `@rpc("authority", "reliable")` for broadcast commands.
+
+---
+
+## 3. UI and Peer Identity Architecture
+
+### 3.1 Local vs Opponent Perspective
+Godot's multiplayer assigns Peer ID 1 to the host, while connecting clients receive dynamic peer IDs (e.g. `706392015`).
+- The UI (`GameScreen.gd`, `MatchResults.gd`) never assumes Player 1 is the local user.
+- Instead, the UI queries `local_id = NetworkSession.get_local_id()`.
+- On both devices:
+  - The local player's score and statistics are always presented under the label **"YOU"**.
+  - The other player's score is presented under **"OPPONENT"**.
+  - Victory and defeat outcomes reflect the perspective of the local device.
+
+### 3.2 Responsive Screen Layout
+- Base resolution: `720x1280` portrait.
+- Stretch mode: `canvas_items`, aspect: `expand`.
+- PC desktop override: `450x800` window with centered responsive letterboxing/expand.
+- Emulate touch from mouse enabled in `project.godot` for desktop playability.
+
+---
+
+## 4. Test Harness Architecture
+
+1. **Unit & Logic Suites (`tests/test_*.gd`)**:
+   - Decoupled tests run against pure GDScript classes (`ChallengeGenerator`, `AnswerValidator`, `ScoreManager`, `NetworkProtocol`, `MatchController`).
+2. **Autoload-Aware Scene Runner (`tests/TestRunner.tscn`)**:
+   - Executes headless within the complete Godot engine scene tree, with all autoload singletons initialized, verifying UI scene instantiation and node bindings.
+3. **Real Multi-Process Integration Test (`tests/real_network/`)**:
+   - PowerShell script spawns two distinct OS processes (`host_process.gd` and `client_process.gd`) communicating over OS UDP sockets via ENet to verify live handshake, challenge exchange, authoritative scoring, and exit codes.

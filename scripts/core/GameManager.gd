@@ -64,7 +64,7 @@ func submit_answer(answer: Variant) -> void:
 func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void:
 	ui_countdown_started.emit(round_num, total_rounds)
 	if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
-		NetworkSession.send_to_all("countdown_start", {
+		NetworkSession.send_to_all(NetworkProtocol.MSG_COUNTDOWN_START, {
 			"round_num": round_num,
 			"total_rounds": total_rounds
 		})
@@ -128,7 +128,7 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 			match_controller.initialize_match(current_game_mode, total_r, pids)
 			SceneRouter.goto_game()
 
-		"countdown_start":
+		NetworkProtocol.MSG_COUNTDOWN_START:
 			var rnum = data.get("round_num", 1)
 			var tot = data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)
 			ui_countdown_started.emit(rnum, tot)
@@ -145,11 +145,16 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 			var is_corr = data.get("is_correct", false)
 			var delta_sc = data.get("score_delta", 0)
 			var det = data.get("details", "")
+			if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+				var cur_sc = match_controller.score_manager.get_player_score(pid)
+				match_controller.score_manager.set_player_score(pid, maxi(0, cur_sc + delta_sc))
 			ui_answer_feedback.emit(pid, is_corr, delta_sc, det)
 
 		NetworkProtocol.MSG_ROUND_END:
 			var rnum = data.get("round_num", 1)
 			var scores = data.get("scores", {})
+			if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+				match_controller.apply_authoritative_scores(scores)
 			ui_round_ended.emit(rnum, scores)
 
 		NetworkProtocol.MSG_MATCH_END:
@@ -160,6 +165,7 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 func _on_peer_disconnected(peer_id: int) -> void:
 	if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 		push_warning("Client peer %d disconnected during match!" % peer_id)
+		match_controller.handle_peer_disconnected(peer_id)
 
 func _on_server_disconnected() -> void:
 	push_warning("Disconnected from host!")

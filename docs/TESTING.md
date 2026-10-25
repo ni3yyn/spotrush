@@ -1,19 +1,19 @@
 # SpotRush — Testing & Validation Guide
 
-## 1. Automated Test Suite
-SpotRush contains an automated test harness designed to run via Godot 4's headless CLI.
+## 1. Automated Test Suite (Autoload-Aware)
+SpotRush contains an automated test harness designed to run via Godot 4's headless CLI with full project autoload context (`NetworkSession`, `SceneRouter`, `GameManager`).
 
-### Running Headless Tests
+### Running the Full Test Suite
 From the project root:
 ```powershell
-& 'C:\Users\HP\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.2-stable_win64_console.exe' --headless -s res://tests/test_runner.gd
+& 'C:\Users\HP\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe\Godot_v4.7.2-stable_win64_console.exe' --headless res://tests/TestRunner.tscn
 ```
-Or if `godot` is in PATH:
+Or if `godot` is in your system PATH:
 ```bash
-godot --headless -s res://tests/test_runner.gd
+godot --headless res://tests/TestRunner.tscn
 ```
 
-### Verified Test Suites (78 Passed, 0 Failed)
+### Verified Test Suites (88 Passed, 0 Failed, 0 Errors)
 1. **`TestChallengeGeneration` (44 tests)**:
    - Challenge generation across all difficulty tiers (Easy, Medium, Hard, Expert).
    - Quantity estimation option presence and visual count integrity.
@@ -32,24 +32,51 @@ godot --headless -s res://tests/test_runner.gd
    - Withhold challenge full point award.
    - Accuracy % and average response time calculations.
    - Winner determination and tie handling.
-4. **`TestNetworkingLogic` (5 tests)**:
+4. **`TestNetworkingLogic` (8 tests)**:
    - Packet structure and version checking.
    - Stale/corrupt packet rejection.
    - Round answer state validation.
    - Duplicate round submission rejection.
-5. **`TestFullGameLoop` (9 tests)**:
+   - Unknown packet type rejection.
+5. **`TestFullGameLoop` (10 tests)**:
    - Complete 5-round single player match loop (Countdown -> Active -> Feedback -> Match Over).
    - Authoritative match conclusion.
    - Rematch pristine state reset.
 6. **`TestMultiplayerSimulation` (6 tests)**:
-   - Real ENet server and client peer creation on localhost.
+   - ENet server and client peer creation on localhost.
    - Asynchronous handshake polling and connection confirmation.
    - Dual-player simultaneous answer submission.
    - Host authoritative scoring computation for both peers.
+7. **`TestUiSceneFlow` (6 tests)**:
+   - `MainMenu.tscn` instantiation and control binding.
+   - `LocalLobby.tscn` instantiation and host/join tabs.
+   - `GameScreen.tscn` ChallengeView, TimerBar, and HUD bindings.
+   - `MatchResults.tscn` labels and action buttons.
+   - Multi-round match progression through `MatchController`.
+   - Results scoring accuracy verification.
 
 ---
 
-## 2. Desktop Dual-Instance Manual Testing (Localhost)
+## 2. Real Two-Process ENet Network Integration Test
+To prove that networking functions over real OS network sockets and not merely within simulated in-memory objects, SpotRush includes a dual-process test harness.
+
+### Running the Real Network Test
+```powershell
+powershell -ExecutionPolicy Bypass -File tests/real_network/run_real_enet_test.ps1
+```
+
+### What This Test Verifies
+1. Process A launches as an independent OS process, initializing an authoritative ENet server on port `7025`.
+2. Process B launches as a second independent OS process and connects over UDP socket `127.0.0.1:7025`.
+3. The processes perform a live ENet handshake and assign real peer IDs.
+4. The host transmits procedural challenge payloads over the network.
+5. The client parses the challenge, formulates a response, and transmits an answer packet back to the host.
+6. The host validates the packet authoritatively, computes points, synchronizes round scores, and dispatches match conclusion.
+7. Both processes verify clean message sequences and exit with code 0.
+
+---
+
+## 3. Desktop Dual-Instance Manual Testing (Localhost)
 To test the real UI and multiplayer experience locally on PC:
 
 1. **Launch Instance 1 (Host)**:
@@ -73,11 +100,15 @@ To test the real UI and multiplayer experience locally on PC:
    - Instance 1 (Host) displays: *"Players Connected: 2 (Ready to play!)"*.
    - Click **START MATCH** on Instance 1.
    - Both windows transition to `GameScreen.tscn` showing the exact same challenge simultaneously.
+   - On each window, verify that:
+     - The local player's score is labeled **"YOU"**.
+     - The opposing player's score is labeled **"OPPONENT"**.
    - Submit answers on both screens: the host validates, updates scores, and advances rounds synchronously until the **Match Results** screen is shown.
+   - The winner receives **"VICTORY"** and the loser receives **"DEFEAT"**.
 
 ---
 
-## 3. Physical Android Hotspot Manual Test Procedure
+## 4. Physical Android Hotspot Manual Test Procedure
 Follow these exact steps to test multiplayer between two Android phones without an internet connection:
 
 1. **Network Setup**:
@@ -104,4 +135,18 @@ Follow these exact steps to test multiplayer between two Android phones without 
    - Both phones count down *"GET READY... SPOT!"* and display the identical cognitive challenge.
    - Both players submit their answers.
    - Verify that authoritative scores match across both screens.
-   - Upon completing all 10 rounds, the Results screen appears with Victory/Defeat and accurate statistics.
+   - Upon completing the configured rounds, the Results screen appears with Victory/Defeat and accurate statistics.
+
+---
+
+## 5. Android Build Readiness Status
+- **Installed Dependencies**:
+  - Java JDK: Present and verified.
+  - Android SDK & Build Tools (36.0.0, 36.1.0, 37.0.0, android-36.1): Present.
+  - ADB: Present at `C:\platform-tools\adb.exe`.
+- **Export Templates**:
+  - Missing: `%APPDATA%\Godot\export_templates\4.7.2.stable\android_debug.apk`.
+  - Note: Per user directive, export templates were not downloaded or installed. Once installed via Godot Editor (`Manage Export Templates`) or CLI, the APK can be exported with:
+    ```powershell
+    & 'path/to/godot' --headless --export-debug "Android" build/SpotRush.apk
+    ```

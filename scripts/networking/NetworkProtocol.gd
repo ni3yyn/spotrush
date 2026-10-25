@@ -8,6 +8,7 @@ const PROTOCOL_VERSION: int = 1
 const MSG_PLAYER_JOINED: String = "player_joined"
 const MSG_PLAYER_READY: String = "player_ready"
 const MSG_MATCH_START: String = "match_start"
+const MSG_COUNTDOWN_START: String = "countdown_start"
 const MSG_ROUND_START: String = "round_start"
 const MSG_SUBMIT_ANSWER: String = "submit_answer"
 const MSG_ANSWER_RESULT: String = "answer_result"

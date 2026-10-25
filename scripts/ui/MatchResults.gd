@@ -23,6 +23,9 @@ func _populate_results() -> void:
 		lbl_outcome.text = "MATCH COMPLETE"
 		return
 		
+	var local_id = NetworkSession.get_local_id() if is_multiplayer else 1
+	var winner_id = results.get("winner_id", -1)
+	
 	# Outcome header
 	if not is_multiplayer:
 		lbl_outcome.text = "MATCH COMPLETED!"
@@ -31,7 +34,7 @@ func _populate_results() -> void:
 		if results.get("is_tie", false):
 			lbl_outcome.text = "IT'S A TIE!"
 			lbl_outcome.modulate = GameConfig.COLOR_ACCENT_YELLOW
-		elif results.get("winner_id", -1) == 1:
+		elif winner_id == local_id:
 			lbl_outcome.text = "VICTORY!"
 			lbl_outcome.modulate = GameConfig.COLOR_MINT
 		else:
@@ -40,28 +43,29 @@ func _populate_results() -> void:
 			
 	# Scores
 	var player_stats = results.get("player_stats", {})
-	var p1_stats = player_stats.get(1, {})
-	var p1_score = p1_stats.get("total_score", 0)
+	var my_stats = player_stats.get(local_id, player_stats.get(str(local_id), {}))
+	var my_score = my_stats.get("total_score", 0)
 	
 	if not is_multiplayer:
-		lbl_final_scores.text = "FINAL SCORE: %d PTS" % p1_score
+		lbl_final_scores.text = "FINAL SCORE: %d PTS" % my_score
 	else:
-		var p2_id = 2
-		for pid in player_stats.keys():
-			if pid != 1:
-				p2_id = pid
+		var opp_id = -1
+		for pid in GameManager.match_controller.player_ids:
+			if pid != local_id:
+				opp_id = pid
 				break
-		var p2_score = player_stats.get(p2_id, {}).get("total_score", 0)
-		lbl_final_scores.text = "YOU: %d PTS   |   OPPONENT: %d PTS" % [p1_score, p2_score]
+		var opp_stats = player_stats.get(opp_id, player_stats.get(str(opp_id), {}))
+		var opp_score = opp_stats.get("total_score", 0)
+		lbl_final_scores.text = "YOU: %d PTS   |   OPPONENT: %d PTS" % [my_score, opp_score]
 		
-	# Detailed stats from player 1
-	var accuracy = p1_stats.get("accuracy", 0.0)
-	var avg_time = p1_stats.get("avg_response_time", 0.0)
-	var correct = p1_stats.get("correct_count", 0)
-	var incorrect = p1_stats.get("incorrect_count", 0)
-	var missed = p1_stats.get("missed_count", 0)
-	var best_score = p1_stats.get("best_round_score", 0)
-	var best_idx = p1_stats.get("best_round_index", -1)
+	# Detailed stats from local player
+	var accuracy = my_stats.get("accuracy", 0.0)
+	var avg_time = my_stats.get("avg_response_time", 0.0)
+	var correct = my_stats.get("correct_count", 0)
+	var incorrect = my_stats.get("incorrect_count", 0)
+	var missed = my_stats.get("missed_count", 0)
+	var best_score = my_stats.get("best_round_score", 0)
+	var best_idx = my_stats.get("best_round_index", -1)
 	
 	lbl_accuracy.text = "Accuracy: %.1f%%" % accuracy
 	lbl_avg_time.text = "Avg Response Time: %.2fs" % avg_time

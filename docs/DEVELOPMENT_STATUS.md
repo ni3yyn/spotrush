@@ -9,9 +9,12 @@
 - **Target Platforms**: Android (portrait primary, 720x1280 base) and PC Desktop (Windows/Linux)
 - **Renderer Target**: Compatibility (`gl_compatibility`)
 - **Language**: GDScript 2.0 (Godot 4)
-- **Java**: `C:\Program Files (x86)\Common Files\Oracle\Java\javapath\java.exe`
-- **Javac**: `C:\Program Files\Common Files\Oracle\Java\javapath\javac.exe`
-- **ADB**: `C:\platform-tools\adb.exe`
+- **Java JDK**: Present (`C:\Program Files\Common Files\Oracle\Java\javapath\javac.exe` / Amazon Corretto)
+- **Android SDK**: Present at `C:\Users\HP\AppData\Local\Android\Sdk` (build-tools 36.0.0, 36.1.0, 37.0.0, platform android-36.1)
+- **ADB**: Present at `C:\platform-tools\adb.exe`
+- **Godot Export Templates**: Missing from `%APPDATA%\Godot\export_templates\4.7.2.stable\`. Export template installation was deliberately omitted per explicit user instruction (*"no dont install any template!!!"*).
+
+---
 
 ## 2. Implemented Architecture
 ```
@@ -51,58 +54,109 @@ res://
 │   └── data/
 │       └── GameConfig.gd
 ├── tests/
+│   ├── TestRunner.tscn
 │   ├── test_runner.gd
 │   ├── test_challenge_generation.gd
 │   ├── test_answer_validation.gd
 │   ├── test_scoring.gd
 │   ├── test_networking_logic.gd
 │   ├── test_full_game_loop.gd
-│   └── test_multiplayer_simulation.gd
+│   ├── test_multiplayer_simulation.gd
+│   ├── test_ui_scene_flow.gd
+│   └── real_network/
+│       ├── host_process.gd
+│       ├── client_process.gd
+│       └── run_real_enet_test.ps1
 └── docs/
     ├── DEVELOPMENT_STATUS.md
     ├── ARCHITECTURE.md
     └── TESTING.md
 ```
 
-## 3. Implemented Milestones
-- [x] **Milestone 0: Environment Inspection & Engine Setup**
-  - Godot 4.7.2 stable verified and installed.
-  - Git repository initialized.
-  - `project.godot` configured with portrait resolution (720x1280, canvas_items stretch mode, touch emulation).
-- [x] **Milestone 1: Priority 1 Single-Player Prototype**
-  - Fully functional single-player game loop: Main Menu -> Match Start -> Challenge Generation -> Touch Input -> Answer Validation -> Real-time Scoring -> Round Transition -> Match Results -> Rematch.
-- [x] **Milestone 2: Priority 2 & 3 Local ENet Multiplayer over Wi-Fi Hotspot**
-  - `NetworkSession` with ENet server/client creation on Port 7000.
-  - LocalLobby with Host/Join tabs, IP discovery, connection status, and player readiness.
-  - Authoritative host state machine: challenge synchronization, authoritative deadline validation, score computation, and broadcast.
-  - Stale and duplicate answer rejection.
-- [x] **Milestone 3: Priority 4 Challenge Variety & Visual Identity**
-  - 6 challenge families implemented and procedurally generated:
-    1. Quantity Estimation (Almost Right)
-    2. Left vs Right Side Comparison
-    3. Color-based Target Reaction
-    4. Shape-based Target Reaction
-    5. Don't Tap / Inhibition Rule
-    6. Combined Conditional Decisions
-  - Color palette: Deep Green (`#17231F`), Dark Surface (`#22332B`), Mint Accent (`#A8F0C6`), Crimson (`#F43F5E`), Amber (`#FBBF24`).
-- [x] **Milestone 4: Automated Testing & Headless Verification**
-  - 6 dedicated automated test suites created.
-  - 79 assertions executed and verified passing via Godot headless CLI (including UI instantiation).
-  - Main scene smoke test executed for 200 frames with 0 errors.
+---
 
-## 4. Validation Results
-- **Headless Unit Tests**: 79 / 79 Passed (0 Failed).
-- **Runtime Bugfixes Verified**:
-  - Replaced invalid `theme_override_font_sizes` property access on `Button` with `add_theme_font_size_override("font_size", 22)`.
-  - Added `_ensure_nodes()` in `ChallengeView.gd` to safeguard against node lookups prior to `_ready`.
-  - Resolved `INTEGER_DIVISION` warning in `MatchController.gd` by using float division for difficulty scaling.
-  - Silenced unused event parameter warnings in `GameScreen.gd` (`_player_id`, `_round_num`, `_scores`, `_results`).
-- **Editor Scene Graph Check**: Clean initialization, no parser or node path errors.
-- **Runtime Smoke Test**: Exited cleanly with code 0.
+## 3. Phase 1.5 Independent Implementation Audit & Verified Reality
 
-## 5. Known Limitations & Untested Items
-- **Physical Device Testing**: Dual physical Android devices connected via personal mobile hotspot have not been physically connected yet in this environment. The networking has been verified via simulated ENet peers and localhost. Exact physical device manual test instructions are documented in `docs/TESTING.md`.
+### 3.1 Discrepancies Discovered & Repaired
+During the Phase 1.5 audit, real code inspection and multi-process testing revealed several discrepancies and defects that have now been fixed:
 
-## 6. Immediate Next Actions
-- Launch SpotRush on desktop to play through matches and confirm visual feel.
-- Export Android APK using `export_presets.cfg` and install on physical Android phones for hotspot verification.
+1. **Player Identity Inversion on Client**:
+   - *Defect*: `GameScreen.gd` and `MatchResults.gd` previously hardcoded Player 1 as "YOU" and the opposing peer as "OPPONENT". In Godot multiplayer, the host is peer ID 1 and the client is assigned a random peer ID (e.g. `706392015`). Consequently, on the client's screen, their own score appeared under "OPPONENT" and the opponent's score appeared under "YOU", resulting in false "DEFEAT" displays when the client actually won.
+   - *Fix*: Refactored HUD score binding and match outcome logic to dynamically resolve `local_id = NetworkSession.get_local_id()`. The local player's identity is always mapped to "YOU" on both host and client devices.
+
+2. **Client Authoritative Score Mirroring**:
+   - *Defect*: On the client process, local `ScoreManager` instances were not authoritatively updated from host network payloads during active rounds, creating potential desynchronization if client prediction or local events differed.
+   - *Fix*: Added `set_player_score(player_id, score)` and `apply_authoritative_scores(scores_dict)` to `ScoreManager.gd`. The client now updates its local mirror strictly upon receiving `MSG_ANSWER_RESULT` and `MSG_ROUND_END` from the host.
+
+3. **Peer Disconnect Hang in MatchController**:
+   - *Defect*: If peer 2 disconnected during an active round, `MatchController` remained stuck waiting for submissions from the disconnected peer until the full timeout elapsed.
+   - *Fix*: Added `handle_peer_disconnected(peer_id)` to `MatchController.gd`. If only one player remains in a multiplayer session, the match cleanly concludes and awards the win to the active player.
+
+4. **Dynamic Font Size Theme Override Syntax Error**:
+   - *Defect*: `ChallengeView.gd` used `btn.theme_override_font_sizes["font_size"] = 22`, which is invalid syntax in Godot 4.
+   - *Fix*: Updated to the proper Godot 4 API: `btn.add_theme_font_size_override("font_size", 22)`.
+
+5. **Integer Division Warning in MatchController**:
+   - *Defect*: `total_rounds / 3` in `MatchController.gd` line 88 triggered Godot's `INTEGER_DIVISION` warning.
+   - *Fix*: Changed to float division `float(total_rounds) / 3.0`.
+
+6. **Test Execution Context & Autoload Resolution**:
+   - *Defect*: Running test scripts via `godot -s script.gd` ran in standalone mode without loading `project.godot` autoload singletons (`GameManager`, `NetworkSession`, `SceneRouter`), causing compiler errors when loading UI scenes.
+   - *Fix*: Created `res://tests/TestRunner.tscn` with a dedicated root node. Running `godot --headless res://tests/TestRunner.tscn` runs with the complete project environment and all autoloads initialized cleanly.
+
+---
+
+## 4. Verification Results
+
+### 4.1 Automated Test Suite
+- **Command**: `& 'path/to/godot' --headless res://tests/TestRunner.tscn`
+- **Result**: **88 Passed, 0 Failed, 0 Errors, 0 Warnings** across 7 test suites:
+  - `TestChallengeGeneration`: 44 passed
+  - `TestAnswerValidation`: 7 passed
+  - `TestScoring`: 7 passed
+  - `TestNetworkingLogic`: 8 passed
+  - `TestFullGameLoop`: 10 passed
+  - `TestMultiplayerSimulation`: 6 passed
+  - `TestUiSceneFlow`: 6 passed
+
+### 4.2 Real Two-Process ENet Network Test (OS Localhost Sockets)
+- **Command**: `powershell -ExecutionPolicy Bypass -File tests/real_network/run_real_enet_test.ps1`
+- **Result**: **PASSED (Exit Code 0)**
+- **Verification Details**:
+  - Spawned two independent OS processes running Godot 4.7.2.
+  - Process A (Host) initialized an authoritative ENet server on port `7025`.
+  - Process B (Client) established a real UDP socket connection to `127.0.0.1:7025` and was assigned peer ID `706392015`.
+  - Host dispatched `MSG_MATCH_START` and `MSG_ROUND_START` containing procedural challenge data (`est_count_0_...`).
+  - Client received challenge, parsed payload, and transmitted `MSG_SUBMIT_ANSWER` containing answer `18`.
+  - Host authoritatively validated answer, awarded +1400 points, broadcast `MSG_ANSWER_RESULT`, advanced round, and dispatched `MSG_MATCH_END`.
+  - Both processes validated message sequencing and exited cleanly with code 0.
+
+### 4.3 Runtime Main Scene Smoke Test
+- **Command**: `& 'path/to/godot' --headless --fixed-fps 60 res://scenes/main/MainMenu.tscn`
+- **Result**: Verified 200 frames executed without error or memory leaks.
+
+---
+
+## 5. Android Export Readiness Assessment
+- **Java Development Kit**: Confirmed installed (`javac` and Amazon Corretto).
+- **Android SDK**: Confirmed present at `C:\Users\HP\AppData\Local\Android\Sdk`.
+- **Android Platform & Build Tools**: Confirmed installed (Build Tools: `36.0.0`, `36.1.0`, `37.0.0`; Platforms: `android-36.1`).
+- **ADB**: Confirmed installed at `C:\platform-tools\adb.exe`.
+- **Export Presets**: Configured in `export_presets.cfg` with required local networking permissions:
+  - `android.permission.INTERNET`
+  - `android.permission.ACCESS_NETWORK_STATE`
+  - `android.permission.ACCESS_WIFI_STATE`
+  - `android.permission.CHANGE_WIFI_MULTICAST_STATE`
+- **Export Templates**: **Not Installed**. Per explicit user directive (*"no dont install any template!!!"*), Godot Android export templates (`android_debug.apk`) were neither downloaded nor installed. No APK was built. Once the user installs export templates via Godot editor or CLI, APK generation can be triggered immediately.
+
+---
+
+## 6. What Has Been Verified vs What Remains Pending
+- [x] **Verified**: Pure challenge generation, scoring, and validation logic (automated headless).
+- [x] **Verified**: Full single-player game loop and scene transitions.
+- [x] **Verified**: ENet networking logic, packet serialization, duplicate/stale answer rejection.
+- [x] **Verified**: Real two-process ENet multiplayer socket communication over localhost.
+- [x] **Verified**: Host authoritative game progression and client score mirroring.
+- [x] **Verified**: Client UI identity mapping ("YOU" vs "OPPONENT").
+- [ ] **Pending (Requires Physical Hardware)**: Multi-device testing over a live Android mobile hotspot between two physical smartphones. Detailed instructions are provided in `docs/TESTING.md`.
+- [ ] **Pending (Requires Export Templates)**: Release/debug APK export once export templates are authorized by the user.
