@@ -36,6 +36,18 @@ const COLOR_ACCENT_YELLOW: Color = Color("FBBF24")
 const COLOR_TEXT_LIGHT: Color = Color("F1F5F9")
 const COLOR_TEXT_MUTED: Color = Color("94A3B8")
 
+# Warm Butter & Vibrant Arcade Palette Tokens
+const COLOR_BUTTER: Color = Color("FAF5E8")
+const COLOR_BUTTER_DARK: Color = Color("EDE5D0")
+const COLOR_COBALT: Color = Color("2B52E2")
+const COLOR_COBALT_DARK: Color = Color("1A3BB2")
+const COLOR_TANGERINE: Color = Color("FF6B35")
+const COLOR_CORAL: Color = Color("FF5964")
+const COLOR_LAVENDER: Color = Color("7C5CFC")
+const COLOR_CANARY: Color = Color("F4CB38")
+const COLOR_DARK_NAVY: Color = Color("1E2432")
+const COLOR_SLATE: Color = Color("64748B")
+
 # Difficulty Tiers
 enum Difficulty {
 	EASY = 1,

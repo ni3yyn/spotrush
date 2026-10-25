@@ -1,34 +1,113 @@
-[gd_scene format=3 uid="uid://b1m7menu0001"]
+[gd_scene load_steps=14 format=3 uid="uid://b1m7menu0001"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
+[ext_resource type="Script" path="res://scripts/ui/MainMenuCanvas.gd" id="2_canvas"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
-bg_color = Color(0.090196, 0.137255, 0.121569, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
-bg_color = Color(0.133333, 0.2, 0.168627, 0.95)
+[sub_resource type="StyleBoxFlat" id="StyleBox_neu_btn"]
+bg_color = Color(0.980392, 0.960784, 0.909804, 1)
+border_width_left = 2
+border_width_top = 2
+border_color = Color(1, 1, 1, 0.95)
 corner_radius_top_left = 20
 corner_radius_top_right = 20
 corner_radius_bottom_right = 20
 corner_radius_bottom_left = 20
-content_margin_left = 24.0
-content_margin_top = 24.0
-content_margin_right = 24.0
-content_margin_bottom = 24.0
+shadow_color = Color(0.764706, 0.721569, 0.607843, 0.6)
+shadow_size = 8
+shadow_offset = Vector2(4, 6)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_mint"]
-bg_color = Color(0.658824, 0.941176, 0.776471, 1)
+[sub_resource type="StyleBoxFlat" id="StyleBox_neu_pressed"]
+bg_color = Color(0.952941, 0.92549, 0.862745, 1)
+border_width_left = 2
+border_width_top = 2
+border_color = Color(0.72549, 0.67451, 0.556863, 0.65)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_hero_play"]
+bg_color = Color(0.168627, 0.321569, 0.886275, 1)
+border_width_left = 2
+border_width_top = 3
+border_color = Color(0.482353, 0.647059, 1, 0.85)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0.168627, 0.321569, 0.886275, 0.45)
+shadow_size = 14
+shadow_offset = Vector2(0, 8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_hero_hover"]
+bg_color = Color(0.227451, 0.388235, 0.972549, 1)
+border_width_left = 2
+border_width_top = 3
+border_color = Color(0.7, 0.82, 1, 0.95)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0.168627, 0.321569, 0.886275, 0.55)
+shadow_size = 18
+shadow_offset = Vector2(0, 10)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_modal_card"]
+bg_color = Color(0.980392, 0.960784, 0.909804, 1)
+border_width_left = 3
+border_width_top = 3
+border_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 28
+corner_radius_top_right = 28
+corner_radius_bottom_right = 28
+corner_radius_bottom_left = 28
+shadow_color = Color(0.117647, 0.141176, 0.196078, 0.35)
+shadow_size = 28
+shadow_offset = Vector2(0, 14)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_modal_header_lavender"]
+bg_color = Color(0.486275, 0.360784, 0.988235, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_modal_header_tangerine"]
+bg_color = Color(1, 0.419608, 0.207843, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_modal_header_cobalt"]
+bg_color = Color(0.168627, 0.321569, 0.886275, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_toast"]
+bg_color = Color(0.117647, 0.141176, 0.196078, 0.92)
 corner_radius_top_left = 16
 corner_radius_top_right = 16
 corner_radius_bottom_right = 16
 corner_radius_bottom_left = 16
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 8
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_dark"]
-bg_color = Color(0.172549, 0.258824, 0.219608, 1)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
+[sub_resource type="StyleBoxFlat" id="StyleBox_lavender_circle"]
+bg_color = Color(0.486275, 0.360784, 0.988235, 0.15)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_tangerine_circle"]
+bg_color = Color(1, 0.419608, 0.207843, 0.15)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -39,14 +118,16 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="Background" type="Panel" parent="."]
+[node name="MainMenuCanvas" type="Control" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+mouse_filter = 1
+script = ExtResource("2_canvas")
 
 [node name="SafeArea" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -55,117 +136,264 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 32
-theme_override_constants/margin_top = 64
-theme_override_constants/margin_right = 32
-theme_override_constants/margin_bottom = 48
+mouse_filter = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
 
 [node name="VBoxMain" type="VBoxContainer" parent="SafeArea"]
 layout_mode = 2
-theme_override_constants/separation = 28
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="HeaderBar" type="HBoxContainer" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+theme_override_constants/separation = 14
 alignment = 1
 
-[node name="HeaderContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
+[node name="BtnProfile" type="Button" parent="SafeArea/VBoxMain/HeaderBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+text = "👤"
+
+[node name="CapsuleArcade" type="PanelContainer" parent="SafeArea/VBoxMain/HeaderBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="Margin" type="MarginContainer" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="HBoxCapsule" type="HBoxContainer" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="Title" type="Label" parent="SafeArea/VBoxMain/HeaderContainer"]
+[node name="BadgeBolt" type="Label" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade/Margin/HBoxCapsule"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
-theme_override_font_sizes/font_size = 56
-text = "SPOTRUSH"
+theme_override_colors/font_color = Color(1, 0.419608, 0.207843, 1)
+theme_override_font_sizes/font_size = 14
+text = "⚡"
+
+[node name="LblArcade" type="Label" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade/Margin/HBoxCapsule"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 13
+text = "SPOTRUSH ARCADE"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="SafeArea/VBoxMain/HeaderContainer"]
+[node name="BtnSettings" type="Button" parent="SafeArea/VBoxMain/HeaderBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(50, 50)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.580392, 0.639216, 0.721569, 1)
-theme_override_font_sizes/font_size = 18
-text = "FAST-PACED COGNITIVE CLASH"
-horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+text = "⚙"
 
-[node name="RoundSelectContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
+[node name="EmblemSpacer" type="Control" parent="SafeArea/VBoxMain"]
 layout_mode = 2
-theme_override_constants/separation = 12
+size_flags_vertical = 3
+mouse_filter = 2
 
-[node name="RoundLabel" type="Label" parent="SafeArea/VBoxMain/RoundSelectContainer"]
+[node name="TitleContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
-theme_override_font_sizes/font_size = 16
-text = "MATCH LENGTH (ROUNDS)"
-horizontal_alignment = 1
-
-[node name="HBoxRounds" type="HBoxContainer" parent="SafeArea/VBoxMain/RoundSelectContainer"]
-layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 2
 alignment = 1
 
-[node name="BtnRounds5" type="Button" parent="SafeArea/VBoxMain/RoundSelectContainer/HBoxRounds"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 48)
+[node name="TitleText" type="RichTextLabel" parent="SafeArea/VBoxMain/TitleContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
-text = "5"
+bbcode_enabled = true
+text = "[center][b][color=#1E2432]SPOT[/color][color=#FF6B35]RUSH[/color][/b][/center]"
+fit_content = true
+theme_override_font_sizes/bold_font_size = 46
 
-[node name="BtnRounds10" type="Button" parent="SafeArea/VBoxMain/RoundSelectContainer/HBoxRounds"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 48)
+[node name="SubtitleText" type="Label" parent="SafeArea/VBoxMain/TitleContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
-text = "10"
-
-[node name="BtnRounds15" type="Button" parent="SafeArea/VBoxMain/RoundSelectContainer/HBoxRounds"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 48)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
-text = "15"
-
-[node name="ActionsContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
-layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="BtnSolo" type="Button" parent="SafeArea/VBoxMain/ActionsContainer"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
-theme_override_font_sizes/font_size = 20
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
-text = "PLAY SOLO CHALLENGE"
-
-[node name="BtnMultiplayer" type="Button" parent="SafeArea/VBoxMain/ActionsContainer"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
-theme_override_font_sizes/font_size = 20
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_dark")
-text = "LOCAL WI-FI MULTIPLAYER"
-
-[node name="BtnHowToPlay" type="Button" parent="SafeArea/VBoxMain/ActionsContainer"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_dark")
-text = "HOW TO PLAY"
-
-[node name="OnlineNote" type="Label" parent="SafeArea/VBoxMain"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.407843, 0.470588, 0.54902, 1)
-theme_override_font_sizes/font_size = 14
-text = "Offline & Local Hotspot Ready"
+theme_override_colors/font_color = Color(0.392157, 0.454902, 0.545098, 1)
+theme_override_font_sizes/font_size = 12
+text = "THINK FAST. SPOT FASTER."
 horizontal_alignment = 1
 
-[node name="HowToPlayPopup" type="PanelContainer" parent="."]
+[node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBoxMain"]
+custom_minimum_size = Vector2(0, 86)
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="BtnMultiplayer" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 84)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="Badge" type="PanelContainer" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/VBox"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_lavender_circle")
+
+[node name="Icon" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/VBox/Badge"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.486275, 0.360784, 0.988235, 1)
+theme_override_font_sizes/font_size = 18
+text = "👥"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Lbl" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 11
+text = "FRIENDS"
+horizontal_alignment = 1
+
+[node name="BtnSolo" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 84)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBox_hero_play")
+theme_override_styles/hover = SubResource("StyleBox_hero_hover")
+theme_override_styles/pressed = SubResource("StyleBox_hero_play")
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnSolo"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 1
+alignment = 1
+
+[node name="HBox" type="HBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="PlayIcon" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox/HBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "▶"
+horizontal_alignment = 1
+
+[node name="PlayText" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox/HBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 28
+text = "PLAY"
+horizontal_alignment = 1
+
+[node name="Sub" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.86, 1, 1)
+theme_override_font_sizes/font_size = 10
+text = "SPEED RUN"
+horizontal_alignment = 1
+
+[node name="BtnHowToPlay" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 84)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="Badge" type="PanelContainer" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/VBox"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_tangerine_circle")
+
+[node name="Icon" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/VBox/Badge"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.419608, 0.207843, 1)
+theme_override_font_sizes/font_size = 18
+text = "❓"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Lbl" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 11
+text = "HOW TO"
+horizontal_alignment = 1
+
+[node name="FooterBar" type="HBoxContainer" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+alignment = 1
+
+[node name="BtnStreak" type="Button" parent="SafeArea/VBoxMain/FooterBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.419608, 0.207843, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBox_neu_pressed")
+theme_override_styles/hover = SubResource("StyleBox_neu_pressed")
+text = "🔥  DAILY STREAK  •  5 DAYS"
+
+[node name="TokenToast" type="Label" parent="."]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -140.0
+offset_top = 90.0
+offset_right = 140.0
+offset_bottom = 126.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBox_toast")
+text = "⚡ Token Collected!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ModalHowToPlay" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -174,44 +402,595 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -320.0
-offset_right = 300.0
-offset_bottom = 320.0
+offset_left = -180.0
+offset_top = -220.0
+offset_right = 180.0
+offset_bottom = 220.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+theme_override_styles/panel = SubResource("StyleBox_modal_card")
 
-[node name="VBoxGuide" type="VBoxContainer" parent="HowToPlayPopup"]
+[node name="Margin" type="MarginContainer" parent="ModalHowToPlay"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="ModalHowToPlay/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="ModalHowToPlay/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="IconBadge" type="PanelContainer" parent="ModalHowToPlay/Margin/VBox/Header"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_header_tangerine")
+
+[node name="Lbl" type="Label" parent="ModalHowToPlay/Margin/VBox/Header/IconBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "💡"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Title" type="Label" parent="ModalHowToPlay/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 22
+text = "How to Play"
+horizontal_alignment = 1
+
+[node name="Rule1" type="PanelContainer" parent="ModalHowToPlay/Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="Margin" type="MarginContainer" parent="ModalHowToPlay/Margin/VBox/Rule1"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Text" type="Label" parent="ModalHowToPlay/Margin/VBox/Rule1/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.25, 0.35, 1)
+theme_override_font_sizes/font_size = 13
+text = "1. Scan target geometry immediately."
+autowrap_mode = 2
+
+[node name="Rule2" type="PanelContainer" parent="ModalHowToPlay/Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="Margin" type="MarginContainer" parent="ModalHowToPlay/Margin/VBox/Rule2"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Text" type="Label" parent="ModalHowToPlay/Margin/VBox/Rule2/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.25, 0.35, 1)
+theme_override_font_sizes/font_size = 13
+text = "2. Tap targets before time runs out."
+autowrap_mode = 2
+
+[node name="Rule3" type="PanelContainer" parent="ModalHowToPlay/Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="Margin" type="MarginContainer" parent="ModalHowToPlay/Margin/VBox/Rule3"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Text" type="Label" parent="ModalHowToPlay/Margin/VBox/Rule3/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.25, 0.35, 1)
+theme_override_font_sizes/font_size = 13
+text = "3. Don't tap on danger cues — hold back!"
+autowrap_mode = 2
+
+[node name="BtnCloseHowTo" type="Button" parent="ModalHowToPlay/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBox_hero_play")
+text = "GOT IT!"
+
+[node name="ModalFriends" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -190.0
+offset_right = 180.0
+offset_bottom = 190.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_card")
+
+[node name="Margin" type="MarginContainer" parent="ModalFriends"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="ModalFriends/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="ModalFriends/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="IconBadge" type="PanelContainer" parent="ModalFriends/Margin/VBox/Header"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_header_lavender")
+
+[node name="Lbl" type="Label" parent="ModalFriends/Margin/VBox/Header/IconBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "👥"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Title" type="Label" parent="ModalFriends/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 22
+text = "Pass & Play Duel"
+horizontal_alignment = 1
+
+[node name="Desc" type="Label" parent="ModalFriends/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.392157, 0.454902, 0.545098, 1)
+theme_override_font_sizes/font_size = 12
+text = "Challenge a friend on local Wi-Fi or right here on one device!"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="BtnWifiLobby" type="Button" parent="ModalFriends/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBox_modal_header_lavender")
+text = "LOCAL WI-FI MULTIPLAYER"
+
+[node name="BtnPassPlay" type="Button" parent="ModalFriends/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+text = "QUICK MINI-GAME DUEL"
+
+[node name="BtnCloseFriends" type="Button" parent="ModalFriends/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.45, 0.55, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBox_neu_pressed")
+text = "CLOSE"
+
+[node name="ModalSettings" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -210.0
+offset_right = 180.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_card")
+
+[node name="Margin" type="MarginContainer" parent="ModalSettings"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="ModalSettings/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="ModalSettings/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 22
+text = "Settings"
+horizontal_alignment = 1
+
+[node name="HBoxSfx" type="HBoxContainer" parent="ModalSettings/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="Lbl" type="Label" parent="ModalSettings/Margin/VBox/HBoxSfx"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 14
+text = "🔊 Sound Effects"
+
+[node name="CheckSfx" type="CheckButton" parent="ModalSettings/Margin/VBox/HBoxSfx"]
+unique_name_in_owner = true
+layout_mode = 2
+button_pressed = true
+
+[node name="HBoxParticles" type="HBoxContainer" parent="ModalSettings/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="Lbl" type="Label" parent="ModalSettings/Margin/VBox/HBoxParticles"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 14
+text = "✨ Dynamic Particles"
+
+[node name="CheckParticles" type="CheckButton" parent="ModalSettings/Margin/VBox/HBoxParticles"]
+unique_name_in_owner = true
+layout_mode = 2
+button_pressed = true
+
+[node name="LblRounds" type="Label" parent="ModalSettings/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 14
+text = "Match Length (Rounds)"
+
+[node name="HBoxRounds" type="HBoxContainer" parent="ModalSettings/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="BtnRounds5" type="Button" parent="ModalSettings/Margin/VBox/HBoxRounds"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 42)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+text = "5"
+
+[node name="BtnRounds10" type="Button" parent="ModalSettings/Margin/VBox/HBoxRounds"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 42)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+text = "10"
+
+[node name="BtnRounds15" type="Button" parent="ModalSettings/Margin/VBox/HBoxRounds"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 42)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+text = "15"
+
+[node name="BtnCloseSettings" type="Button" parent="ModalSettings/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBox_modal_card")
+theme_override_styles/hover = SubResource("StyleBox_modal_card")
+theme_override_styles/pressed = SubResource("StyleBox_modal_card")
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+text = "SAVE & CLOSE"
+
+[node name="ModalProfile" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -200.0
+offset_right = 180.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_card")
+
+[node name="Margin" type="MarginContainer" parent="ModalProfile"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="ModalProfile/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="ModalProfile/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="IconBadge" type="PanelContainer" parent="ModalProfile/Margin/VBox/Header"]
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_header_cobalt")
+
+[node name="Lbl" type="Label" parent="ModalProfile/Margin/VBox/Header/IconBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "⚡"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Title" type="Label" parent="ModalProfile/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 20
+text = "Cognitive Runner #8402"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="ModalProfile/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.45, 0.55, 1)
+theme_override_font_sizes/font_size = 12
+text = "Rank: Speed Master II"
+horizontal_alignment = 1
+
+[node name="GridStats" type="GridContainer" parent="ModalProfile/Margin/VBox"]
+layout_mode = 2
+columns = 2
+
+[node name="P1" type="PanelContainer" parent="ModalProfile/Margin/VBox/GridStats"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="V" type="VBoxContainer" parent="ModalProfile/Margin/VBox/GridStats/P1"]
+layout_mode = 2
+
+[node name="L1" type="Label" parent="ModalProfile/Margin/VBox/GridStats/P1/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.45, 0.55, 1)
+theme_override_font_sizes/font_size = 11
+text = "BEST REACTION"
+horizontal_alignment = 1
+
+[node name="Val1" type="Label" parent="ModalProfile/Margin/VBox/GridStats/P1/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.168627, 0.321569, 0.886275, 1)
+theme_override_font_sizes/font_size = 18
+text = "0.24s"
+horizontal_alignment = 1
+
+[node name="P2" type="PanelContainer" parent="ModalProfile/Margin/VBox/GridStats"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="V" type="VBoxContainer" parent="ModalProfile/Margin/VBox/GridStats/P2"]
+layout_mode = 2
+
+[node name="L2" type="Label" parent="ModalProfile/Margin/VBox/GridStats/P2/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.45, 0.55, 1)
+theme_override_font_sizes/font_size = 11
+text = "TOTAL SPOTS"
+horizontal_alignment = 1
+
+[node name="Val2" type="Label" parent="ModalProfile/Margin/VBox/GridStats/P2/V"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.419608, 0.207843, 1)
+theme_override_font_sizes/font_size = 18
+text = "1,420"
+horizontal_alignment = 1
+
+[node name="BtnCloseProfile" type="Button" parent="ModalProfile/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+text = "CLOSE"
+
+[node name="ModalStreak" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -180.0
+offset_right = 180.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_card")
+
+[node name="Margin" type="MarginContainer" parent="ModalStreak"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="ModalStreak/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="ModalStreak/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="IconBadge" type="PanelContainer" parent="ModalStreak/Margin/VBox/Header"]
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal_header_tangerine")
+
+[node name="Lbl" type="Label" parent="ModalStreak/Margin/VBox/Header/IconBadge"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "🔥"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Title" type="Label" parent="ModalStreak/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 20
+text = "5 Day Streak Active!"
+horizontal_alignment = 1
+
+[node name="Desc" type="Label" parent="ModalStreak/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.392157, 0.454902, 0.545098, 1)
+theme_override_font_sizes/font_size = 12
+text = "You've trained your spotting reflexes 5 days in a row! Play now to extend your streak."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="BtnCloseStreak" type="Button" parent="ModalStreak/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBox_modal_header_tangerine")
+text = "KEEP TRAININ'"
+
+[node name="MiniGameOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="MiniGameOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.980392, 0.960784, 0.909804, 0.98)
+
+[node name="Margin" type="MarginContainer" parent="MiniGameOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 32
+
+[node name="VBox" type="VBoxContainer" parent="MiniGameOverlay/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="GuideTitle" type="Label" parent="HowToPlayPopup/VBoxGuide"]
+[node name="TopBar" type="HBoxContainer" parent="MiniGameOverlay/Margin/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
-theme_override_font_sizes/font_size = 24
-text = "RULES OF SPOTRUSH"
+theme_override_constants/separation = 12
+
+[node name="BtnCloseMini" type="Button" parent="MiniGameOverlay/Margin/VBox/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+text = "✕"
+
+[node name="PillTimer" type="PanelContainer" parent="MiniGameOverlay/Margin/VBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="LblMiniTimer" type="Label" parent="MiniGameOverlay/Margin/VBox/TopBar/PillTimer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 18
+text = "05.00s"
 horizontal_alignment = 1
 
-[node name="GuideText" type="RichTextLabel" parent="HowToPlayPopup/VBoxGuide"]
+[node name="PillScore" type="PanelContainer" parent="MiniGameOverlay/Margin/VBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
+
+[node name="LblMiniScore" type="Label" parent="MiniGameOverlay/Margin/VBox/TopBar/PillScore"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.168627, 0.321569, 0.886275, 1)
+theme_override_font_sizes/font_size = 18
+text = "0"
+horizontal_alignment = 1
+
+[node name="MiniTitle" type="Label" parent="MiniGameOverlay/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 20
+text = "SPOT THE ODD SHAPE!"
+horizontal_alignment = 1
+
+[node name="BoardContainer" type="PanelContainer" parent="MiniGameOverlay/Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_colors/default_color = Color(0.945098, 0.960784, 0.976471, 1)
-theme_override_font_sizes/normal_font_size = 16
-bbcode_enabled = true
-text = "[color=#A8F0C6][b]1. Visual Estimation:[/b][/color] Quickly estimate quantities or choose which side has more dots without counting one by one!
+theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
 
-[color=#A8F0C6][b]2. Target Reaction:[/b][/color] Tap all requested targets (colors or shapes) before the timer runs out.
-
-[color=#F43F5E][b]3. Don't Tap / Inhibition:[/b][/color] Pay attention to the instructions! If instructed not to tap, keep your hands off the screen to earn points.
-
-[color=#A8F0C6][b]4. Scoring:[/b][/color] Speed bonus awarded for fast correct answers. Wrong answers receive a penalty!"
-
-[node name="BtnCloseGuide" type="Button" parent="HowToPlayPopup/VBoxGuide"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 50)
+[node name="Margin" type="MarginContainer" parent="MiniGameOverlay/Margin/VBox/BoardContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
-text = "GOT IT!"
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="MiniBoardGrid" type="GridContainer" parent="MiniGameOverlay/Margin/VBox/BoardContainer/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 3
+
+[node name="LblMiniFeedback" type="Label" parent="MiniGameOverlay/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.168627, 0.321569, 0.886275, 1)
+theme_override_font_sizes/font_size = 15
+text = "GET READY..."
+horizontal_alignment = 1

@@ -1,11 +1,11 @@
 Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 
 [HOST PROCESS] Starting real ENet server on port 7025...
-[HOST PROCESS] Client connected with Peer ID: 1077682189
-[HOST PROCESS] Sent challenge to client (ID: est_count_0_268870028, Answer: 17)
-[HOST PROCESS] Received packet 'submit_answer' from sender 1077682189
-[HOST PROCESS] Authoritatively validating client answer: 17 (Expected: 17)
+[HOST PROCESS] Client connected with Peer ID: 1642096187
+[HOST PROCESS] Sent challenge to client (ID: est_count_0_801766895, Answer: 15)
+[HOST PROCESS] Received packet 'submit_answer' from sender 1642096187
+[HOST PROCESS] Authoritatively validating client answer: 15 (Expected: 15)
 [HOST PROCESS] Validation SUCCESS: +1400 pts awarded authoritatively!
 [HOST PROCESS] Successfully completed authoritative round and dispatched match end!
-[HOST PROCESS] Client 1077682189 disconnected
+[HOST PROCESS] Client 1642096187 disconnected
 [HOST PROCESS] >> REAL TWO-PROCESS TEST PASSED ON HOST! <<
