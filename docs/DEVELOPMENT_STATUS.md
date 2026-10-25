@@ -87,13 +87,18 @@ res://
   - Color palette: Deep Green (`#17231F`), Dark Surface (`#22332B`), Mint Accent (`#A8F0C6`), Crimson (`#F43F5E`), Amber (`#FBBF24`).
 - [x] **Milestone 4: Automated Testing & Headless Verification**
   - 6 dedicated automated test suites created.
-  - 78 assertions executed and verified passing via Godot headless CLI.
-  - Main scene smoke test executed for 100 frames with 0 errors.
+  - 79 assertions executed and verified passing via Godot headless CLI (including UI instantiation).
+  - Main scene smoke test executed for 200 frames with 0 errors.
 
 ## 4. Validation Results
-- **Headless Unit Tests**: 78 / 78 Passed (0 Failed).
+- **Headless Unit Tests**: 79 / 79 Passed (0 Failed).
+- **Runtime Bugfixes Verified**:
+  - Replaced invalid `theme_override_font_sizes` property access on `Button` with `add_theme_font_size_override("font_size", 22)`.
+  - Added `_ensure_nodes()` in `ChallengeView.gd` to safeguard against node lookups prior to `_ready`.
+  - Resolved `INTEGER_DIVISION` warning in `MatchController.gd` by using float division for difficulty scaling.
+  - Silenced unused event parameter warnings in `GameScreen.gd` (`_player_id`, `_round_num`, `_scores`, `_results`).
 - **Editor Scene Graph Check**: Clean initialization, no parser or node path errors.
-- **Runtime 100-frame Smoke Test**: Exited cleanly with code 0.
+- **Runtime Smoke Test**: Exited cleanly with code 0.
 
 ## 5. Known Limitations & Untested Items
 - **Physical Device Testing**: Dual physical Android devices connected via personal mobile hotspot have not been physically connected yet in this environment. The networking has been verified via simulated ENet peers and localhost. Exact physical device manual test instructions are documented in `docs/TESTING.md`.
