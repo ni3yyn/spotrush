@@ -1,0 +1,176 @@
+[gd_scene format=3 uid="uid://e4gamescr0004"]
+
+[ext_resource type="Script" path="res://scripts/ui/GameScreen.gd" id="1_gamescr"]
+[ext_resource type="PackedScene" path="res://scenes/game/ChallengeView.tscn" id="2_chview"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.090196, 0.137255, 0.121569, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_timer_bg"]
+bg_color = Color(0.133333, 0.2, 0.168627, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_timer_fill"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_feedback"]
+bg_color = Color(0.133333, 0.2, 0.168627, 0.95)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+content_margin_left = 24.0
+content_margin_top = 16.0
+content_margin_right = 24.0
+content_margin_bottom = 16.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_countdown"]
+bg_color = Color(0.090196, 0.137255, 0.121569, 0.9)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+content_margin_left = 32.0
+content_margin_top = 32.0
+content_margin_right = 32.0
+content_margin_bottom = 32.0
+
+[node name="GameScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_gamescr")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 28
+
+[node name="VBoxMain" type="VBoxContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="HUD" type="VBoxContainer" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TopRow" type="HBoxContainer" parent="SafeArea/VBoxMain/HUD"]
+layout_mode = 2
+
+[node name="LblRound" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_font_sizes/font_size = 20
+text = "ROUND 1 / 10"
+
+[node name="LblScoreP1" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
+theme_override_font_sizes/font_size = 20
+text = "SCORE: 0"
+horizontal_alignment = 2
+
+[node name="LblScoreP2" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.580392, 0.639216, 0.721569, 1)
+theme_override_font_sizes/font_size = 20
+text = "OPPONENT: 0"
+horizontal_alignment = 2
+
+[node name="TimerBar" type="ProgressBar" parent="SafeArea/VBoxMain/HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_timer_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_timer_fill")
+max_value = 8.0
+step = 0.05
+value = 8.0
+show_percentage = false
+
+[node name="ChallengeView" parent="SafeArea/VBoxMain" instance=ExtResource("2_chview")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="FeedbackPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -60.0
+offset_right = 220.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_feedback")
+
+[node name="LblFeedback" type="Label" parent="FeedbackPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
+theme_override_font_sizes/font_size = 20
+text = "CORRECT! +1,240 PTS"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountdownOverlay" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -90.0
+offset_right = 180.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_countdown")
+
+[node name="LblCountdown" type="Label" parent="CountdownOverlay"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_font_sizes/font_size = 40
+text = "GET READY!"
+horizontal_alignment = 1
+vertical_alignment = 1

@@ -1,0 +1,217 @@
+[gd_scene format=3 uid="uid://b1m7menu0001"]
+
+[ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.090196, 0.137255, 0.121569, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.133333, 0.2, 0.168627, 0.95)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+content_margin_left = 24.0
+content_margin_top = 24.0
+content_margin_right = 24.0
+content_margin_bottom = 24.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_mint"]
+bg_color = Color(0.658824, 0.941176, 0.776471, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_dark"]
+bg_color = Color(0.172549, 0.258824, 0.219608, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 64
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 48
+
+[node name="VBoxMain" type="VBoxContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/separation = 28
+alignment = 1
+
+[node name="HeaderContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="Title" type="Label" parent="SafeArea/VBoxMain/HeaderContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_font_sizes/font_size = 56
+text = "SPOTRUSH"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="SafeArea/VBoxMain/HeaderContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.580392, 0.639216, 0.721569, 1)
+theme_override_font_sizes/font_size = 18
+text = "FAST-PACED COGNITIVE CLASH"
+horizontal_alignment = 1
+
+[node name="RoundSelectContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="RoundLabel" type="Label" parent="SafeArea/VBoxMain/RoundSelectContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
+theme_override_font_sizes/font_size = 16
+text = "MATCH LENGTH (ROUNDS)"
+horizontal_alignment = 1
+
+[node name="HBoxRounds" type="HBoxContainer" parent="SafeArea/VBoxMain/RoundSelectContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="BtnRounds5" type="Button" parent="SafeArea/VBoxMain/RoundSelectContainer/HBoxRounds"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 48)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
+text = "5"
+
+[node name="BtnRounds10" type="Button" parent="SafeArea/VBoxMain/RoundSelectContainer/HBoxRounds"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 48)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
+text = "10"
+
+[node name="BtnRounds15" type="Button" parent="SafeArea/VBoxMain/RoundSelectContainer/HBoxRounds"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 48)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
+text = "15"
+
+[node name="ActionsContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="BtnSolo" type="Button" parent="SafeArea/VBoxMain/ActionsContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
+text = "PLAY SOLO CHALLENGE"
+
+[node name="BtnMultiplayer" type="Button" parent="SafeArea/VBoxMain/ActionsContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_dark")
+text = "LOCAL WI-FI MULTIPLAYER"
+
+[node name="BtnHowToPlay" type="Button" parent="SafeArea/VBoxMain/ActionsContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_dark")
+text = "HOW TO PLAY"
+
+[node name="OnlineNote" type="Label" parent="SafeArea/VBoxMain"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.407843, 0.470588, 0.54902, 1)
+theme_override_font_sizes/font_size = 14
+text = "Offline & Local Hotspot Ready"
+horizontal_alignment = 1
+
+[node name="HowToPlayPopup" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -320.0
+offset_right = 300.0
+offset_bottom = 320.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
+
+[node name="VBoxGuide" type="VBoxContainer" parent="HowToPlayPopup"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="GuideTitle" type="Label" parent="HowToPlayPopup/VBoxGuide"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_font_sizes/font_size = 24
+text = "RULES OF SPOTRUSH"
+horizontal_alignment = 1
+
+[node name="GuideText" type="RichTextLabel" parent="HowToPlayPopup/VBoxGuide"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/default_color = Color(0.945098, 0.960784, 0.976471, 1)
+theme_override_font_sizes/normal_font_size = 16
+bbcode_enabled = true
+text = "[color=#A8F0C6][b]1. Visual Estimation:[/b][/color] Quickly estimate quantities or choose which side has more dots without counting one by one!
+
+[color=#A8F0C6][b]2. Target Reaction:[/b][/color] Tap all requested targets (colors or shapes) before the timer runs out.
+
+[color=#F43F5E][b]3. Don't Tap / Inhibition:[/b][/color] Pay attention to the instructions! If instructed not to tap, keep your hands off the screen to earn points.
+
+[color=#A8F0C6][b]4. Scoring:[/b][/color] Speed bonus awarded for fast correct answers. Wrong answers receive a penalty!"
+
+[node name="BtnCloseGuide" type="Button" parent="HowToPlayPopup/VBoxGuide"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn_mint")
+text = "GOT IT!"
