@@ -47,6 +47,7 @@ res://
 │   │   └── ChallengeDefinition.gd
 │   ├── ui/
 │   │   ├── MainMenu.gd
+│   │   ├── MainMenuCanvas.gd   (Neumorphic 3D background & emblem renderer)
 │   │   ├── GameScreen.gd
 │   │   ├── ChallengeView.gd
 │   │   ├── ChallengeCanvas.gd   (Dedicated native _draw() renderer)
@@ -65,8 +66,11 @@ res://
 │   ├── test_multiplayer_simulation.gd
 │   ├── test_ui_scene_flow.gd
 │   ├── test_challenge_rendering.gd
+│   ├── test_gameplay_depth.gd
 │   ├── CapturePreview.tscn
 │   ├── capture_visual_preview.gd
+│   ├── CaptureMenu.tscn
+│   ├── capture_menu_preview.gd
 │   └── real_network/
 │       ├── host_process.gd
 │       ├── client_process.gd
@@ -76,6 +80,7 @@ res://
     ├── ARCHITECTURE.md
     ├── TESTING.md
     └── screenshots/
+        ├── main_menu_tactile.png
         ├── challenge_estimation.png
         ├── challenge_comparison.png
         ├── challenge_color_target.png
@@ -155,6 +160,28 @@ Investigation of the rendering pipeline (`ChallengeGenerator` → `ChallengeDefi
 - Tactile feedback cards in `GameScreen`: `STREAK x2!`, `🔥 HOT STREAK x3+!`, `PERFECT RESTRAINT! +1000 PTS`.
 - Authoritative scores synchronized across host and client via network protocol.
 - Clean rematch reset restoring all match controller, score manager, streak, and timer state.
+
+### 4.3 Tactile Neumorphic Visual Identity & Main Screen
+- **Warm Butter (`#FAF5E8`) Base**: Tactile double-shadow styling (`neu-flat`, `neu-pressed`, `neu-btn`) with warm shadow tones (`#C3B89B`) and specular highlights (`#FFFFFF`).
+- **3D Sculpted Geometrics**: Floating procedural background shapes with 3D radial lighting:
+  - Top-Left: Large Cobalt sphere (`#2B52E2`) with specular glint.
+  - Top-Right: Coral red torus ring (`#FF5964`).
+  - Middle-Left: Lavender squircle (`#7C5CFC`), rotated 12°.
+  - Middle-Right: Canary yellow squircle (`#F4CB38`), rotated -12°.
+  - Bottom-Right: Oversized Tangerine sphere (`#FF6B35`).
+- **Central 3D SpotRush Artifact Emblem**:
+  - Rotating orbital dotted ring, concentric cobalt blue outer ring, recessed groove ring (`neu-pressed`), tilted coral ring overlay line, purple diamond squircle, and pulsing tangerine lightning sphere.
+  - Interactive collectible tokens: Vision Pulse (Eye) and Chrono Boost (Stopwatch) tokens.
+  - Dynamic multi-colored particle bursts on tap (`#2B52E2`, `#FF6B35`, `#FF5964`, `#7C5CFC`, `#F4CB38`).
+- **Tactile Console Action Controls**:
+  - `FRIENDS` tile with lavender badge.
+  - Hero `PLAY` button: Oversized 3D Cobalt console object with top bevel highlight and glow.
+  - `HOW TO` tile with tangerine badge.
+  - Recessed daily streak footer capsule (`🔥 DAILY STREAK • 5 DAYS`).
+- **Procedural Synthesized Sound Effects**:
+  - In-engine procedural PCM audio generator (sine chirps for clicks, rising triangle for play, dual arpeggios for correct, and buzz for faults) with 0 external audio file dependencies.
+- **Instant Playable Mini-Game**:
+  - 3x3 matrix odd-one-out spotting mini-game directly playable from the menu overlay with live timer and scoring.
 
 ---
 
