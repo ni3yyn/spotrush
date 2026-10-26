@@ -114,19 +114,24 @@ func _close_all_modals() -> void:
 	mini_game_overlay.visible = false
 	token_toast.modulate.a = 0.0
 
+var is_navigating: bool = false
+
 # --- NAVIGATION & ACTION HANDLERS ---
 
 func _on_solo_pressed() -> void:
+	if is_navigating:
+		return
+	is_navigating = true
+	btn_solo.disabled = true
 	play_sfx("play")
 	if main_canvas:
 		main_canvas.trigger_sparkles(btn_solo.global_position + (btn_solo.size * 0.5))
 		
-	# Tactile bounce transition before starting match
+	# Quick snappy tactile bounce transition before starting match
 	var tw = create_tween()
 	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(btn_solo, "scale", Vector2(0.94, 0.94), 0.08)
-	tw.tween_property(btn_solo, "scale", Vector2.ONE, 0.12)
-	tw.tween_interval(0.1)
+	tw.tween_property(btn_solo, "scale", Vector2(0.95, 0.95), 0.05)
+	tw.tween_property(btn_solo, "scale", Vector2.ONE, 0.08)
 	tw.tween_callback(func():
 		GameManager.start_single_player_match(selected_rounds)
 		SceneRouter.goto_game()

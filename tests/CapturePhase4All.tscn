@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cphase4all01"]
+
+[ext_resource type="Script" path="res://tests/capture_phase4_all.gd" id="1_cp4"]
+
+[node name="CapturePhase4All" type="Node"]
+script = ExtResource("1_cp4")

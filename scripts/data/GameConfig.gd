@@ -15,8 +15,8 @@ const MAX_ROUNDS: int = 20
 const DEFAULT_CHALLENGE_DURATION: float = 8.0
 const MIN_CHALLENGE_DURATION: float = 4.0
 const MAX_CHALLENGE_DURATION: float = 14.0
-const COUNTDOWN_DURATION: float = 1.5
-const ROUND_FEEDBACK_DURATION: float = 2.0
+const COUNTDOWN_DURATION: float = 0.8
+const ROUND_FEEDBACK_DURATION: float = 1.0
 
 # Scoring constants
 const BASE_CORRECT_SCORE: int = 1000

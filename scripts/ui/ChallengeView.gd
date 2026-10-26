@@ -62,9 +62,13 @@ func load_challenge(challenge: ChallengeDefinition) -> void:
 		
 	_setup_options()
 
+var auto_confirm_tween: Tween = null
+
 func lock_input() -> void:
 	_ensure_nodes()
 	is_input_locked = true
+	if auto_confirm_tween != null and auto_confirm_tween.is_valid():
+		auto_confirm_tween.kill()
 	if challenge_canvas != null:
 		challenge_canvas.is_interactive = false
 	if btn_action_done != null:
@@ -73,6 +77,31 @@ func lock_input() -> void:
 		for child in options_container.get_children():
 			if child is Button:
 				child.disabled = true
+
+var _cached_styles: Dictionary = {}
+
+func _get_cached_style(key: String, bg_col: Color, border_side: String = "", border_col: Color = Color.TRANSPARENT, border_w: int = 0) -> StyleBoxFlat:
+	if not _cached_styles.has(key):
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = bg_col
+		sb.set_corner_radius_all(14)
+		if border_side == "left":
+			sb.border_width_left = border_w
+			sb.border_color = border_col
+		elif border_side == "right":
+			sb.border_width_right = border_w
+			sb.border_color = border_col
+		elif border_side == "bottom":
+			sb.border_width_bottom = border_w
+			sb.border_color = border_col
+		elif border_side == "all":
+			sb.border_width_left = border_w
+			sb.border_width_right = border_w
+			sb.border_width_top = border_w
+			sb.border_width_bottom = border_w
+			sb.border_color = border_col
+		_cached_styles[key] = sb
+	return _cached_styles[key]
 
 func _setup_options() -> void:
 	_ensure_nodes()
@@ -97,48 +126,38 @@ func _setup_options() -> void:
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			btn.add_theme_font_size_override("font_size", 22)
 			
-			var style_normal = StyleBoxFlat.new()
-			var style_hover = StyleBoxFlat.new()
-			var style_pressed = StyleBoxFlat.new()
+			# Contextual button styling with cached StyleBoxFlat reuse
+			var style_normal: StyleBoxFlat
+			var style_hover: StyleBoxFlat
+			var style_pressed: StyleBoxFlat
 			
-			# Contextual button styling
 			if str(opt).to_upper() == "YES":
-				style_normal.bg_color = GameConfig.COLOR_MINT
-				style_hover.bg_color = GameConfig.COLOR_MINT_HOVER
-				style_pressed.bg_color = Color("85E2A9")
+				style_normal = _get_cached_style("yes_norm", GameConfig.COLOR_MINT)
+				style_hover = _get_cached_style("yes_hov", GameConfig.COLOR_MINT_HOVER)
+				style_pressed = _get_cached_style("yes_press", Color("85E2A9"))
 				btn.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
 			elif str(opt).to_upper() == "NO":
-				style_normal.bg_color = GameConfig.COLOR_ACCENT_RED
-				style_hover.bg_color = Color("FB7185")
-				style_pressed.bg_color = Color("E11D48")
+				style_normal = _get_cached_style("no_norm", GameConfig.COLOR_ACCENT_RED)
+				style_hover = _get_cached_style("no_hov", Color("FB7185"))
+				style_pressed = _get_cached_style("no_press", Color("E11D48"))
 				btn.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
 			elif str(opt).to_upper() == "LEFT":
-				style_normal.bg_color = GameConfig.COLOR_SURFACE
-				style_normal.border_width_left = 3
-				style_normal.border_color = GameConfig.COLOR_MINT
-				style_hover.bg_color = GameConfig.COLOR_SURFACE_LIGHT
-				style_pressed.bg_color = GameConfig.COLOR_MINT
+				style_normal = _get_cached_style("left_norm", GameConfig.COLOR_SURFACE, "left", GameConfig.COLOR_MINT, 3)
+				style_hover = _get_cached_style("left_hov", GameConfig.COLOR_SURFACE_LIGHT)
+				style_pressed = _get_cached_style("left_press", GameConfig.COLOR_MINT)
 				btn.add_theme_color_override("font_color", GameConfig.COLOR_MINT)
 			elif str(opt).to_upper() == "RIGHT":
-				style_normal.bg_color = GameConfig.COLOR_SURFACE
-				style_normal.border_width_right = 3
-				style_normal.border_color = GameConfig.COLOR_ACCENT_YELLOW
-				style_hover.bg_color = GameConfig.COLOR_SURFACE_LIGHT
-				style_pressed.bg_color = GameConfig.COLOR_ACCENT_YELLOW
+				style_normal = _get_cached_style("right_norm", GameConfig.COLOR_SURFACE, "right", GameConfig.COLOR_ACCENT_YELLOW, 3)
+				style_hover = _get_cached_style("right_hov", GameConfig.COLOR_SURFACE_LIGHT)
+				style_pressed = _get_cached_style("right_press", GameConfig.COLOR_ACCENT_YELLOW)
 				btn.add_theme_color_override("font_color", GameConfig.COLOR_ACCENT_YELLOW)
 			else:
 				# Estimation numerical choices
-				style_normal.bg_color = GameConfig.COLOR_SURFACE
-				style_normal.border_width_bottom = 3
-				style_normal.border_color = GameConfig.COLOR_MINT
-				style_hover.bg_color = GameConfig.COLOR_SURFACE_LIGHT
-				style_pressed.bg_color = GameConfig.COLOR_MINT
+				style_normal = _get_cached_style("num_norm", GameConfig.COLOR_SURFACE, "bottom", GameConfig.COLOR_MINT, 3)
+				style_hover = _get_cached_style("num_hov", GameConfig.COLOR_SURFACE_LIGHT)
+				style_pressed = _get_cached_style("num_press", GameConfig.COLOR_MINT)
 				btn.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
 				
-			style_normal.set_corner_radius_all(14)
-			style_hover.set_corner_radius_all(14)
-			style_pressed.set_corner_radius_all(14)
-			
 			btn.add_theme_stylebox_override("normal", style_normal)
 			btn.add_theme_stylebox_override("hover", style_hover)
 			btn.add_theme_stylebox_override("pressed", style_pressed)
@@ -156,26 +175,18 @@ func _setup_options() -> void:
 	elif current_challenge.input_mode == "withhold_response":
 		if btn_action_done != null:
 			btn_action_done.visible = true
+			btn_action_done.disabled = false
 			var should_withhold = current_challenge.visual_data.get("should_withhold", false)
 			if should_withhold:
-				btn_action_done.disabled = true
-				btn_action_done.text = "⛔ INHIBIT ACTION — WAIT FOR TIMER"
-				var style_inhibit = StyleBoxFlat.new()
-				style_inhibit.bg_color = Color("381A1A")
-				style_inhibit.border_width_left = 2
-				style_inhibit.border_width_right = 2
-				style_inhibit.border_color = Color("EF4444", 0.6)
-				style_inhibit.set_corner_radius_all(14)
+				btn_action_done.text = "⛔ HOLD RESTRAINT — DO NOT TAP!"
+				var style_inhibit = _get_cached_style("inhibit", Color("2A1616"), "all", Color("EF4444", 0.8), 2)
 				btn_action_done.add_theme_stylebox_override("normal", style_inhibit)
-				btn_action_done.add_theme_stylebox_override("disabled", style_inhibit)
+				btn_action_done.add_theme_stylebox_override("hover", style_inhibit)
+				btn_action_done.add_theme_stylebox_override("pressed", style_inhibit)
 				btn_action_done.add_theme_color_override("font_color", Color("FCA5A5"))
-				btn_action_done.add_theme_color_override("font_disabled_color", Color("FCA5A5"))
 			else:
-				btn_action_done.disabled = false
-				btn_action_done.text = "⚡ TAP FAST NOW!"
-				var style_tap = StyleBoxFlat.new()
-				style_tap.bg_color = GameConfig.COLOR_MINT
-				style_tap.set_corner_radius_all(14)
+				btn_action_done.text = "⚡ ALL CLEAR — TAP FAST NOW!"
+				var style_tap = _get_cached_style("tap_clear", GameConfig.COLOR_MINT)
 				btn_action_done.add_theme_stylebox_override("normal", style_tap)
 				btn_action_done.add_theme_stylebox_override("hover", style_tap)
 				btn_action_done.add_theme_stylebox_override("pressed", style_tap)
@@ -186,19 +197,21 @@ func _update_action_done_label() -> void:
 		return
 	var target_count = current_challenge.visual_data.get("target_count", 0)
 	if target_count > 0:
-		btn_action_done.text = "CONFIRM SELECTIONS (%d / %d TARGETS)" % [tapped_indices.size(), target_count]
 		var style = StyleBoxFlat.new()
 		style.set_corner_radius_all(14)
 		if tapped_indices.size() >= target_count:
+			btn_action_done.text = "✓ CONFIRM ALL %d TARGETS" % target_count
 			style.bg_color = GameConfig.COLOR_MINT
 			btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_DEEP_GREEN)
 		else:
+			btn_action_done.text = "CONFIRM SELECTIONS (%d / %d TARGETS)" % [tapped_indices.size(), target_count]
 			style.bg_color = GameConfig.COLOR_SURFACE_LIGHT
 			style.border_width_left = 2
 			style.border_width_right = 2
 			style.border_color = GameConfig.COLOR_MINT
 			btn_action_done.add_theme_color_override("font_color", GameConfig.COLOR_TEXT_LIGHT)
 		btn_action_done.add_theme_stylebox_override("normal", style)
+		btn_action_done.add_theme_stylebox_override("hover", style)
 	else:
 		btn_action_done.text = "CONFIRM SELECTIONS"
 
@@ -210,8 +223,8 @@ func _on_option_button_pressed(val: Variant, btn: Button = null) -> void:
 	if btn != null:
 		var tw = create_tween()
 		tw.set_trans(Tween.TRANS_QUAD)
-		tw.tween_property(btn, "scale", Vector2(0.96, 0.96), 0.08)
-		tw.tween_property(btn, "scale", Vector2(1.0, 1.0), 0.08)
+		tw.tween_property(btn, "scale", Vector2(0.95, 0.95), 0.05)
+		tw.tween_property(btn, "scale", Vector2.ONE, 0.07)
 		
 	option_selected.emit(val)
 
@@ -237,10 +250,14 @@ func _on_canvas_item_tapped(index: int, _item: Dictionary) -> void:
 		# Auto-confirm when all expected targets have been discovered
 		var target_count = current_challenge.visual_data.get("target_count", 0)
 		if target_count > 0 and tapped_indices.size() >= target_count:
-			# Short delay for visual satisfaction of the last checkmark
-			var tw = create_tween()
-			tw.tween_interval(0.18)
-			tw.tween_callback(func(): _on_action_done_pressed())
+			if auto_confirm_tween != null and auto_confirm_tween.is_valid():
+				auto_confirm_tween.kill()
+			auto_confirm_tween = create_tween()
+			auto_confirm_tween.tween_interval(0.15)
+			auto_confirm_tween.tween_callback(func():
+				if not is_input_locked:
+					_on_action_done_pressed()
+			)
 
 func _on_canvas_side_tapped(side_name: String) -> void:
 	if is_input_locked or current_challenge == null:

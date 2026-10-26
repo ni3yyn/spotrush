@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://b1m7menu0001"]
+[gd_scene load_steps=15 format=3 uid="uid://b1m7menu0001"]
 
 [ext_resource type="Script" path="res://scripts/ui/MainMenu.gd" id="1_menu"]
 [ext_resource type="Script" path="res://scripts/ui/MainMenuCanvas.gd" id="2_canvas"]
@@ -7,50 +7,61 @@
 bg_color = Color(0.980392, 0.960784, 0.909804, 1)
 border_width_left = 2
 border_width_top = 2
-border_color = Color(1, 1, 1, 0.95)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
-shadow_color = Color(0.764706, 0.721569, 0.607843, 0.6)
-shadow_size = 8
-shadow_offset = Vector2(4, 6)
-
-[sub_resource type="StyleBoxFlat" id="StyleBox_neu_pressed"]
-bg_color = Color(0.952941, 0.92549, 0.862745, 1)
-border_width_left = 2
-border_width_top = 2
-border_color = Color(0.72549, 0.67451, 0.556863, 0.65)
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.9)
 corner_radius_top_left = 24
 corner_radius_top_right = 24
 corner_radius_bottom_right = 24
 corner_radius_bottom_left = 24
+shadow_color = Color(0.745, 0.698, 0.58, 0.6)
+shadow_size = 12
+shadow_offset = Vector2(5, 8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_neu_pressed"]
+bg_color = Color(0.953, 0.925, 0.863, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.72, 0.675, 0.557, 0.55)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0.72, 0.675, 0.557, 0.25)
+shadow_size = 4
+shadow_offset = Vector2(-3, -3)
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_hero_play"]
 bg_color = Color(0.168627, 0.321569, 0.886275, 1)
 border_width_left = 2
 border_width_top = 3
-border_color = Color(0.482353, 0.647059, 1, 0.85)
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.482353, 0.647059, 1, 0.5)
 corner_radius_top_left = 24
 corner_radius_top_right = 24
 corner_radius_bottom_right = 24
 corner_radius_bottom_left = 24
 shadow_color = Color(0.168627, 0.321569, 0.886275, 0.45)
-shadow_size = 14
-shadow_offset = Vector2(0, 8)
+shadow_size = 16
+shadow_offset = Vector2(0, 10)
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_hero_hover"]
 bg_color = Color(0.227451, 0.388235, 0.972549, 1)
 border_width_left = 2
 border_width_top = 3
-border_color = Color(0.7, 0.82, 1, 0.95)
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.7, 0.82, 1, 0.6)
 corner_radius_top_left = 24
 corner_radius_top_right = 24
 corner_radius_bottom_right = 24
 corner_radius_bottom_left = 24
 shadow_color = Color(0.168627, 0.321569, 0.886275, 0.55)
-shadow_size = 18
-shadow_offset = Vector2(0, 10)
+shadow_size = 20
+shadow_offset = Vector2(0, 12)
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_modal_card"]
 bg_color = Color(0.980392, 0.960784, 0.909804, 1)
@@ -109,6 +120,19 @@ corner_radius_top_right = 18
 corner_radius_bottom_right = 18
 corner_radius_bottom_left = 18
 
+[sub_resource type="StyleBoxFlat" id="StyleBox_streak_pill"]
+bg_color = Color(0.943137, 0.913725, 0.847059, 1)
+border_width_left = 2
+border_width_top = 2
+border_color = Color(0.72549, 0.67451, 0.556863, 0.5)
+corner_radius_top_left = 50
+corner_radius_top_right = 50
+corner_radius_bottom_right = 50
+corner_radius_bottom_left = 50
+shadow_color = Color(0.7, 0.66, 0.56, 0.35)
+shadow_size = 5
+shadow_offset = Vector2(3, 4)
+
 [node name="MainMenu" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -137,41 +161,42 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 28
-theme_override_constants/margin_right = 24
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 24
 
 [node name="VBoxMain" type="VBoxContainer" parent="SafeArea"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 0
 
 [node name="HeaderBar" type="HBoxContainer" parent="SafeArea/VBoxMain"]
 layout_mode = 2
-theme_override_constants/separation = 14
-alignment = 1
+theme_override_constants/separation = 10
 
 [node name="BtnProfile" type="Button" parent="SafeArea/VBoxMain/HeaderBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(50, 50)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
 theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")
 theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+theme_override_styles/pressed = SubResource("StyleBox_neu_pressed")
 text = "👤"
 
 [node name="CapsuleArcade" type="PanelContainer" parent="SafeArea/VBoxMain/HeaderBar"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("StyleBox_neu_pressed")
 
 [node name="Margin" type="MarginContainer" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
+theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 14
+theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 8
 
 [node name="HBoxCapsule" type="HBoxContainer" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade/Margin"]
@@ -188,28 +213,31 @@ text = "⚡"
 [node name="LblArcade" type="Label" parent="SafeArea/VBoxMain/HeaderBar/CapsuleArcade/Margin/HBoxCapsule"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "SPOTRUSH ARCADE"
 horizontal_alignment = 1
 
 [node name="BtnSettings" type="Button" parent="SafeArea/VBoxMain/HeaderBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(50, 50)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
 theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")
 theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+theme_override_styles/pressed = SubResource("StyleBox_neu_pressed")
 text = "⚙"
 
 [node name="EmblemSpacer" type="Control" parent="SafeArea/VBoxMain"]
+custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
 size_flags_vertical = 3
+size_flags_stretch_ratio = 3.0
 mouse_filter = 2
 
 [node name="TitleContainer" type="VBoxContainer" parent="SafeArea/VBoxMain"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme_override_constants/separation = 4
 alignment = 1
 
 [node name="TitleText" type="RichTextLabel" parent="SafeArea/VBoxMain/TitleContainer"]
@@ -217,27 +245,33 @@ layout_mode = 2
 bbcode_enabled = true
 text = "[center][b][color=#1E2432]SPOT[/color][color=#FF6B35]RUSH[/color][/b][/center]"
 fit_content = true
-theme_override_font_sizes/bold_font_size = 46
+theme_override_font_sizes/bold_font_size = 40
 
 [node name="SubtitleText" type="Label" parent="SafeArea/VBoxMain/TitleContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.392157, 0.454902, 0.545098, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "THINK FAST. SPOT FASTER."
 horizontal_alignment = 1
 
+[node name="Spacer1" type="Control" parent="SafeArea/VBoxMain"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+mouse_filter = 2
+
 [node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBoxMain"]
-custom_minimum_size = Vector2(0, 86)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
 [node name="BtnMultiplayer" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 84)
+custom_minimum_size = Vector2(96, 80)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")
 theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+theme_override_styles/pressed = SubResource("StyleBox_neu_pressed")
 
 [node name="VBox" type="VBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer"]
 layout_mode = 1
@@ -247,11 +281,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 alignment = 1
 
 [node name="Badge" type="PanelContainer" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/VBox"]
-custom_minimum_size = Vector2(36, 36)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -260,7 +294,7 @@ theme_override_styles/panel = SubResource("StyleBox_lavender_circle")
 [node name="Icon" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/VBox/Badge"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.486275, 0.360784, 0.988235, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 15
 text = "👥"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -268,13 +302,13 @@ vertical_alignment = 1
 [node name="Lbl" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "FRIENDS"
 horizontal_alignment = 1
 
 [node name="BtnSolo" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(160, 84)
+custom_minimum_size = Vector2(150, 72)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("StyleBox_hero_play")
@@ -289,13 +323,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 1
+theme_override_constants/separation = 2
 alignment = 1
 
 [node name="HBox" type="HBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 alignment = 1
 
 [node name="PlayIcon" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox/HBox"]
@@ -308,7 +342,7 @@ horizontal_alignment = 1
 [node name="PlayText" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/VBox/HBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 26
 text = "PLAY"
 horizontal_alignment = 1
 
@@ -321,10 +355,11 @@ horizontal_alignment = 1
 
 [node name="BtnHowToPlay" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 84)
+custom_minimum_size = Vector2(96, 80)
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")
 theme_override_styles/hover = SubResource("StyleBox_neu_btn")
+theme_override_styles/pressed = SubResource("StyleBox_neu_pressed")
 
 [node name="VBox" type="VBoxContainer" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay"]
 layout_mode = 1
@@ -334,11 +369,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 alignment = 1
 
 [node name="Badge" type="PanelContainer" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/VBox"]
-custom_minimum_size = Vector2(36, 36)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
@@ -347,7 +382,7 @@ theme_override_styles/panel = SubResource("StyleBox_tangerine_circle")
 [node name="Icon" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/VBox/Badge"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.419608, 0.207843, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 15
 text = "❓"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -355,24 +390,33 @@ vertical_alignment = 1
 [node name="Lbl" type="Label" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 text = "HOW TO"
 horizontal_alignment = 1
+
+[node name="BottomSpacer" type="Control" parent="SafeArea/VBoxMain"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
+mouse_filter = 2
 
 [node name="FooterBar" type="HBoxContainer" parent="SafeArea/VBoxMain"]
 layout_mode = 2
 alignment = 1
+theme_override_constants/separation = 0
 
 [node name="BtnStreak" type="Button" parent="SafeArea/VBoxMain/FooterBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(280, 46)
+custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.419608, 0.207843, 1)
-theme_override_font_sizes/font_size = 13
-theme_override_styles/normal = SubResource("StyleBox_neu_pressed")
-theme_override_styles/hover = SubResource("StyleBox_neu_pressed")
-text = "🔥  DAILY STREAK  •  5 DAYS"
+theme_override_colors/font_color = Color(0.392157, 0.454902, 0.545098, 1)
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleBox_streak_pill")
+theme_override_styles/hover = SubResource("StyleBox_streak_pill")
+theme_override_styles/pressed = SubResource("StyleBox_streak_pill")
+text = "🔥  DAILY STREAK   5 DAYS"
 
 [node name="TokenToast" type="Label" parent="."]
 unique_name_in_owner = true
@@ -696,12 +740,10 @@ text = "15"
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 14
-theme_override_styles/normal = SubResource("StyleBox_modal_card")
-theme_override_styles/hover = SubResource("StyleBox_modal_card")
-theme_override_styles/pressed = SubResource("StyleBox_modal_card")
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBox_neu_btn")
+theme_override_styles/hover = SubResource("StyleBox_neu_btn")
 text = "SAVE & CLOSE"
 
 [node name="ModalProfile" type="PanelContainer" parent="."]

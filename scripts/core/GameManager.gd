@@ -33,12 +33,16 @@ func _process(delta: float) -> void:
 			var rem = maxf(0.0, match_controller.round_duration - match_controller.round_timer)
 			ui_time_tick.emit(rem, match_controller.round_duration)
 
+var has_submitted_current_round: bool = false
+
 func start_single_player_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS) -> void:
+	has_submitted_current_round = false
 	current_game_mode = GameConfig.GameMode.SINGLE_PLAYER
 	match_controller.initialize_match(current_game_mode, rounds, [1])
 	match_controller.start_match()
 
 func start_multiplayer_host_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS) -> void:
+	has_submitted_current_round = false
 	current_game_mode = GameConfig.GameMode.MULTIPLAYER_HOST
 	var peers: Array[int] = [1]
 	for p in NetworkSession.connected_peers:
@@ -53,6 +57,10 @@ func start_multiplayer_host_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS)
 	match_controller.start_match()
 
 func submit_answer(answer: Variant) -> void:
+	if has_submitted_current_round:
+		return
+	has_submitted_current_round = true
+	
 	if current_game_mode == GameConfig.GameMode.SINGLE_PLAYER or current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 		match_controller.submit_player_answer(1, answer)
 	elif current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
@@ -61,7 +69,12 @@ func submit_answer(answer: Variant) -> void:
 			"answer": answer
 		})
 
+func skip_feedback() -> void:
+	if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
+		match_controller.skip_feedback()
+
 func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void:
+	has_submitted_current_round = false
 	ui_countdown_started.emit(round_num, total_rounds)
 	if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 		NetworkSession.send_to_all(NetworkProtocol.MSG_COUNTDOWN_START, {
@@ -70,6 +83,7 @@ func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void
 		})
 
 func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
+	has_submitted_current_round = false
 	ui_round_started.emit(round_num, challenge, duration)
 	if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 		NetworkSession.send_to_all(NetworkProtocol.MSG_ROUND_START, {
@@ -134,6 +148,7 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 			ui_countdown_started.emit(rnum, tot)
 
 		NetworkProtocol.MSG_ROUND_START:
+			has_submitted_current_round = false
 			var rnum = data.get("round_num", 1)
 			var dur = float(data.get("duration", 8.0))
 			var ch_dict = data.get("challenge", {})

@@ -42,6 +42,22 @@ content_margin_top = 32.0
 content_margin_right = 32.0
 content_margin_bottom = 32.0
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_streak"]
+bg_color = Color(0.956863, 0.796078, 0.219608, 0.2)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.956863, 0.796078, 0.219608, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 10.0
+content_margin_top = 3.0
+content_margin_right = 10.0
+content_margin_bottom = 3.0
+
 [node name="GameScreen" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -82,35 +98,61 @@ theme_override_constants/separation = 10
 
 [node name="TopRow" type="HBoxContainer" parent="SafeArea/VBoxMain/HUD"]
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="LblRound" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "ROUND 1 / 10"
+
+[node name="LblStreak" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.956863, 0.796078, 0.219608, 1)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_streak")
+text = "🔥 x2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LblTimer" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_font_sizes/font_size = 18
+text = "8.0s"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="LblScoreP1" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "SCORE: 0"
 horizontal_alignment = 2
+vertical_alignment = 1
 
 [node name="LblScoreP2" type="Label" parent="SafeArea/VBoxMain/HUD/TopRow"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.580392, 0.639216, 0.721569, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "OPPONENT: 0"
 horizontal_alignment = 2
+vertical_alignment = 1
 
 [node name="TimerBar" type="ProgressBar" parent="SafeArea/VBoxMain/HUD"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 10)
+custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_timer_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_timer_fill")

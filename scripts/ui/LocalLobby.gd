@@ -90,10 +90,22 @@ func _on_server_disconnected() -> void:
 	lbl_join_status.text = "Host disconnected."
 	btn_connect.disabled = false
 
+var is_navigating: bool = false
+
 func _on_launch_match_pressed() -> void:
+	if is_navigating:
+		return
+	is_navigating = true
+	btn_launch_match.disabled = true
+	btn_back.disabled = true
 	GameManager.start_multiplayer_host_match(10)
 	SceneRouter.goto_game()
 
 func _on_back_pressed() -> void:
+	if is_navigating:
+		return
+	is_navigating = true
+	btn_launch_match.disabled = true
+	btn_back.disabled = true
 	NetworkSession.disconnect_session()
 	SceneRouter.goto_main_menu()

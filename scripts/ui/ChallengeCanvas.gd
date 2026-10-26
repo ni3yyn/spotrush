@@ -7,9 +7,9 @@ signal side_tapped(side_name: String)
 var current_challenge: ChallengeDefinition = null
 var tapped_indices: Array[int] = []
 var is_interactive: bool = true
+var selected_side: String = ""
 
 # Animation state
-var pulse_time: float = 0.0
 var entrance_tween: Tween = null
 
 # Visual Styling Tokens
@@ -27,17 +27,13 @@ func _ready() -> void:
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
-func _process(delta: float) -> void:
-	pulse_time += delta
-	# Subtle pulse for inhibit/withhold challenge trigger items or active rounds
-	if current_challenge != null and current_challenge.input_mode == "withhold_response":
-		queue_redraw()
+
 
 func set_challenge(challenge: ChallengeDefinition) -> void:
 	current_challenge = challenge
 	tapped_indices.clear()
+	selected_side = ""
 	is_interactive = true
-	pulse_time = 0.0
 	
 	queue_redraw()
 	
@@ -84,8 +80,12 @@ func _gui_input(event: InputEvent) -> void:
 	if current_challenge.visual_data.get("split_view", false):
 		var mid_x = size.x * 0.5
 		if click_pos.x < mid_x:
+			selected_side = "LEFT"
+			queue_redraw()
 			side_tapped.emit("LEFT")
 		else:
+			selected_side = "RIGHT"
+			queue_redraw()
 			side_tapped.emit("RIGHT")
 		return
 		
@@ -136,8 +136,22 @@ func _draw_split_view(pad: float, play_w: float, play_h: float) -> void:
 	# Draw subtle background shading for left and right comparison zones
 	var left_zone = Rect2(pad * 0.5, pad * 0.5, mid_x - (pad * 0.5) - 4.0, size.y - pad)
 	var right_zone = Rect2(mid_x + 4.0, pad * 0.5, (size.x - mid_x) - (pad * 0.5) - 4.0, size.y - pad)
-	draw_rect(left_zone, Color(0.133, 0.208, 0.173, 0.4), true, -1.0)
-	draw_rect(right_zone, Color(0.133, 0.208, 0.173, 0.4), true, -1.0)
+	
+	# Draw zone fills with selected side tactile feedback
+	var left_fill = Color(0.133, 0.208, 0.173, 0.4)
+	if selected_side == "LEFT":
+		left_fill = Color(0.66, 0.94, 0.78, 0.18)
+	var right_fill = Color(0.133, 0.208, 0.173, 0.4)
+	if selected_side == "RIGHT":
+		right_fill = Color(0.98, 0.75, 0.14, 0.18)
+		
+	draw_rect(left_zone, left_fill, true, -1.0)
+	draw_rect(right_zone, right_fill, true, -1.0)
+	
+	if selected_side == "LEFT":
+		draw_rect(left_zone, COLOR_MINT, false, 2.5)
+	elif selected_side == "RIGHT":
+		draw_rect(right_zone, GameConfig.COLOR_ACCENT_YELLOW, false, 2.5)
 	
 	# Draw glowing dividing line
 	draw_line(Vector2(mid_x, pad + 10.0), Vector2(mid_x, size.y - pad - 10.0), COLOR_DIVIDER, 3.0, true)
@@ -184,12 +198,11 @@ func _draw_shape_item(center: Vector2, it: Dictionary, is_tapped: bool) -> void:
 	var col = _resolve_color(it.get("color", "MINT"))
 	var shape = it.get("shape", "circle")
 	
-	# Subtle breathing pulse and warning aura for Don't Tap trigger items
+	# Prominent warning halo for Don't Tap trigger items
 	if current_challenge.input_mode == "withhold_response" and it.get("color", "") == "RED":
-		var pulse_scale = 1.0 + (sin(pulse_time * 6.0) * 0.1)
-		sz *= pulse_scale
-		var aura_col = Color(0.96, 0.25, 0.37, 0.35 + (sin(pulse_time * 6.0) * 0.15))
-		draw_arc(center, sz * 0.75, 0, TAU, 32, aura_col, 2.5, true)
+		var aura_col = Color(0.96, 0.25, 0.37, 0.45)
+		draw_arc(center, sz * 0.82, 0, TAU, 32, aura_col, 2.5, true)
+		draw_arc(center, sz * 0.96, 0, TAU, 32, Color(0.96, 0.25, 0.37, 0.2), 1.5, true)
 		
 	# Draw drop shadow for tactile depth
 	_draw_shape_primitive(shape, center + Vector2(0, 3.0), sz, COLOR_SHADOW)
@@ -256,10 +269,10 @@ func _draw_shape_outline(shape: String, center: Vector2, sz: float, col: Color, 
 			draw_arc(center, sz * 0.5, 0, TAU, 32, col, width, true)
 
 func _draw_checkmark(center: Vector2, sz: float, col: Color) -> void:
-	var p1 = center + Vector2(-sz * 0.45, -sz * 0.05)
+	var p1 = center + Vector2(-sz * 0.45, 0.0)
 	var p2 = center + Vector2(-sz * 0.1, sz * 0.35)
 	var p3 = center + Vector2(sz * 0.45, -sz * 0.35)
-	draw_polyline(PackedVector2Array([p1, p2, p3]), col, maxf(3.0, sz * 0.22), true)
+	draw_polyline(PackedVector2Array([p1, p2, p3]), col, maxf(3.5, sz * 0.28), true)
 
 func _resolve_color(col_name: String) -> Color:
 	match col_name.to_upper():

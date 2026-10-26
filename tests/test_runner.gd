@@ -9,6 +9,7 @@ const TestMultiplayerSimulation = preload("res://tests/test_multiplayer_simulati
 const TestUiSceneFlow = preload("res://tests/test_ui_scene_flow.gd")
 const TestChallengeRendering = preload("res://tests/test_challenge_rendering.gd")
 const TestGameplayDepth = preload("res://tests/test_gameplay_depth.gd")
+const TestPhase4Experience = preload("res://tests/test_phase4_experience.gd")
 
 func _ready() -> void:
 	print("\n==========================================")
@@ -28,7 +29,8 @@ func _ready() -> void:
 		TestMultiplayerSimulation.run_all_tests(),
 		TestUiSceneFlow.run_all_tests(),
 		TestChallengeRendering.run_all_tests(),
-		TestGameplayDepth.run_all_tests()
+		TestGameplayDepth.run_all_tests(),
+		TestPhase4Experience.run_all_tests()
 	]
 	
 	for suite in suites:

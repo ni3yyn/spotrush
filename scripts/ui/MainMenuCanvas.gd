@@ -159,10 +159,10 @@ func _draw_background_geometrics(w: float, h: float) -> void:
 	_draw_3d_sphere(pos_e, w * 0.32, COLOR_TANGERINE, COLOR_TANGERINE_LIGHT, COLOR_TANGERINE_DARK)
 
 func _draw_central_emblem(w: float, h: float) -> void:
-	# Emblem is centered vertically around upper-middle (38% of screen height)
-	emblem_center = Vector2(w * 0.5, h * 0.38) + tilt_offset
+	# Emblem is centered within the upper spacer region (~33% of screen height)
+	emblem_center = Vector2(w * 0.5, h * 0.33) + tilt_offset
 	var ec = emblem_center
-	var base_r = minf(w, h) * 0.20 * emblem_pulse_scale
+	var base_r = minf(w, h) * 0.22 * emblem_pulse_scale
 	
 	# 1. Orbital Dotted/Dashed Ring (Slow continuous spin)
 	var spin_angle = anim_time * 0.35

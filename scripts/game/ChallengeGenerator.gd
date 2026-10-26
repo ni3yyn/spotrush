@@ -125,19 +125,29 @@ static func generate_estimation_count(rng: RandomNumberGenerator, round_idx: int
 		cluster_centers.append(Vector2(rng.randf_range(0.25, 0.75), rng.randf_range(0.25, 0.75)))
 		
 	for i in range(actual_count):
-		var pos: Vector2
-		if not cluster_centers.is_empty() and rng.randf() < 0.45:
-			# Cluster placement
-			var center_pt = cluster_centers[rng.randi_range(0, cluster_centers.size() - 1)]
-			var angle = rng.randf_range(0.0, TAU)
-			var rad = rng.randf_range(0.04, 0.14)
-			pos = Vector2(
-				clampf(center_pt.x + (cos(angle) * rad), 0.1, 0.9),
-				clampf(center_pt.y + (sin(angle) * rad), 0.12, 0.88)
-			)
-		else:
-			# Uniform scatter
-			pos = Vector2(rng.randf_range(0.1, 0.9), rng.randf_range(0.12, 0.88))
+		var pos: Vector2 = Vector2.ZERO
+		var attempts = 0
+		var found_pos = false
+		while attempts < 35 and not found_pos:
+			attempts += 1
+			if not cluster_centers.is_empty() and rng.randf() < 0.45:
+				var center_pt = cluster_centers[rng.randi_range(0, cluster_centers.size() - 1)]
+				var angle = rng.randf_range(0.0, TAU)
+				var rad = rng.randf_range(0.04, 0.14)
+				pos = Vector2(
+					clampf(center_pt.x + (cos(angle) * rad), 0.1, 0.9),
+					clampf(center_pt.y + (sin(angle) * rad), 0.12, 0.88)
+				)
+			else:
+				pos = Vector2(rng.randf_range(0.1, 0.9), rng.randf_range(0.12, 0.88))
+				
+			var too_close = false
+			for prev in items:
+				if pos.distance_to(Vector2(prev["x"], prev["y"])) < 0.048:
+					too_close = true
+					break
+			if not too_close:
+				found_pos = true
 			
 		var size_min = 16.0 if difficulty <= 2 else 13.0
 		var size_max = 24.0 if difficulty <= 2 else 26.0
@@ -204,9 +214,22 @@ static func generate_side_comparison(rng: RandomNumberGenerator, round_idx: int,
 	
 	var left_items: Array = []
 	for i in range(count_a):
+		var pos = Vector2.ZERO
+		var attempts = 0
+		var found = false
+		while attempts < 30 and not found:
+			attempts += 1
+			pos = Vector2(rng.randf_range(0.08, 0.42), rng.randf_range(0.16, 0.84))
+			var too_close = false
+			for prev in left_items:
+				if pos.distance_to(Vector2(prev["x"], prev["y"])) < 0.042:
+					too_close = true
+					break
+			if not too_close:
+				found = true
 		left_items.append({
-			"x": rng.randf_range(0.08, 0.42),
-			"y": rng.randf_range(0.16, 0.84),
+			"x": pos.x,
+			"y": pos.y,
 			"size": dot_size,
 			"color": "MINT",
 			"shape": "circle"
@@ -214,9 +237,22 @@ static func generate_side_comparison(rng: RandomNumberGenerator, round_idx: int,
 		
 	var right_items: Array = []
 	for i in range(count_b):
+		var pos = Vector2.ZERO
+		var attempts = 0
+		var found = false
+		while attempts < 30 and not found:
+			attempts += 1
+			pos = Vector2(rng.randf_range(0.58, 0.92), rng.randf_range(0.16, 0.84))
+			var too_close = false
+			for prev in right_items:
+				if pos.distance_to(Vector2(prev["x"], prev["y"])) < 0.042:
+					too_close = true
+					break
+			if not too_close:
+				found = true
 		right_items.append({
-			"x": rng.randf_range(0.58, 0.92),
-			"y": rng.randf_range(0.16, 0.84),
+			"x": pos.x,
+			"y": pos.y,
 			"size": dot_size,
 			"color": "MINT",
 			"shape": "circle"

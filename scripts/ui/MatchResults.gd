@@ -14,6 +14,15 @@ func _ready() -> void:
 	btn_menu.pressed.connect(_on_menu_pressed)
 	
 	_populate_results()
+	
+	var card = get_node_or_null("SafeArea/VBoxMain/ResultsCard")
+	if card != null:
+		card.pivot_offset = card.size * 0.5
+		card.scale = Vector2(0.92, 0.92)
+		card.modulate.a = 0.5
+		var tw = create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.22)
+		tw.tween_property(card, "modulate:a", 1.0, 0.16)
 
 func _populate_results() -> void:
 	var results = GameManager.last_match_results
@@ -77,7 +86,15 @@ func _populate_results() -> void:
 	else:
 		lbl_best_round.text = "Best Round: N/A"
 
+var is_navigating: bool = false
+
 func _on_rematch_pressed() -> void:
+	if is_navigating:
+		return
+	is_navigating = true
+	btn_rematch.disabled = true
+	btn_menu.disabled = true
+	
 	if GameManager.current_game_mode == GameConfig.GameMode.SINGLE_PLAYER:
 		GameManager.start_single_player_match(GameManager.match_controller.total_rounds)
 		SceneRouter.goto_game()
@@ -87,7 +104,14 @@ func _on_rematch_pressed() -> void:
 	elif GameManager.current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
 		# Wait for host to restart or return to lobby
 		lbl_outcome.text = "WAITING FOR HOST..."
+		is_navigating = false
+		btn_menu.disabled = false
 
 func _on_menu_pressed() -> void:
+	if is_navigating:
+		return
+	is_navigating = true
+	btn_rematch.disabled = true
+	btn_menu.disabled = true
 	NetworkSession.disconnect_session()
 	SceneRouter.goto_main_menu()

@@ -41,6 +41,12 @@ func initialize_match(mode: GameConfig.GameMode, rounds: int = GameConfig.DEFAUL
 	player_ids = p_player_ids
 	
 	score_manager.reset()
+	round_submissions.clear()
+	current_challenge = null
+	round_timer = 0.0
+	countdown_timer = 0.0
+	feedback_timer = 0.0
+	
 	for pid in player_ids:
 		var pname = "Player 1 (You)" if pid == 1 else "Player 2"
 		if game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT and pid == 1:
@@ -175,6 +181,10 @@ func _end_round_with_feedback() -> void:
 		scores[pid] = score_manager.get_player_score(pid)
 		
 	round_ended.emit(current_round_index + 1, scores)
+
+func skip_feedback() -> void:
+	if current_state == MatchState.FEEDBACK:
+		_advance_after_feedback()
 
 func _advance_after_feedback() -> void:
 	current_round_index += 1
