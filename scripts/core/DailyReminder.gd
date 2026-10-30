@@ -56,7 +56,7 @@ const PLUGIN_CHANNEL_SCRIPT := "res://addons/NotificationSchedulerPlugin/model/N
 var _plugin_data_script: Script = null
 var _plugin_channel_script: Script = null
 var _plugin_checked := false
-var _bridge: Node = null
+var _bridge = null
 var _bridge_ready := false
 var _permission_granted := false
 var _permission_denied := false
@@ -155,7 +155,7 @@ func _on_app_resumed() -> void:
 ## Construct the bridge only when the player opted in or explicitly asks for
 ## permission. The v6 native initialize() marks its singleton initialized
 ## synchronously; the completion signal is still connected for state updates.
-func bridge() -> Node:
+func bridge():
         if not OS.has_feature("android"):
                 return null
         if is_instance_valid(_bridge):
@@ -299,14 +299,14 @@ func cancel_reminder() -> void:
         if result != OK:
                 push_warning("[DailyReminder] Native cancel returned error %d." % result)
 
-func _ensure_channel(native: Node) -> void:
+func _ensure_channel(native) -> void:
         if _plugin_channel_script == null:
                 return
         var channel = _plugin_channel_script.new()
-        var result: Error = native.create_notification_channel(channel \
-                .set_id(CHANNEL_ID) \
+        channel.set_id(CHANNEL_ID) \
                 .set_name(CHANNEL_NAME) \
                 .set_description(CHANNEL_DESCRIPTION) \
-                .set_importance(CHANNEL_IMPORTANCE_DEFAULT))
+                .set_importance(CHANNEL_IMPORTANCE_DEFAULT)
+        var result: Error = native.create_notification_channel(channel)
         if result != OK and result != ERR_ALREADY_EXISTS:
                 push_warning("[DailyReminder] Notification channel creation returned error %d." % result)
