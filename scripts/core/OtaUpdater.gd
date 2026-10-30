@@ -53,10 +53,55 @@ const DOWNLOAD_DIR: String = "user://ota_downloads"
 
 var current_version: String = "0"
 var _pending_manifest: Dictionary = {}
+var _state: Dictionary = {}
 
-func _ready() -> void:
+func _init() -> void:
+	# Must happen in _init(), and this autoload must be FIRST in the list
+	# (see project.godot) - every other autoload's script is compiled the
+	# moment the engine reaches it in the list, so the patch pack has to be
+	# mounted before any of them load, not merely before this node's own
+	# _ready(). _ready() is already too late.
 	_load_state()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DOWNLOAD_DIR))
+	_remount_applied_pack()
+
+func _ready() -> void:
+	pass
+
+## Re-mounts the patch pack that a previous session already downloaded and
+## verified, so the code it contains is actually what the OTHER autoloads
+## load on this boot. Without this, download_and_apply() only ever affects
+## the process that downloaded it - the very next launch (the one the
+## "RESTART" button triggers) would otherwise boot straight back to the
+## base APK's code with no sign anything is wrong.
+func _remount_applied_pack() -> void:
+	if current_version == "0":
+		return # nothing has ever been applied
+	var expected_sha: String = str(_state.get("sha256", ""))
+	var dest: String = str(_state.get("pck_path", ""))
+	if dest.is_empty() or not FileAccess.file_exists(dest):
+		push_warning("[OtaUpdater] state says v%s is applied but its pack is missing - staying on base build" % current_version)
+		return
+	if expected_sha.is_empty() or FileAccess.get_sha256(dest) != expected_sha:
+		push_warning("[OtaUpdater] applied pack for v%s failed re-verification - staying on base build" % current_version)
+		return
+	if not ProjectSettings.load_resource_pack(dest, true):
+		push_warning("[OtaUpdater] failed to remount pack for v%s - staying on base build" % current_version)
+
+## CrashLogger is declared AFTER this autoload (it has to stay that way - see
+## the _init()/project.godot note above for why OtaUpdater has to go first),
+## so it can't be referenced by its global identifier from here: GDScript
+## resolves autoload identifiers in list order, and a script earlier in the
+## list can't see one declared later. get_node_or_null() against the live
+## tree sidesteps that entirely - by the time these calls actually run
+## (check_for_update()/download_and_apply(), both only ever called from the
+## main menu, long after every autoload is up), CrashLogger is there.
+func _log(text: String) -> void:
+	var logger := get_node_or_null("/root/CrashLogger")
+	if logger != null:
+		logger.breadcrumb(text)
+	else:
+		print("[OtaUpdater] %s" % text)
 
 ## Fetches the manifest and emits update_available if it names a version
 ## different from the one already applied. Safe to call repeatedly; quietly
@@ -84,7 +129,7 @@ func _on_manifest_response(result: int, code: int, _headers: PackedStringArray, 
 	_pending_manifest = parsed
 	var remote_version := str(parsed["version"])
 	if remote_version != current_version:
-		CrashLogger.breadcrumb("OTA update available: %s -> %s" % [current_version, remote_version])
+		_log("OTA update available: %s -> %s" % [current_version, remote_version])
 		update_available.emit(remote_version)
 
 ## Downloads the pending manifest's pack, verifies it, and mounts it. Emits
@@ -122,8 +167,8 @@ func _on_download_response(result: int, code: int, _headers: PackedStringArray, 
 		return
 
 	current_version = str(_pending_manifest["version"])
-	_save_state()
-	CrashLogger.breadcrumb("OTA update applied: now on %s (restart needed to fully take)" % current_version)
+	_save_state(dest, actual_sha)
+	_log("OTA update applied: now on %s (restart needed to fully take)" % current_version)
 	update_applied.emit(current_version)
 
 func _load_state() -> void:
@@ -132,8 +177,10 @@ func _load_state() -> void:
 	var f := FileAccess.open(STATE_PATH, FileAccess.READ)
 	var parsed: Variant = JSON.parse_string(f.get_as_text())
 	if typeof(parsed) == TYPE_DICTIONARY and parsed.has("version"):
+		_state = parsed
 		current_version = str(parsed["version"])
 
-func _save_state() -> void:
+func _save_state(pck_path: String, sha256: String) -> void:
+	_state = {"version": current_version, "pck_path": pck_path, "sha256": sha256}
 	var f := FileAccess.open(STATE_PATH, FileAccess.WRITE)
-	f.store_string(JSON.stringify({"version": current_version}))
+	f.store_string(JSON.stringify(_state))

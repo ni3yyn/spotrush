@@ -1,6 +1,6 @@
 ﻿{
-    "version":  "1.0.1",
+    "version":  "1.0.7",
     "pck_url":  "https://github.com/ni3yyn/spotrush/releases/latest/download/content.pck",
-    "sha256":  "12730ec1d877531db250f875f881192812973fec09e47a0cc698e0ffe2f58a11",
-    "notes":  "fix duel desync on reconnect"
+    "sha256":  "cd33e53da613b363349caefe519592b1a304983cda76443730cb971df18c82f2",
+    "notes":  "test ota"
 }

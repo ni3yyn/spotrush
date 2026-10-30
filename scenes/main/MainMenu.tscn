@@ -549,7 +549,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.356863, 0.423529, 0.54902, 1)
 theme_override_font_sizes/font_size = 24
-text = "HOW TO PLAY"
+text = "HOW TO PLkkkkAY"
 vertical_alignment = 1
 
 [node name="FooterBar" type="Control" parent="SafeArea/VBoxMain"]
@@ -690,7 +690,7 @@ theme_override_constants/separation = 4
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
 theme_override_font_sizes/font_size = 38
-text = "HOW TO PLAY"
+text = "HOW TO PLAkkkY"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="ModalHowToPlay/Margin/VBox/Header"]
