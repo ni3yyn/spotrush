@@ -1,3 +1,4 @@
+
 name: Build SpotRush Android APK
 
 on:
@@ -70,6 +71,7 @@ jobs:
           echo "Checking Android export preset..."
           test -f export_presets.cfg
           grep -Fq 'name="Android"' export_presets.cfg
+          grep -Fq 'gradle_build/use_gradle_build=true' export_presets.cfg
 
           echo "All required project files are present."
 
@@ -90,6 +92,18 @@ jobs:
             "ndk;29.0.14206865"
 
           echo "Android SDK packages installed."
+
+      - name: Start Android Debug Bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Starting ADB server..."
+          adb start-server
+          adb version
+          adb devices
+
+          echo "ADB is ready."
 
       - name: Configure Godot Android paths
         shell: bash
@@ -115,71 +129,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Excluding development test scripts from project scanning..."
+          echo "Excluding development test scripts..."
 
           mkdir -p tests
           touch tests/.gdignore
 
-          echo "Test files will not be scanned as project resources."
-          echo "No tests will be executed."
-
-      - name: Import Godot project
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "======================================"
-          echo "Importing Godot project resources"
-          echo "======================================"
-
-          timeout 10m godot --headless --editor --path . --import --quit
-
-          echo "Godot project import completed."
-
-      - name: Install Godot Android Build Template
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "======================================"
-          echo "Installing Godot Android build template"
-          echo "This step may take several minutes."
-          echo "======================================"
-
-          timeout 10m godot --headless --editor --path . \
-            --install-android-build-template \
-            --quit
-
-          echo "Checking generated Godot Android libraries..."
-
-          if [ ! -d android/build/libs/debug ]; then
-            echo "::error::Godot debug Android libraries directory was not generated."
-            echo "Contents of android/build:"
-            find android/build -maxdepth 4 -type f | sort | head -200 || true
-            exit 1
-          fi
-
-          if [ ! -d android/build/libs/release ]; then
-            echo "::error::Godot release Android libraries directory was not generated."
-            echo "Contents of android/build:"
-            find android/build -maxdepth 4 -type f | sort | head -200 || true
-            exit 1
-          fi
-
-          if ! find android/build/libs/debug -maxdepth 1 -type f -name '*.aar' -print -quit | grep -q .; then
-            echo "::error::No Godot debug AAR libraries were generated."
-            find android/build/libs -maxdepth 3 -type f -print || true
-            exit 1
-          fi
-
-          if ! find android/build/libs/release -maxdepth 1 -type f -name '*.aar' -print -quit | grep -q .; then
-            echo "::error::No Godot release AAR libraries were generated."
-            find android/build/libs -maxdepth 3 -type f -print || true
-            exit 1
-          fi
-
-          echo "Godot Android libraries installed successfully."
-          find android/build/libs -maxdepth 2 -type f -name '*.aar' -print
+          echo "Test scripts excluded from Godot project scanning."
+          echo "No game tests will be executed."
 
       - name: Prepare notification resources
         shell: bash
@@ -189,7 +145,6 @@ jobs:
           echo "Preparing Android notification resources..."
 
           mkdir -p android/build/res
-
           cp -R android_extras/res/. android/build/res/
 
           chmod +x android/build/gradlew
@@ -206,25 +161,34 @@ jobs:
           mkdir -p build
 
           echo "======================================"
-          echo "Installing Android template and exporting APK"
+          echo "SPOTRUSH ANDROID BUILD"
           echo "======================================"
+          echo "Godot: $(godot --version)"
+          echo "Java: $JAVA_HOME"
+          echo "Android SDK: $ANDROID_HOME"
+          echo "Preset: Android"
+          echo "Output: build/SpotRush-debug.apk"
+          echo "======================================"
+
+          # Make Gradle print tasks instead of using an animated console.
+          export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.console=plain -Dorg.gradle.logging.level=info"
+
+          echo ""
+          echo "[1/3] Installing Android build template if necessary..."
+          echo "[2/3] Importing project and preparing Android resources..."
+          echo "[3/3] Building APK with Gradle..."
+          echo ""
 
           timeout 30m godot --headless --verbose --path . \
             --install-android-build-template \
             --export-debug "Android" \
             build/SpotRush-debug.apk
 
+          echo ""
           echo "======================================"
-          echo "Verifying APK"
+          echo "Godot export command finished."
           echo "======================================"
 
-          if [ ! -s build/SpotRush-debug.apk ]; then
-            echo "::error::APK was not generated."
-            exit 1
-          fi
-
-          ls -lh build/SpotRush-debug.apk
-          echo "APK generated successfully."
       - name: Verify APK
         shell: bash
         run: |
