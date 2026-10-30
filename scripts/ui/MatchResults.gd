@@ -50,6 +50,19 @@ func _ready() -> void:
         _apply_results_typography()
         _apply_column_layout()
         resized.connect(_apply_column_layout)
+        if not get_viewport().size_changed.is_connected(_apply_column_layout):
+                get_viewport().size_changed.connect(_apply_column_layout)
+        # On Android the viewport/safe-area dimensions can settle one or two
+        # frames after _ready. Apply the column width after layout has real size,
+        # otherwise the first results visit can briefly use the full screen width.
+        await get_tree().process_frame
+        if not is_inside_tree():
+                return
+        NeuSafe.fit(get_node_or_null("SafeArea"))
+        await get_tree().process_frame
+        if not is_inside_tree():
+                return
+        _apply_column_layout()
         _label_button(btn_rematch, "PLAY AGAIN", 3, 31, Color.WHITE, NeuKit.COBALT)
         _label_button(btn_menu, "MAIN MENU", 0, 26, NeuKit.SLATE, NeuKit.COBALT)
         btn_rematch.pressed.connect(_on_rematch_pressed)
