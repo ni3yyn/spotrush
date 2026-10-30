@@ -1,0 +1,35 @@
+name: Temporary SpotRush source archive
+
+on:
+  push:
+    branches:
+      - fix/results-shared-layout-notifications-6
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Package project source
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -qr "$RUNNER_TEMP/SpotRush-fixed.zip" . \
+            -x "./.git/*" \
+               "./.github/workflows/.temp-source-zip.yml" \
+               "./SpotRush-fixed.zip" \
+               "*/.git/*"
+          test -s "$RUNNER_TEMP/SpotRush-fixed.zip"
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotRush-fixed
+          path: ${{ runner.temp }}/SpotRush-fixed.zip
+          if-no-files-found: error
+          retention-days: 1
