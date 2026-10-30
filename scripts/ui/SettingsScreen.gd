@@ -441,8 +441,12 @@ func _build_reminder_section() -> void:
 func _on_reminder_toggled(on: bool) -> void:
         Settings.set_reminder_enabled(on)
         if on:
+                # Request Android 13+ permission first. Do not schedule from
+                # the active settings screen: the plugin may still be
+                # initializing, and reminders are only needed when leaving.
                 DailyReminder.request_permission()
-        DailyReminder.evaluate_now()
+        else:
+                DailyReminder.cancel_reminder()
 
 func _inset_style() -> StyleBox:
         var style := NeuKit.inset(22.0, 5.0, 12.0)
