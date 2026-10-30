@@ -465,6 +465,17 @@ func _build_reminder_section() -> void:
         _reminder_status.add_theme_color_override("font_color", NeuKit.SLATE)
         section.add_child(_reminder_status)
         _refresh_reminder_status()
+        if OS.is_debug_build():
+                var debug_btn := Button.new()
+                debug_btn.text = "SEND TEST NOTIFICATION (DEBUG, 5s)"
+                debug_btn.custom_minimum_size = Vector2(0, 90)
+                debug_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                debug_btn.add_theme_font_override("font", NeuKit.bold_font(debug_btn, 0.36))
+                SpotRushTypography.apply_as(debug_btn, SpotRushTypography.Role.BUTTON)
+                debug_btn.add_theme_color_override("font_color", NeuKit.SLATE)
+                NeuKit.style_button(debug_btn, "raised", 18.0)
+                debug_btn.pressed.connect(func() -> void: DailyReminder.debug_fire_test_notification())
+                section.add_child(debug_btn)
 
 func _on_reminder_toggled(on: bool) -> void:
         Settings.set_reminder_enabled(on)
