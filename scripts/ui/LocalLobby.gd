@@ -29,8 +29,7 @@ const NeuText = preload("res://scripts/ui/NeuText.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 const LanDiscoveryScript = preload("res://scripts/networking/LanDiscovery.gd")
-const CommunityQRCodeRect = preload("res://addons/kenyoni/qr_code/qr_code_rect.gd")
-const CommunityQRCode = preload("res://addons/kenyoni/qr_code/qr_code.gd")
+const QrCodeScript = preload("res://scripts/ui/QrCode.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 
 const GUIDE_HOST := "[b]HOW TO DUEL[/b]
@@ -340,6 +339,9 @@ func _on_copy_ip_pressed() -> void:
                         btn_copy_ip.text = "COPY")
 
 func _on_create_room_pressed() -> void:
+        # Refresh after the player explicitly opens a room: Android can report
+        # its Wi-Fi IPv4 address a little later than the lobby's first _ready().
+        _display_local_ips()
         var err := NetworkSession.create_host(GameConfig.DEFAULT_PORT)
         if err == OK:
                 _room_open = true
@@ -636,19 +638,11 @@ func _build_qr_card() -> void:
         SpotRushTypography.apply_as(caption, SpotRushTypography.Role.BODY)
         caption.add_theme_color_override("font_color", NeuKit.SLATE)
         col.add_child(caption)
-        _qr_rect = CommunityQRCodeRect.new()
-        _qr_rect.name = "CommunityQRCode"
+        _qr_rect = TextureRect.new()
         _qr_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         _qr_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        _qr_rect.custom_minimum_size = Vector2(240, 240)
-        _qr_rect.custom_minimum_size.x = 240
+        _qr_rect.custom_minimum_size = Vector2(0, 240)
         _qr_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-        _qr_rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-        _qr_rect.set("auto_module_size", true)
-        _qr_rect.set("mode", CommunityQRCode.Mode.BYTE)
-        _qr_rect.set("use_eci", true)
-        _qr_rect.set("eci_value", CommunityQRCode.ECI.UTF_8)
-        _qr_rect.set("error_correction", CommunityQRCode.ErrorCorrection.MEDIUM)
         col.add_child(_qr_rect)
         var hint := Label.new()
         hint.text = "Point their camera at this square, copy the code it shows,\nthen tap PASTE on their JOIN tab."
@@ -665,16 +659,12 @@ func _show_host_qr() -> void:
                 _hide_host_qr()
                 return
         var code := LanDiscoveryScript.encode_join_code(_local_ips[0], GameConfig.DEFAULT_PORT)
-        if code.is_empty() or not is_instance_valid(_qr_rect):
+        var tex := QrCodeScript.generate_texture(code, 6)
+        if tex == null:
                 _hide_host_qr()
                 return
-        # The community QRCodeRect handles byte encoding, error correction,
-        # module rendering and texture updates. Set data last so it encodes
-        # only after its mode and UTF-8 settings are configured.
-        _qr_rect.set("data", code)
+        _qr_rect.texture = tex
         _qr_card.visible = true
-        _qr_card.reset_size()
-        _qr_rect.queue_redraw()
 
 func _hide_host_qr() -> void:
         if _qr_card != null:
