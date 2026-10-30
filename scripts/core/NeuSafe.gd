@@ -50,13 +50,24 @@ static func canvas_insets() -> Vector4:
 ## Inflates a full-rect container by the OS-reported insets. Call it in the
 ## screen's _ready(), BEFORE any code captures the container's offsets as an
 ## animation base, so entrance animations return to the padded position.
+const BASE_OFFSETS_META := &"neu_safe_base_offsets"
+
+## Applies safe-area insets from an immutable authored baseline.
+## Repeated calls are safe: viewport changes, scene-entry settling and layout
+## callbacks can all invoke this without accumulating offsets.
 static func fit(c: Control) -> void:
-        if c == null:
+        if not is_instance_valid(c):
                 return
-        var i := canvas_insets()
-        if i.x <= 0.0 and i.y <= 0.0 and i.z <= 0.0 and i.w <= 0.0:
-                return
-        c.offset_left += i.x
-        c.offset_top += i.y
-        c.offset_right -= i.z
-        c.offset_bottom -= i.w
+        if not c.has_meta(BASE_OFFSETS_META):
+                c.set_meta(BASE_OFFSETS_META, Vector4(
+                        c.offset_left,
+                        c.offset_top,
+                        c.offset_right,
+                        c.offset_bottom
+                ))
+        var base: Vector4 = c.get_meta(BASE_OFFSETS_META)
+        var inset := canvas_insets()
+        c.offset_left = base.x + inset.x
+        c.offset_top = base.y + inset.y
+        c.offset_right = base.z - inset.z
+        c.offset_bottom = base.w - inset.w

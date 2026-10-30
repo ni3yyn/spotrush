@@ -137,11 +137,11 @@ func _draw_book(c: Vector2, s: float, color: Color, shadow: Color, highlight: Co
 
 func _draw_wifi(c: Vector2, s: float, color: Color, shadow: Color, highlight: Color) -> void:
 	var width := maxf(2.4, s * 0.085)
-	for scale in [0.46, 0.31, 0.16]:
+	for scale_factor in [0.46, 0.31, 0.16]:
 		var center := c + Vector2(0.0, s * 0.27)
 		# The literal scale array is Variant-typed; cast before multiplication so
 		# Godot can infer a stable float radius on strict GDScript builds.
-		var radius: float = s * float(scale)
+		var radius: float = s * float(scale_factor)
 		_stroke_arc(center + Vector2(1.0, 1.2), radius, PI * 1.18, PI * 1.82, shadow, width)
 		_stroke_arc(center, radius, PI * 1.18, PI * 1.82, color, width)
 	draw_circle(c + Vector2(0.8, 1.2), s * 0.065, shadow)
