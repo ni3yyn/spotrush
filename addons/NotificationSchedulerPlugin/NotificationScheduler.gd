@@ -78,7 +78,7 @@ func create_notification_channel(a_notification_channel: NotificationChannel) ->
 		__result = _plugin_singleton.create_notification_channel(a_notification_channel.get_raw_data())
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -90,7 +90,7 @@ func schedule(a_notification_data: NotificationData) -> Error:
 		__result = _plugin_singleton.schedule(a_notification_data.get_raw_data())
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -102,7 +102,7 @@ func cancel(a_notification_id: int) -> Error:
 		__result = _plugin_singleton.cancel(a_notification_id)
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -114,7 +114,7 @@ func set_badge_count(a_count: int) -> Error:
 		__result = _plugin_singleton.set_badge_count(a_count)
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -146,7 +146,7 @@ func request_post_notifications_permission() -> Error:
 		__result = _plugin_singleton.request_post_notifications_permission()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -167,7 +167,7 @@ func request_battery_optimizations_permission() -> Error:
 		__result = _plugin_singleton.request_battery_optimizations_permission()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -188,7 +188,7 @@ func request_schedule_exact_alarm_permission() -> Error:
 		__result = _plugin_singleton.request_schedule_exact_alarm_permission()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
@@ -200,7 +200,7 @@ func open_app_info_settings() -> Error:
 		__result = _plugin_singleton.open_app_info_settings()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result == ERR_UNCONFIGURED
+		__result = ERR_UNCONFIGURED
 
 	return __result
 
