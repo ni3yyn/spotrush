@@ -50,22 +50,26 @@ extends Node
 # THIRD RETRIEVAL ROUTE - paste upload (debug_upload_latest_log): the private
 # and public-mirror copies above both still require getting a file OFF the
 # phone somehow. This one skips that step entirely - it POSTs the current
-# session's log text straight to dpaste.org (a plain-text paste host, no
-# account/API key needed) over the network the app already has permission
-# for (`internet`, already true in export_presets.cfg), then puts the
-# resulting URL on the device clipboard so you can paste it directly into
-# Chrome/any browser on the SAME phone, no PC, no cable, no file manager at
-# all. Debug-build only (see OS.is_debug_build() guard below), same pattern
-# as DailyReminder's debug_fire_test_notification. Sends log contents to a
-# third-party site - don't wire this up to a release build or call it on
-# anything you wouldn't want to leave the device.
+# session's log text straight to paste.rs (a plain-text, curl-friendly paste
+# host - no account/API key, no form fields, no JSON, just the raw body in
+# and a bare URL back) over the network the app already has permission for
+# (`internet`, already true in export_presets.cfg), then puts the resulting
+# URL on the device clipboard so you can paste it directly into Chrome/any
+# browser on the SAME phone, no PC, no cable, no file manager at all.
+# (dpaste.org was tried first but sits behind bot/WAF protection that 403s a
+# plain HTTPRequest POST - paste.rs doesn't.) Debug-build only (see
+# OS.is_debug_build() guard below), same pattern as DailyReminder's
+# debug_fire_test_notification. Sends log contents to a third-party site -
+# don't wire this up to a release build or call it on anything you wouldn't
+# want to leave the device. Only one upload runs at a time - a tap while one
+# is still in flight is ignored rather than queued or run concurrently,
+# since Godot's HTTPRequest node can't have two requests in flight at once.
 
 const MAX_KEPT_SESSIONS: int = 6
 const HEARTBEAT_INTERVAL_SEC: float = 15.0
 const PUBLIC_LOG_DIR_NAME := "SpotRushLogs"
 const FALLBACK_DOWNLOADS_PATH := "/storage/emulated/0/Download"
-const PASTE_API_URL := "https://dpaste.org/api/"
-const PASTE_EXPIRY_DAYS := "7"
+const PASTE_API_URL := "https://paste.rs/"
 const MAX_UPLOAD_CHARS := 200000
 
 var log_dir: String = ""
@@ -75,6 +79,7 @@ var public_logcat_path: String = ""
 var _logcat_helper_pid: int = -1
 var _heartbeat_timer: Timer
 var _upload_http: HTTPRequest = null
+var _upload_in_flight: bool = false
 
 ## Emitted when a debug_upload_latest_log() call finishes. `ok` is whether it
 ## succeeded; `message` is the paste URL on success, a short error otherwise.
@@ -191,13 +196,17 @@ func _prune_old_sessions(dir_path: String, prefix: String) -> void:
 		dir.remove(oldest)
 
 ## DEBUG ONLY - reads the current session's own logcat tail and POSTs it to
-## dpaste.org, then puts the returned URL on the clipboard so it can be
-## pasted into a browser on the same device. Refuses outright on a release
-## build, same policy as DailyReminder.debug_fire_test_notification().
+## paste.rs, then puts the returned URL on the clipboard so it can be pasted
+## into a browser on the same device. Refuses outright on a release build,
+## same policy as DailyReminder.debug_fire_test_notification().
 func debug_upload_latest_log() -> void:
 	if not OS.is_debug_build():
 		push_warning("[CrashLogger] debug_upload_latest_log ignored in a release build.")
 		log_upload_completed.emit(false, "Disabled in release builds.")
+		return
+	if _upload_in_flight:
+		push_warning("[CrashLogger] debug_upload_latest_log ignored - a previous upload is still in flight.")
+		log_upload_completed.emit(false, "An upload is already in progress - wait for it to finish.")
 		return
 	if logcat_path.is_empty() or not FileAccess.file_exists(logcat_path):
 		push_warning("[CrashLogger] No log file to upload yet (logcat_path=%s)." % logcat_path)
@@ -225,22 +234,32 @@ func debug_upload_latest_log() -> void:
 		add_child(_upload_http)
 		_upload_http.request_completed.connect(_on_upload_completed)
 
-	var body := "content=%s&syntax=text&expiry_days=%s" % [content.uri_encode(), PASTE_EXPIRY_DAYS]
-	var headers := PackedStringArray(["Content-Type: application/x-www-form-urlencoded"])
-	var err := _upload_http.request(PASTE_API_URL, headers, HTTPClient.METHOD_POST, body)
+	# paste.rs takes the raw body as the paste content directly - no form
+	# encoding, no JSON wrapper, no API key. Its response body on success is
+	# nothing but the bare paste URL (plus a trailing newline).
+	var err := _upload_http.request(PASTE_API_URL, PackedStringArray(), HTTPClient.METHOD_POST, content)
 	if err != OK:
 		push_warning("[CrashLogger] Upload request failed to start, error %d." % err)
 		log_upload_completed.emit(false, "Could not start upload (error %d)." % err)
 	else:
-		breadcrumb("Uploading crash log (%d chars) to dpaste.org..." % content.length())
+		_upload_in_flight = true
+		breadcrumb("Uploading crash log (%d chars) to paste.rs..." % content.length())
 
 func _on_upload_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
+	_upload_in_flight = false
+	# 201 = whole paste saved, 206 = truncated-but-saved (still a usable URL);
+	# anything else (including a WAF/host returning an HTML error page as a
+	# 403) is a real failure.
+	if result != HTTPRequest.RESULT_SUCCESS or (response_code != 201 and response_code != 206):
 		var msg := "Upload failed (result=%d, http=%d)." % [result, response_code]
 		push_warning("[CrashLogger] %s" % msg)
 		log_upload_completed.emit(false, msg)
 		return
 	var url := body.get_string_from_utf8().strip_edges()
+	# Defensive: strip stray wrapping quotes in case a host returns the URL
+	# JSON-quoted rather than bare.
+	if url.length() >= 2 and url.begins_with("\"") and url.ends_with("\""):
+		url = url.substr(1, url.length() - 2)
 	if url.is_empty() or not url.begins_with("http"):
 		var msg := "Upload host returned an unexpected response."
 		push_warning("[CrashLogger] %s Body: %s" % [msg, body.get_string_from_utf8()])

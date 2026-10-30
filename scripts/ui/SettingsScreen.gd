@@ -24,6 +24,7 @@ var _slider_thumb_texture: Texture2D = null
 var _toggle_layouts: Array[Dictionary] = []
 var _reminder_status: Label = null
 var _debug_log_status: Label = null
+var _debug_upload_btn: Button = null
 
 func _ready() -> void:
         BackNav.register(self)
@@ -499,21 +500,29 @@ func _build_debug_section() -> void:
         NeuKit.style_button(upload_btn, "raised", 18.0)
         upload_btn.pressed.connect(_on_upload_log_pressed)
         section.add_child(upload_btn)
+        _debug_upload_btn = upload_btn
 
         _debug_log_status = Label.new()
         _debug_log_status.name = "DebugLogUploadStatus"
         _debug_log_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         SpotRushTypography.apply_as(_debug_log_status, SpotRushTypography.Role.BODY)
         _debug_log_status.add_theme_color_override("font_color", NeuKit.SLATE)
-        _debug_log_status.text = "Sends this session's log to dpaste.org (third-party, public-by-link) and copies the URL to your clipboard."
+        _debug_log_status.text = "Sends this session's log to paste.rs (third-party, public-by-link) and copies the URL to your clipboard."
         section.add_child(_debug_log_status)
 
 func _on_upload_log_pressed() -> void:
         if is_instance_valid(_debug_log_status):
                 _debug_log_status.text = "Uploading log..."
+        # Disabled for the duration of the request - CrashLogger refuses a
+        # second concurrent upload anyway, but this also stops the button
+        # from looking like nothing happened if you tap it again quickly.
+        if is_instance_valid(_debug_upload_btn):
+                _debug_upload_btn.disabled = true
         CrashLogger.debug_upload_latest_log()
 
 func _on_log_upload_completed(ok: bool, message: String) -> void:
+        if is_instance_valid(_debug_upload_btn):
+                _debug_upload_btn.disabled = false
         if not is_instance_valid(_debug_log_status):
                 return
         _debug_log_status.text = ("Copied to clipboard: %s" % message) if ok else ("Upload failed: %s" % message)
