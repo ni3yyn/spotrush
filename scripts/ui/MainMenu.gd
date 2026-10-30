@@ -118,6 +118,40 @@ func _ready() -> void:
 		_add_version_chip()
 		_play_entrance()
 		_prime_game_music_after_entrance()
+		OtaUpdater.update_available.connect(_on_ota_update_available)
+		OtaUpdater.update_applied.connect(_on_ota_update_applied)
+		OtaUpdater.update_failed.connect(_on_ota_update_failed)
+		OtaUpdater.check_for_update()
+
+## Player is on the main menu (safe point, no match running) and a newer
+## content pack is sitting on the server. Ask before pulling it - this can
+## run on mobile data.
+func _on_ota_update_available(version: String) -> void:
+		NeuDialog.ask(
+				"UPDATE AVAILABLE",
+				"A small update (%s) is ready to download." % version,
+				"UPDATE",
+				"LATER",
+				func() -> void: OtaUpdater.download_and_apply(),
+				false,
+		)
+
+## Downloaded, checksum-verified, and mounted - but singletons already
+## running (GameManager, SceneRouter, this menu) keep their old code until
+## the app restarts, so that's what we ask for rather than pretending a
+## silent scene swap is enough.
+func _on_ota_update_applied(version: String) -> void:
+		NeuDialog.ask(
+				"UPDATE READY",
+				"Restart SpotRush to finish applying %s." % version,
+				"RESTART",
+				"LATER",
+				func() -> void: get_tree().quit(),
+				false,
+		)
+
+func _on_ota_update_failed(reason: String) -> void:
+		push_warning("[OtaUpdater] %s" % reason)
 
 
 func _prime_game_music_after_entrance() -> void:
