@@ -206,9 +206,7 @@ jobs:
           mkdir -p build
 
           echo "======================================"
-          echo "Starting SpotRush Android export"
-          echo "Installing Android build template"
-          echo "Building APK through Gradle"
+          echo "Installing Android template and exporting APK"
           echo "======================================"
 
           timeout 30m godot --headless --verbose --path . \
@@ -217,10 +215,8 @@ jobs:
             build/SpotRush-debug.apk
 
           echo "======================================"
-          echo "APK export finished"
+          echo "Verifying APK"
           echo "======================================"
-
-          find android/build/libs -type f -name '*.aar' -print || true
 
           if [ ! -s build/SpotRush-debug.apk ]; then
             echo "::error::APK was not generated."
@@ -228,6 +224,7 @@ jobs:
           fi
 
           ls -lh build/SpotRush-debug.apk
+          echo "APK generated successfully."
       - name: Verify APK
         shell: bash
         run: |
