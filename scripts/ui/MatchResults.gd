@@ -94,9 +94,21 @@ func _apply_column_layout() -> void:
         var safe := get_node_or_null("SafeArea") as MarginContainer
         if safe == null:
                 return
-        var side := int(maxf(30.0, (size.x - 620.0) * 0.5))
-        safe.add_theme_constant_override("margin_left", side)
-        safe.add_theme_constant_override("margin_right", side)
+        # Use the live viewport, not this Control's cached size: during the
+        # first scene swap Android can briefly leave MatchResults.size at the
+        # previous scene's expanded canvas width. That made every child row
+        # lay out wider than the visible phone and only corrected on re-entry.
+        var viewport_width := get_viewport_rect().size.x
+        if viewport_width <= 1.0:
+                return
+        var insets := NeuSafe.canvas_insets()
+        var available := maxf(280.0, viewport_width - insets.x - insets.z)
+        var content_width := minf(620.0, available)
+        var side := maxf(0.0, (available - content_width) * 0.5)
+        safe.add_theme_constant_override("margin_left", int(round(side + insets.x)))
+        safe.add_theme_constant_override("margin_right", int(round(side + insets.z)))
+        safe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        safe.custom_minimum_size.x = 0.0
 
 ## Slimmer stat wells so the six tiles never force the row past the column.
 func _tighten_stat_tiles() -> void:
