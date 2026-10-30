@@ -22,11 +22,15 @@ var _vision_hint: Label
 var _vision_preview: Control
 var _slider_thumb_texture: Texture2D = null
 var _toggle_layouts: Array[Dictionary] = []
+var _reminder_status: Label = null
 
 func _ready() -> void:
         BackNav.register(self)
         Music.play_menu()
         _build_page()
+        if not DailyReminder.permission_state_changed.is_connected(_on_reminder_permission_state_changed):
+                DailyReminder.permission_state_changed.connect(_on_reminder_permission_state_changed)
+        _refresh_reminder_status()
         # Android may report the final cutout/safe-area rectangle one frame
         # after the scene enters the tree. Read it after layout, then once more
         # after the platform window settles so the header never sits under a notch.
@@ -437,16 +441,30 @@ func _build_reminder_section() -> void:
         var section := _section("Daily reminder", "One optional nudge if your daily streak is at risk.")
         section.add_child(_make_toggle_row("flame", "Daily streak reminder", "Off by default. You can turn it off at any time.",
                 Settings.reminder_enabled(), _on_reminder_toggled))
+        _reminder_status = Label.new()
+        _reminder_status.name = "ReminderPermissionStatus"
+        _reminder_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        SpotRushTypography.apply_as(_reminder_status, SpotRushTypography.Role.BODY)
+        _reminder_status.add_theme_color_override("font_color", NeuKit.SLATE)
+        section.add_child(_reminder_status)
+        _refresh_reminder_status()
 
 func _on_reminder_toggled(on: bool) -> void:
         Settings.set_reminder_enabled(on)
         if on:
-                # Request Android 13+ permission first. Do not schedule from
-                # the active settings screen: the plugin may still be
-                # initializing, and reminders are only needed when leaving.
+                # Ask first. A pause caused by the Android permission sheet must
+                # not try to schedule anything until the user grants permission.
                 DailyReminder.request_permission()
         else:
                 DailyReminder.cancel_reminder()
+        _refresh_reminder_status()
+
+func _on_reminder_permission_state_changed(_granted: bool, _denied: bool) -> void:
+        _refresh_reminder_status()
+
+func _refresh_reminder_status() -> void:
+        if is_instance_valid(_reminder_status):
+                _reminder_status.text = DailyReminder.permission_description()
 
 func _inset_style() -> StyleBox:
         var style := NeuKit.inset(22.0, 5.0, 12.0)
