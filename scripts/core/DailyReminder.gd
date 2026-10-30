@@ -57,6 +57,7 @@ var _plugin_data_script: Script = null
 var _plugin_channel_script: Script = null
 var _plugin_checked := false
 var _bridge: Node = null
+var _bridge_ready := false
 
 func _ready() -> void:
         # Must keep working while the app is paused - pausing is exactly when
@@ -151,9 +152,13 @@ func bridge():
                 if wrapper_script == null:
                         return null
                 _bridge = wrapper_script.new()
+                _bridge.initialization_completed.connect(_on_bridge_initialization_completed, CONNECT_ONE_SHOT)
                 add_child(_bridge)
                 _bridge.initialize()
         return _bridge
+
+func _on_bridge_initialization_completed() -> void:
+        _bridge_ready = true
 
 func _plugin_scripts() -> bool:
         if not _plugin_checked:
@@ -169,7 +174,16 @@ func _plugin_scripts() -> bool:
 func request_permission() -> void:
         var native = bridge()
         if native == null:
+                push_warning("[DailyReminder] Android notification bridge is unavailable; permission was not requested.")
                 return
+        # The native plugin initializes asynchronously. Calling its permission
+        # methods immediately after initialize() can hit an uninitialized
+        # singleton, which is especially likely when the setting is enabled
+        # from the settings screen. Wait for the plugin's ready signal first.
+        if not _bridge_ready:
+                await native.initialization_completed
+                if not is_instance_valid(native):
+                        return
         if not native.has_post_notifications_permission():
                 native.request_post_notifications_permission()
 
