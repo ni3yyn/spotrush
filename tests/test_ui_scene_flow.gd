@@ -5,6 +5,7 @@ const SCENE_MAIN_MENU: String = "res://scenes/main/MainMenu.tscn"
 const SCENE_GAME: String = "res://scenes/game/GameScreen.tscn"
 const SCENE_RESULTS: String = "res://scenes/game/MatchResults.tscn"
 const SCENE_LOCAL_LOBBY: String = "res://scenes/multiplayer/LocalLobby.tscn"
+const SCENE_SETTINGS: String = "res://scenes/settings/SettingsScreen.tscn"
 
 static func run_all_tests() -> Dictionary:
 	var passed = 0
@@ -15,11 +16,13 @@ static func run_all_tests() -> Dictionary:
 	var menu_scene = load(SCENE_MAIN_MENU)
 	if menu_scene != null:
 		var menu = menu_scene.instantiate()
-		if menu.has_node("%BtnSolo") and menu.has_node("%BtnMultiplayer") and menu.has_node("%BtnHowToPlay"):
+		if menu.has_node("%BtnSolo") and menu.has_node("%BtnMultiplayer") \
+				and menu.has_node("%BtnHowToPlay") and menu.has_node("%BtnSettings") \
+				and not menu.has_node("%ModalSettings"):
 			passed += 1
 		else:
 			failed += 1
-			errors.append("MainMenu missing expected buttons")
+			errors.append("MainMenu missing expected buttons or still contains the old settings modal")
 		menu.free()
 	else:
 		failed += 1
@@ -53,7 +56,23 @@ static func run_all_tests() -> Dictionary:
 		failed += 1
 		errors.append("Failed to load GameScreen.tscn")
 
-	# Test 4: MatchResults scene binding
+	# Test 4: Settings is a separate full-screen scene, not a MainMenu modal.
+	var settings_scene = load(SCENE_SETTINGS)
+	if settings_scene != null:
+		var settings_screen = settings_scene.instantiate()
+		if settings_screen.get_script() != null and settings_screen.has_method("handle_back") \
+				and settings_screen.anchor_right == 1.0 and settings_screen.anchor_bottom == 1.0 \
+				and not settings_screen.has_node("ModalSettings"):
+			passed += 1
+		else:
+			failed += 1
+			errors.append("SettingsScreen missing its full-screen scene script or anchors")
+		settings_screen.free()
+	else:
+		failed += 1
+		errors.append("Failed to load SettingsScreen.tscn")
+
+	# Test 5: MatchResults scene binding
 	var results_scene = load(SCENE_RESULTS)
 	if results_scene != null:
 		var res_scr = results_scene.instantiate()
@@ -67,7 +86,7 @@ static func run_all_tests() -> Dictionary:
 		failed += 1
 		errors.append("Failed to load MatchResults.tscn")
 		
-	# Test 5: MatchController progression with 3 rounds and verified results
+	# Test 6: MatchController progression with 3 rounds and verified results
 	var mc = MatchController.new()
 	mc.initialize_match(GameConfig.GameMode.SINGLE_PLAYER, 3, [1])
 	mc.start_match()

@@ -135,10 +135,17 @@ func _ready() -> void:
 	await _wait_frames(4)
 	
 	# 4. Rematch State
-	GameManager.start_single_player_match(10)
+	# Queue (don't start) the match, same as MatchResults._on_rematch_pressed:
+	# the GameScreen below doesn't exist yet, so starting it here would fire the
+	# opening round signals before anything is connected to hear them, and the
+	# capture would just show the view's placeholder text with no challenge.
+	GameManager.queue_single_player_start(10)
 	var rematch_game = game_scene.instantiate()
 	add_child(rematch_game)
-	await _wait_frames(6)
+	# Wipe wait + screen-entrance rise (~0.46s) then the GET READY countdown
+	# (GameConfig.COUNTDOWN_DURATION, 0.8s) both have to clear before round 1 is
+	# actually on screen - a short wait here just re-captures the placeholder.
+	await _wait_frames(110)
 	_save_screen("docs/screenshots/rematch_fresh_game.png")
 	rematch_game.queue_free()
 	await _wait_frames(4)

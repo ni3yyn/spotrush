@@ -1,0 +1,361 @@
+SpotRush - Visual Upgrade v21
+=============================
+
+HOW TO CHECK YOU ARE RUNNING THIS BUILD
+---------------------------------------
+Launch the game. The main menu shows a small "v21" stamp in the
+bottom-right corner. If you don't see it, you are running an older
+build - delete the old extracted folder and extract this zip fresh
+(open project.godot in Godot 4).
+
+WHAT CHANGED IN v21 - THE STORE SHELF + ZERO-FRICTION DUELS
+-----------------------------------------------------------
+* DUELS WITHOUT TYPING: creating a room now shouts a tiny beacon onto
+  your Wi-Fi, and every phone sitting on the JOIN tab lists the game
+  under NEARBY GAMES - one tap joins, no reading digits out loud, no
+  fat-fingered 192.168.x.x. The game code well stays right below for
+  the rare networks that hide devices from each other; both paths run
+  through the exact same join flow (watchdog, status line, everything).
+* THE GAME CODE PICKS THE RIGHT ADDRESS: phones have several network
+  addresses (Wi-Fi, mobile data, VPN tunnels) and the old code showed
+  whichever one the OS listed first - sometimes an address your friend
+  could never reach. The code is now ranked: home/hotspot Wi-Fi ranges
+  first, cellular and VPN ranges last, so the address on screen is the
+  address that actually works.
+* THE BEACON KNOWS ITS MANNERS: the shout stops the moment your room
+  is full (no third phone staring at a game it can't join), resumes if
+  the seat frees up, and a phone that is hosting never lists itself on
+  its own join tab. Games that go quiet vanish from the list within
+  four seconds.
+* SCAN THE SQUARE: hosting a duel now stamps a QR square right under
+  the game code. Your friend points their phone's own camera app at
+  it, copies the code it shows, taps PASTE on the JOIN tab - and the
+  game recognises it and knocks on your door in one tap. No camera
+  permission, no in-app scanner: the square is drawn by a tiny QR
+  generator written from scratch (levels M, versions 1-4), and the
+  parser happily digs the code out of whatever chrome the camera app
+  wraps around it. The typed game code well stays for the rare Wi-Fi
+  that hides devices from each other.
+* A NUDGE FOR YOUR STREAK: settings grew a "Daily Streak Reminder"
+  switch (off by default, as nudges should be). Turn it on, grant the
+  one Android permission, and if you leave the app with your Daily
+  Spot unplayed and a live streak, ONE calm notification lands at
+  19:00 local - "a quick run keeps your N-day streak alive." Play the
+  daily and nothing is ever scheduled; open the app and the pending
+  nudge quietly cancels; a streak of zero is never "at risk", so it
+  never notifies. The native poster is now IN THE BOX - the prebuilt
+  NotificationScheduler Android plugin ships in the project (already
+  enabled), the monochrome streak-flame status icon is bundled at
+  every density, and building the APK is one icon-copy command
+  (android_extras/NOTIFICATIONS.md).
+* YOUR RECORDS SURVIVE A NEW PHONE: Android Auto Backup is now
+  officially on - settings, best scores, skill rating, the daily
+  streak and your rival code all ride the phone's cloud backup and
+  come back on reinstall or device migration (android_extras/BACKUP.md
+  documents what is covered and how to verify it on a device).
+* SELF-TEST GREW AGAIN: a new suite section verifies the beacon codec
+  round-trips and rejects junk, that repeat beacons collapse into one
+  listing, that expired games disappear and fresh ones revive, and
+  that the address ranking puts the working Wi-Fi first. Two more
+  sections joined it: one rounds the join-code codec (round-trip,
+  camera-app chrome tolerance, junk rejection) and checks the QR
+  squares structurally - sizes, finder hearts, timing tracks, dark
+  modules, alignment rings - across all four versions; the other
+  drives the reminder decision table (schedule today, schedule
+  tomorrow, custom hour, on-the-hour edge, played-today cancel,
+  disabled cancel, no-streak cancel) so the nudge logic is proven
+  without a phone. The generated squares were additionally decoded
+  by two independent QR readers, blurred and squashed to half
+  resolution, and still scanned. Run it as always:
+  godot --headless -s res://scripts/challenges/ChallengeSystemSelfTest.gd
+* THE STORE SHELF (behind the curtain): a complete Play Store kit now
+  ships in the project's store/ folder - a hostable privacy policy,
+  paste-ready store listing copy, Data Safety and IARC rating
+  walkthroughs, a step-by-step release checklist with the signing-key
+  commands, and a brand-drawn 1024x500 feature graphic. The folder is
+  excluded from the exported game bundle; it exists for the publisher,
+  not the player. First store version: 1.0.0 (version code 1).
+
+SpotRush - Visual Upgrade v20
+=============================
+
+HOW TO CHECK YOU ARE RUNNING THIS BUILD
+---------------------------------------
+Launch the game. The main menu shows a small "v20" stamp in the
+bottom-right corner. If you don't see it, you are running an older
+build - delete the old extracted folder and extract this zip fresh
+(open project.godot in Godot 4).
+
+WHAT CHANGED IN v20 - THE HARDWARE REALITY PASS
+-----------------------------------------------
+* THE APP SURVIVES ANDROID NOW: pressing Home, taking a call or
+  switching apps mid-run used to leave the match running behind your
+  back - sounds playing over your music, the round clock draining
+  while you were gone. Now the phone telling the app "you are
+  backgrounded" freezes a solo run's clock exactly like the quit
+  sheet does, and mutes every sound until you come back. Pick up
+  where you left off; nothing was stolen from you. Duels stay live
+  on purpose (both phones must keep the same beat - your rival is
+  not pausing for your phone call), and the v19 "DUEL ENDED" sheet
+  still catches the case where the other phone vanished while you
+  were away.
+* THE SCREEN STAYS AWAKE: SpotRush now tells Android "keep the screen
+  on while I am open". DON'T TAP holds and GET READY cards are long
+  no-touch moments - the screen used to be free to blank mid-round.
+  It won't any more.
+* REAL NOTCH & CAMERA HOLE SAFETY: the game now reads the phone's
+  actual safe-area insets (punch-hole cameras, status bars, gesture
+  pills) and pads every screen's content by exactly the blocked
+  amount. On desktop this is a no-op, so editor testing is unchanged;
+  on tall 20:9 phones the HUD, footer keys and the version stamp no
+  longer risk hiding behind the camera.
+* MUSIC, AT LAST: a fully synthesized ambient soundtrack in the same
+  soft sound language as the effects - a warm Fmaj7->Am7 pad loop on
+  the menu, a quiet A-minor drone bed in the arena, forged on a
+  background thread during boot so it never hitches. The game bed is
+  deliberately rhythm-free: the round clock's tick owns the rhythm.
+* MUSIC AND EFFECTS VOLUME SLIDERS: Settings grew two slider rows.
+  Sound effects now run on their own audio bus (separate from music),
+  both levels persist and apply instantly, and dragging the effects
+  slider gives you a pip so you can hear where you landed.
+* AN APP ICON THAT ISN'T A ROBOT: a real SpotRush launcher icon set -
+  the lit butter pad with the raised sculpture mark and the coral
+  spot-dimple - including the Android adaptive icon layers cut to
+  the 66dp safe zone.
+* ANDROID EXPORT PRESET SHIPPED: the project now carries a complete
+  Android export configuration - portrait lock, immersive mode, the
+  INTERNET permission duels need, the VIBRATE permission haptics
+  need, arm64+v7a architectures, package name com.spotrush.game,
+  version 1.0.0 (code 1) and the launcher icons wired in. Open it in
+  the Godot editor with the Android build templates installed and
+  export an APK; flip gradle_build/export_format to 1 for an AAB
+  when uploading to the Play Console.
+* SELF-TEST GREW AGAIN: a new hardware-reality section forges both
+  music loops and checks they loop seamlessly at the seam, verifies
+  the volume settings round-trip and clamp, drives the pause/resume
+  lifecycle and checks safe-area math. Run it as always:
+  godot --headless -s res://scripts/challenges/ChallengeSystemSelfTest.gd
+
+SpotRush - Visual Upgrade v19
+=============================
+
+HOW TO CHECK YOU ARE RUNNING THIS BUILD
+---------------------------------------
+Launch the game. The main menu shows a small "v19" stamp in the
+bottom-right corner. If you don't see it, you are running an older
+build - delete the old extracted folder and extract this zip fresh
+(open project.godot in Godot 4).
+
+WHAT CHANGED IN v19 - BACK BUTTON + CONFIRMATION SHEETS
+--------------------------------------------------------
+* THE BACK BUTTON WORKS NOW: Android's back button used to kill the
+  app instantly - mid-duel, mid-run, whenever it was pressed (Godot's
+  default quit-on-back). It is now routed through the game instead:
+  back closes whatever sheet is open first, walks up a screen when
+  there is one, and only at the main menu root asks "LEAVE SPOTRUSH?"
+  with EXIT / STAY keys.
+* CONFIRMATIONS FOR ANYTHING THAT COSTS PROGRESS: quitting a solo run
+  ("QUIT THIS RUN?" - with the round you're on and a reminder the
+  points won't be saved), leaving a live duel ("LEAVE THE DUEL?"), and
+  closing a room your friend is in ("LEAVE THE ROOM?"). One shared
+  neumorphic sheet design everywhere: the coral key is the
+  irreversible action, the plain key is the safe one - and the safe
+  choice is always one tap of the sheet, one tap outside it, or one
+  more press of back away.
+* SOLO CLOCK HOLDS ITS BREATH: while a quit question is up in solo
+  play, the round timer freezes - deciding should never cost you the
+  round. Duels keep running live (both phones must stay on the same
+  beat; your rival is not pausing for your dialog).
+* NO MORE SILENT DUMPS: if the host leaves a duel mid-match, the
+  surviving phone now lands on the menu with a "DUEL ENDED" sheet
+  explaining what happened, instead of teleporting in silence.
+* DESKTOP PARITY: Escape plays the exact role of hardware back, so
+  the whole flow is testable in the Godot editor without a phone.
+* CLEAN QUITS UNDER THE HOOD: abandoning a run hard-stops the match
+  controller (no timers left ticking, no challenge half-dealt, no
+  state leaking into your next match) and drops any duel connection.
+  Records only ever see finished runs - a quit run simply never
+  reaches the results screen.
+* SELF-TEST GREW: a new suite section starts a match, quits it
+  mid-countdown and verifies the slate is clean before the next run.
+  Run it as always:
+  godot --headless -s res://scripts/challenges/ChallengeSystemSelfTest.gd
+
+WHAT CHANGED IN v18 - COLOUR VISION MODES
+-----------------------------------------
+* COLOUR-BLIND PALETTES: Settings now has a COLOUR VISION section.
+  Pick STANDARD, DEUTAN (red-green weak), PROTAN (red-weak) or TRITAN
+  (blue-yellow weak) and every gameplay token re-colours itself - the
+  four token tints plus the Go/No-Go alert halo all follow your mode.
+  A live preview strip shows the exact tokens you'll play with, and a
+  hint line explains which vision each mode is tuned for.
+* TUNED, NOT GUESSED: every palette was designed against an optical
+  simulation of the actual deficiency and verified by the self-test.
+  Under the old colours a deutan player saw the RED and YELLOW tokens
+  nearly fused (colour difference of just 5 on a 100-point scale - the
+  "these look different" line is about 25). The tuned palettes land at
+  33-36 on every single token pair, for every mode, against the white
+  field included.
+* NAMES STAY HONEST: each tint keeps its family - RED still reads red,
+  MINT still reads mint - so spoken instructions ("Tap the YELLOW
+  ones!", "spot RED and hold back") never contradict what you see.
+* ZERO EFFECT ON FAIR PLAY: the palette is pure presentation. Rounds
+  are generated and shared as abstract colour names; your phone paints
+  them in your mode, your rival's phone paints the same rounds in
+  theirs. Seeds, duels, Daily Spot and rival codes are untouched - the
+  self-test now forges identical runs under every mode to prove it.
+* INSTANT AND PERSISTENT: the mode applies the moment you tap (even
+  mid-session, between rounds) and survives restarts like every other
+  setting.
+
+WHAT CHANGED IN v17 - RIVAL CODES + LAUNCH SPLASH
+-------------------------------------------------
+* ASYNC CHALLENGES ARE HERE: friends menu -> CHALLENGE CODE. Every
+  player owns a personal challenge code (XXX-XXX-XXX) - a whole
+  forged run compressed into 9 characters. Copy it into any chat,
+  your friend types it in, and both phones deal the EXACT same
+  rounds: same seed, same difficulty anchor, pure fixed curve.
+  No servers, no accounts, no internet - the code IS the match.
+* PLAY IT FORWARD: play your own challenge once and the results
+  screen hands you a one-tap COPY RESULT card ("SpotRush challenge
+  - 8/10 correct - 12,340 pts - my run: code ... Beat it!"). Your
+  invite text automatically brags the score to beat on your code.
+* NEW RUN IN ONE TAP: the NEW key mints a fresh seed as your code;
+  any friend who already typed the old one keeps their run - the
+  code itself is the whole match, nothing server-side moves.
+* TYPE-PROOF CODES: a 6-bit checksum catches mistyped characters,
+  near-miss glyphs are forgiven (O reads as 0, I/L as 1), pasted
+  text is cleaned and re-grouped while you type, and a bad code
+  tells you so instead of dealing garbage. Challenge runs never
+  touch the solo records - a replayable code cannot farm the board.
+* ENGINE LAUNCH SPLASH: the raw Godot boot flash is gone. The app
+  now opens on the game's own lit pad - the exact frame the boot
+  screen opens from - so launch reads as one continuous reveal:
+  splash, mark blooms, menu rises.
+
+WHAT CHANGED IN v16 - RUN FORGE (the procedural challenge engine)
+----------------------------------------------------------------
+* EVERY PLAY IS A NEW RUN: each Play click now forges a complete,
+  never-before-seen run from fresh entropy - a generated round set,
+  not a rotation. No two runs share a schedule, layout or answer key.
+* NO MORE HARDCODED ROUNDS: the fixed round order (comparison, then
+  estimation, then colour...) is gone. A variety director schedules
+  the run with guarantees: no mini-game repeats back to back, every
+  type appears in the opening six, the DON'T TAP beat never fires
+  twice within three rounds, and the input rhythm never locks into
+  three of a kind.
+* SMOOTH PROGRESSIVE DIFFICULTY: difficulty is now a continuous
+  curve, not four fixed tier tables. Every run starts at your level
+  and climbs - with a gentle settle-in on round one and one recovery
+  breather just past halfway. In solo play the curve also bends live:
+  hot streaks push into harder material faster, misses ease off.
+* COMPUTED CHALLENGES: comparison margins scale by Weber fraction
+  (the gap is always a fair share of the crowd - 38% down to 7%),
+  estimation distractors tighten around the true count as pressure
+  rises, search rounds grow confusable distractor sets, and count
+  thresholds are constructed around their answer - no constants.
+* BALANCED ANSWERS: LEFT/RIGHT, YES/NO and the Go/No-Go outcome are
+  drawn from a fairness ledger - never three of a kind in a row and
+  the split never drifts past two. No more guessing "it's always
+  LEFT".
+* NEW RULE FLAVOURS: MORE or FEWER comparisons, AT LEAST or AT MOST
+  thresholds, rotating target colours/shapes, and dynamic phrasing -
+  instructions are assembled from template pools, so runs stop
+  reading like a looped recording.
+* GO/NO-GO NO LONGER LEAKS: the confirm key used to tell you
+  whether RED was on the field. It doesn't any more - scanning for
+  the trigger is the whole challenge now.
+* QUALITY GATED: every round is verified before it reaches you -
+  token spacing, bounds, option sanity, timing windows - and any
+  round that fails is re-forged.
+* DAILY SPOT + DUELS: the daily series is still identical worldwide
+  (seeded from the date) and duels still deal the same rounds to
+  both phones - now through the same forge.
+* Run the headless verification suite any time:
+  godot --headless -s res://scripts/challenges/ChallengeSystemSelfTest.gd
+
+WHAT CHANGED IN v15 - SCORING 2.0 (the scoring upgrade)
+------------------------------------------------------
+* HARDER PAYS MORE: base pay now depends on the round's difficulty
+  band - WARM-UP 800 / STEADY 1000 / HARD 1250 / EXPERT 1550.
+  As your adaptive rating climbs, the stakes climb with it (a
+  perfect EXPERT answer at x4 combo is worth 8,800).
+* SPEED 2.0: the speed bonus now uses an ease-out curve, so
+  mid-window answers earn closer to the max - "answer fast"
+  always feels worth it.
+* LIGHTNING BONUS: answer with 85%+ of the clock still in hand
+  and a flat +150 BOLT lands on top. The feedback badge swaps its
+  check mark for a golden bolt when you do.
+* ROUND GRADES: every correct answer is graded on how much clock
+  you used - S (30% or less), A, B, C. S rounds take over the
+  card title ("S RANK!"), and the results screen tallies your
+  S-ranks for the run.
+* SCORE MATH ON THE CARD: the feedback card now shows the full
+  breakdown - e.g. "S - BASE 1,250 + SPEED 318 + BOLT 150  x2" -
+  so the scoring system teaches itself.
+* NEW BEST ROUND! (solo): beat your all-time best round and the
+  card calls it out live. Best round + best streak now persist
+  across sessions; the results screen marks new records ("NEW!").
+* DIFFICULTY CALLOUTS: GET READY now names the upcoming band
+  ("ROUND 3 OF 10 - HARD"), and when the adaptive engine moves
+  you up or down a band you HEAR it - two rising notes up, two
+  falling notes down.
+* DUEL FIX: the combo meter on the joining phone now stays live -
+  the breakdown + streak travel with every answer packet, so both
+  phones see the same math.
+* Big point numbers now use comma formatting everywhere (cards,
+  fly-ups, results).
+
+WHAT CHANGED IN v14 - DAILY SPOT (the once-a-day challenge)
+-----------------------------------------------------------
+* Open the DAILY hub: tap the pill button above the footer
+  (the one that used to show your personal best).
+* Every day there is ONE Daily Spot: 10 rounds, the exact same
+  challenge series for EVERY player (seeded from the calendar
+  date) - like the classic once-a-day puzzle games.
+* The daily uses the fixed difficulty ramp (1-4 over 10 rounds)
+  so the series is identical worldwide. Regular solo play still
+  uses your personal adaptive rating.
+* DAY STREAK: play daily to grow it (Day 1, 2, 3...).
+  STREAK SHIELD: miss exactly one day and the streak survives
+  automatically - one shield per week, no setup needed.
+  Miss two or more days and the streak restarts.
+* Done for today? The hub shows your result and a live countdown
+  to the next Spot, and the results-screen key becomes
+  "SHARE RESULT" - copies a result card like:
+  SpotRush Daily #12 - 9/10 correct - 16,450 pts - x3 max combo
+  (v15: the card also brags your S-rank count.)
+
+WHAT CHANGED IN v13 - COMBOS + ADAPTIVE DIFFICULTY
+---------------------------------------------------
+* Combo multiplier tiers: 3 in a row -> x2, 6 -> x3, 10 -> x4.
+  The multiplier scales the whole round reward.
+  HUD flame chip = combo meter with heat colors + tier jingles.
+* Adaptive difficulty: live skill rating (1-4) replaces the fixed
+  ramp in solo/duel; persists between sessions.
+
+WHAT CHANGED IN v12
+-------------------
+* Typing the game code in JOIN plays "Twinkle Twinkle Little Star".
+
+WHAT CHANGED IN v11 / v10
+-------------------------
+* v11: lobby entrance choreography + version stamp.
+* v10: multiplayer lobby fully remade (guided, game-shaped),
+  resultscreen-style keys, join watchdog, ENet compression.
+
+HOW THE SCORING MATH WORKS NOW
+------------------------------
+correct answer:
+  (band base + eased speed bonus + bolt if 85% clock left) x combo
+  WARM-UP 800 | STEADY 1000 | HARD 1250 | EXPERT 1550
+  combo tiers: x1 / x2 (3 row) / x3 (6 row) / x4 (10 row)
+wrong answer: -150 and the combo resets to x1
+perfect restraint (withhold): flat 1,000
+grades: S (used 30% of clock or less) / A (55%) / B (80%) / C
+
+HOW THE DAILY FLOW WORKS
+------------------------
+Menu -> DAILY hub -> PLAY TODAY'S SPOT -> 10 seeded rounds ->
+results ("DAILY #N DONE!") -> SHARE RESULT copies the card ->
+come back tomorrow after the countdown hits zero.

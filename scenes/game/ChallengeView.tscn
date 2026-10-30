@@ -2,47 +2,8 @@
 
 [ext_resource type="Script" path="res://scripts/ui/ChallengeView.gd" id="1_chview"]
 [ext_resource type="Script" path="res://scripts/ui/ChallengeCanvas.gd" id="2_chcanvas"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_badge"]
-bg_color = Color(0.172549, 0.258824, 0.219608, 1)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-content_margin_left = 14.0
-content_margin_top = 6.0
-content_margin_right = 14.0
-content_margin_bottom = 6.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_instruction"]
-bg_color = Color(0.133333, 0.2, 0.168627, 0.8)
-corner_radius_top_left = 14
-corner_radius_top_right = 14
-corner_radius_bottom_right = 14
-corner_radius_bottom_left = 14
-content_margin_left = 16.0
-content_margin_top = 10.0
-content_margin_right = 16.0
-content_margin_bottom = 10.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_canvas_frame"]
-bg_color = Color(0.090196, 0.137255, 0.121569, 0.95)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.18, 0.28, 0.23, 0.9)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_action"]
-bg_color = Color(0.658824, 0.941176, 0.776471, 1)
-corner_radius_top_left = 14
-corner_radius_top_right = 14
-corner_radius_bottom_right = 14
-corner_radius_bottom_left = 14
+[ext_resource type="Script" path="res://scripts/ui/NeuText.gd" id="3_text"]
+[ext_resource type="Theme" path="res://assets/ui/SpotRushTypography.tres" id="4_typography"]
 
 [node name="ChallengeView" type="Control"]
 layout_mode = 3
@@ -54,6 +15,7 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 script = ExtResource("1_chview")
+theme = ExtResource("4_typography")
 
 [node name="VBoxContent" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -71,31 +33,30 @@ alignment = 1
 [node name="BadgeLabel" type="Label" parent="VBoxContent/BadgeContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.658824, 0.941176, 0.776471, 1)
+theme_override_colors/font_color = Color(0.486275, 0.360784, 0.988235, 1)
 theme_override_font_sizes/font_size = 13
-theme_override_styles/normal = SubResource("StyleBoxFlat_badge")
 text = "ALMOST RIGHT • ESTIMATION"
 
 [node name="InstructionCard" type="PanelContainer" parent="VBoxContent"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_instruction")
 
-[node name="InstructionLabel" type="Label" parent="VBoxContent/InstructionCard"]
+[node name="InstructionLabel" type="Control" parent="VBoxContent/InstructionCard"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 74)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.945098, 0.960784, 0.976471, 1)
-theme_override_font_sizes/font_size = 20
+script = ExtResource("3_text")
 text = "Observe and answer quickly!"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 2
+font_size = 30
+color = Color(0.117647, 0.141176, 0.196078, 1)
+look = 0
+align = 1
+autowrap = true
+auto_emphasis = true
 
 [node name="PlayFieldContainer" type="PanelContainer" parent="VBoxContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_styles/panel = SubResource("StyleBoxFlat_canvas_frame")
 
 [node name="ChallengeCanvas" type="Control" parent="VBoxContent/PlayFieldContainer"]
 unique_name_in_owner = true
@@ -106,17 +67,16 @@ script = ExtResource("2_chcanvas")
 
 [node name="OptionsContainer" type="HBoxContainer" parent="VBoxContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 104)
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 14
 alignment = 1
 
 [node name="BtnActionDone" type="Button" parent="VBoxContent"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.090196, 0.137255, 0.121569, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("StyleBoxFlat_action")
+theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
+theme_override_font_sizes/font_size = 19
 text = "CONFIRM SELECTIONS"
