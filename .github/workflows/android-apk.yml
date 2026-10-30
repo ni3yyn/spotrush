@@ -104,17 +104,40 @@ jobs:
 
           test -f android/build/res/drawable-mdpi/ic_notification.png
 
+      - name: Exclude development tests from Android export
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p tests
+          touch tests/.gdignore
+
+          echo "Development test directory excluded from Godot project scanning."    
+
       - name: Import Godot project
         shell: bash
         run: |
           set -euo pipefail
           godot --headless --editor --path . --import --quit
 
-      - name: Export Debug APK
+      - name: Install Godot Android Build Template
         shell: bash
         run: |
           set -euo pipefail
 
+          godot --headless --editor --path . --install-android-build-template
+
+          echo "Checking Godot Android libraries..."
+
+          test -n "$(find android/build/libs/debug -maxdepth 1 -name '*.aar' -print -quit)"
+          test -n "$(find android/build/libs/release -maxdepth 1 -name '*.aar' -print -quit)"
+
+          echo "Godot Android libraries installed successfully."
+
+      - name: Export Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p build
 
           godot --headless --path . \
