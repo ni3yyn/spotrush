@@ -41,7 +41,7 @@ const CHANNEL_NAME := "Daily streak reminders"
 const CHANNEL_DESCRIPTION := "A daily nudge to keep your SpotRush streak alive"
 const CHANNEL_IMPORTANCE_DEFAULT := 3
 const DEFAULT_HOUR := 19
-const REMINDER_ICON := "ic_default_notification"
+const REMINDER_ICON := "ic_notification"
 
 # House pattern: Settings and Records are plain static classes, referenced
 # through preloads (they are not global class names).

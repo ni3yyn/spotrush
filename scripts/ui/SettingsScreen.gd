@@ -23,6 +23,7 @@ var _vision_preview: Control
 var _slider_thumb_texture: Texture2D = null
 var _toggle_layouts: Array[Dictionary] = []
 var _reminder_status: Label = null
+var _debug_log_status: Label = null
 
 func _ready() -> void:
         BackNav.register(self)
@@ -31,6 +32,8 @@ func _ready() -> void:
         if not DailyReminder.permission_state_changed.is_connected(_on_reminder_permission_state_changed):
                 DailyReminder.permission_state_changed.connect(_on_reminder_permission_state_changed)
         _refresh_reminder_status()
+        if OS.is_debug_build() and not CrashLogger.log_upload_completed.is_connected(_on_log_upload_completed):
+                CrashLogger.log_upload_completed.connect(_on_log_upload_completed)
         # Android may report the final cutout/safe-area rectangle one frame
         # after the scene enters the tree. Read it after layout, then once more
         # after the platform window settles so the header never sits under a notch.
@@ -108,6 +111,8 @@ func _build_page() -> void:
         _build_accessibility_section()
         _build_match_section()
         _build_reminder_section()
+        if OS.is_debug_build():
+                _build_debug_section()
 
         # Buttons, labels and nested card containers default to MOUSE_FILTER_STOP.
         # That prevents the ScrollContainer from seeing a swipe that starts on an
@@ -476,6 +481,42 @@ func _build_reminder_section() -> void:
                 NeuKit.style_button(debug_btn, "raised", 18.0)
                 debug_btn.pressed.connect(func() -> void: DailyReminder.debug_fire_test_notification())
                 section.add_child(debug_btn)
+
+## DEBUG BUILD ONLY - see CrashLogger.debug_upload_latest_log(). Lets you
+## grab the crash log with no cable and no file manager at all: it posts the
+## current session's log text to dpaste.org and copies the resulting URL to
+## the clipboard, so you can open it straight from a browser on this same
+## phone.
+func _build_debug_section() -> void:
+        var section := _section("Debug", "Developer tools - only shown in debug builds, never in a release build.")
+        var upload_btn := Button.new()
+        upload_btn.text = "UPLOAD CRASH LOG (DEBUG)"
+        upload_btn.custom_minimum_size = Vector2(0, 90)
+        upload_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        upload_btn.add_theme_font_override("font", NeuKit.bold_font(upload_btn, 0.36))
+        SpotRushTypography.apply_as(upload_btn, SpotRushTypography.Role.BUTTON)
+        upload_btn.add_theme_color_override("font_color", NeuKit.SLATE)
+        NeuKit.style_button(upload_btn, "raised", 18.0)
+        upload_btn.pressed.connect(_on_upload_log_pressed)
+        section.add_child(upload_btn)
+
+        _debug_log_status = Label.new()
+        _debug_log_status.name = "DebugLogUploadStatus"
+        _debug_log_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        SpotRushTypography.apply_as(_debug_log_status, SpotRushTypography.Role.BODY)
+        _debug_log_status.add_theme_color_override("font_color", NeuKit.SLATE)
+        _debug_log_status.text = "Sends this session's log to dpaste.org (third-party, public-by-link) and copies the URL to your clipboard."
+        section.add_child(_debug_log_status)
+
+func _on_upload_log_pressed() -> void:
+        if is_instance_valid(_debug_log_status):
+                _debug_log_status.text = "Uploading log..."
+        CrashLogger.debug_upload_latest_log()
+
+func _on_log_upload_completed(ok: bool, message: String) -> void:
+        if not is_instance_valid(_debug_log_status):
+                return
+        _debug_log_status.text = ("Copied to clipboard: %s" % message) if ok else ("Upload failed: %s" % message)
 
 func _on_reminder_toggled(on: bool) -> void:
         Settings.set_reminder_enabled(on)
