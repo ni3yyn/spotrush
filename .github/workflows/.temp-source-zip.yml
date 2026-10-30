@@ -1,0 +1,54 @@
+name: Temporary SpotRush scroll-fix archive
+
+on:
+  push:
+    branches:
+      - fix/results-shared-layout-notifications-6
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.7.2
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Validate GDScript project
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path . --editor --quit 2>&1 | tee "$RUNNER_TEMP/godot-check.log"
+          if grep -E "SCRIPT ERROR|Parse Error|Parser Error" "$RUNNER_TEMP/godot-check.log"; then
+            exit 1
+          fi
+
+      - name: Package source ZIP
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -qr "$RUNNER_TEMP/SpotRush-settings-scroll-fix.zip" . \
+            -x "./.git/*" \
+               "./.github/workflows/.temp-source-zip.yml" \
+               "./SpotRush-settings-scroll-fix.zip" \
+               "*/.git/*"
+          test -s "$RUNNER_TEMP/SpotRush-settings-scroll-fix.zip"
+
+      - name: Upload ZIP artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotRush-settings-scroll-fix
+          path: ${{ runner.temp }}/SpotRush-settings-scroll-fix.zip
+          if-no-files-found: error
+          retention-days: 1
