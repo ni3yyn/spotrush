@@ -237,7 +237,7 @@ func request_permission() -> void:
                 _permission_denied = true
                 permission_state_changed.emit(false, true)
                 return
-        var native := bridge()
+        var native: Node = bridge()
         if native == null:
                 push_warning("[DailyReminder] Falling back to Godot's Android permission request.")
                 _request_os_permission_fallback()
@@ -294,7 +294,7 @@ func schedule_reminder(delay_seconds: int, title: String, content: String) -> vo
         if not _has_notification_permission():
                 push_warning("[DailyReminder] Refusing to schedule without POST_NOTIFICATIONS permission.")
                 return
-        var native := bridge()
+        var native: Node = bridge()
         if native == null or not _bridge_ready or not _plugin_scripts():
                 push_error("[DailyReminder] Cannot schedule: v6 Android notification bridge/models unavailable.")
                 return
