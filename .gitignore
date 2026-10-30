@@ -1,16 +1,26 @@
-# Godot 4 .gitignore
+
+# Godot generated files
 .godot/
 *.translation
 *.import
-export_presets.cfg
+
+# IDE
 .vscode/
 .idea/
+
+# Archives
 *.zip
 
-@"
+# Exported builds
+/build/
+/dist/
 
+# Generated Android Gradle output
 /android/build/build/
 /android/build/libs/
 /android/build/.gradle/
 /android/build/.cxx/
-"@ | Add-Content .gitignore
+/android/build/assetPackInstallTime/build/
+
+# Godot-generated project assets inside the Android template
+/android/build/src/main/assets/
