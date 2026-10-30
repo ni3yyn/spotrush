@@ -19,6 +19,20 @@ boot_splash/image="res://assets/ui/BootSplash.png"
 config/icon="res://assets/ui/AppIcon.png"
 boot_splash/minimum_display_time=200
 
+[audio]
+
+; Forces the older, far more battle-tested OpenSL ES backend on Android
+; instead of Godot's default AAudio driver. The crash we're chasing -
+; "Fatal signal 11 (SIGSEGV)... in tid NNNN (AudioTrack)" - is a known
+; failure signature for Godot's AAudio driver on a subset of Android
+; devices/OS versions (its callback thread dies natively with no GDScript
+; stack trace to show for it, exactly what CrashLogger captured). AAudio is
+; the newer, lower-latency path, but OpenSL ES is the long-stable fallback
+; and is what this pins to. If the crash disappears on this build, that
+; confirms the driver as the cause instead of our own synthesis code; if it
+; still happens, that points back at Music.gd/Sfx.gd instead.
+driver/driver.android="Opensl"
+
 [autoload]
 
 NetworkSession="*res://scripts/networking/NetworkSession.gd"

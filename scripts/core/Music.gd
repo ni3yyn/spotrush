@@ -30,6 +30,15 @@ const MENU_PEAK := 0.43
 const GAME_PEAK := 0.90
 
 static var _bank: Dictionary = {}
+# Guards _bank: the autoload's own worker thread (_build_menu_stream /
+# _build_game_stream) and ChallengeSystemSelfTest.gd (which calls
+# build_stream() directly from the main thread during boot) can otherwise
+# race to write the same static Dictionary from two threads at once.
+# Unsynchronized concurrent Dictionary writes are undefined behavior in
+# Godot and can corrupt memory in a way that only surfaces later, in a
+# completely unrelated thread - exactly the shape of a crash that's hard to
+# pin down from a single native SIGSEGV line with no GDScript stack trace.
+static var _bank_mutex := Mutex.new()
 
 var _menu_player: AudioStreamPlayer
 var _game_player: AudioStreamPlayer
@@ -149,8 +158,17 @@ func _stream_is_ready(kind: String) -> bool:
 
 ## Builds and caches one seamless 32-second ambient loop.
 static func build_stream(kind: String) -> AudioStreamWAV:
+        _bank_mutex.lock()
         if _bank.has(kind):
-                return _bank[kind]
+                var cached: AudioStreamWAV = _bank[kind]
+                _bank_mutex.unlock()
+                return cached
+        _bank_mutex.unlock()
+        # Synthesis itself (below) deliberately happens OUTSIDE the lock - it's
+        # the expensive part and doesn't touch _bank, so there's no reason to
+        # make a second caller block on it. Losing the race just means two
+        # callers synthesize the same loop once each; only the final _bank
+        # write below needs to be mutually exclusive.
         var n := int(RATE * LOOP_LEN)
         var samples := PackedFloat32Array()
         samples.resize(n)
@@ -184,7 +202,16 @@ static func build_stream(kind: String) -> AudioStreamWAV:
         wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
         wav.loop_begin = 0
         wav.loop_end = n
-        _bank[kind] = wav
+        _bank_mutex.lock()
+        # Another thread may have finished building and cached this same kind
+        # while we were synthesizing our own copy above - keep whichever one
+        # landed first so every caller ever after shares one canonical object
+        # (the self-test's cache-identity check relies on this).
+        if _bank.has(kind):
+                wav = _bank[kind]
+        else:
+                _bank[kind] = wav
+        _bank_mutex.unlock()
         return wav
 
 # --- composition -----------------------------------------------------------------------
