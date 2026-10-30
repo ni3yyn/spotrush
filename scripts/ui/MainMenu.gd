@@ -643,7 +643,7 @@ func _build_friends_option(btn: Button, icon_key: String, option_title_text: Str
 		var caption := Label.new()
 		caption.name = "ChoiceCaption"
 		caption.text = caption_text
-		caption.autowrap_mode = 2
+		caption.autowrap_mode = TextServer.AUTOWRAP_WORD
 		SpotRushTypography.apply_as(caption, SpotRushTypography.Role.CAPTION)
 		caption.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82) if primary else NeuKit.SLATE)
 		copy.add_child(caption)

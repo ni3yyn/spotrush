@@ -412,15 +412,10 @@ func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration:
 				challenge_view.unlock_input()
 		else:
 				challenge_view.load_challenge(challenge)
-				# --- PATCH E ---
-				call_deferred("_sweep_challenge")
-				# ---------------
+						# ChallengeCanvas already animates token entrances. Avoid a second
+				# full-screen expanding ring here: its 96-segment redraw is costly
+				# on mobile exactly when the challenge first appears.
 
-## A searchlight ring sweeps out and settles over the freshly dealt challenge.
-func _sweep_challenge() -> void:
-		if not is_inside_tree() or fx == null:
-				return
-		fx.spotlight(challenge_view.get_global_rect())
 
 func _on_time_tick(remaining: float, total: float) -> void:
 		timer_dial.set_time(remaining, total)

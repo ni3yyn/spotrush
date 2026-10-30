@@ -1,3 +1,4 @@
+
 name: Build SpotRush Android APK
 
 on:
@@ -41,6 +42,35 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Install Godot 4.7 Notification Scheduler 6.0
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive="/tmp/NotificationSchedulerPlugin-Android-v6.0.zip"
+          url="https://github.com/godot-mobile-plugins/godot-notification-scheduler/releases/download/v6.0/NotificationSchedulerPlugin-Android-v6.0.zip"
+          expected_sha256="806c85eafe8f4c8aa4ee37e0ed1ab551e85db8755f8aeb1c6302092f809725a3"
+
+          echo "Downloading the Godot 4.7-compatible Android notification plugin..."
+          curl --fail --location --retry 3 --retry-delay 2 "$url" --output "$archive"
+          echo "$expected_sha256  $archive" | sha256sum --check -
+
+          mkdir -p addons/NotificationSchedulerPlugin/bin/debug
+          mkdir -p addons/NotificationSchedulerPlugin/bin/release
+
+          unzip -p "$archive" \
+            "res/addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar" \
+            > addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar
+
+          unzip -p "$archive" \
+            "res/addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar" \
+            > addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar
+
+          test -s addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar
+          test -s addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar
+
+          echo "Godot Notification Scheduler 6.0 AARs installed and checksum-verified."
+
       - name: Verify project configuration
         shell: bash
         run: |
@@ -64,12 +94,16 @@ jobs:
           test -f android/build/src/main/AndroidManifest.xml
 
           echo "Checking notification plugin..."
-          test -s addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-4.1-debug.aar
-          test -s addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-4.1-release.aar
+          test -s addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar
+          test -s addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar
+          grep -Fq 'version="6.0"' addons/NotificationSchedulerPlugin/plugin.cfg
+          test -f addons/NotificationSchedulerPlugin/model/CustomData.gd
+          test -f addons/GMPShared/GmpLogger.gd
 
           echo "Checking Android export preset..."
           test -f export_presets.cfg
           grep -Fq 'name="Android"' export_presets.cfg
+          grep -Fq 'gradle_build/use_gradle_build=true' export_presets.cfg
 
           echo "All required project files are present."
 
@@ -90,6 +124,18 @@ jobs:
             "ndk;29.0.14206865"
 
           echo "Android SDK packages installed."
+
+      - name: Start Android Debug Bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Starting ADB server..."
+          adb start-server
+          adb version
+          adb devices
+
+          echo "ADB is ready."
 
       - name: Configure Godot Android paths
         shell: bash
@@ -115,71 +161,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Excluding development test scripts from project scanning..."
+          echo "Excluding development test scripts..."
 
           mkdir -p tests
           touch tests/.gdignore
 
-          echo "Test files will not be scanned as project resources."
-          echo "No tests will be executed."
-
-      - name: Import Godot project
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "======================================"
-          echo "Importing Godot project resources"
-          echo "======================================"
-
-          timeout 10m godot --headless --editor --path . --import --quit
-
-          echo "Godot project import completed."
-
-      - name: Install Godot Android Build Template
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "======================================"
-          echo "Installing Godot Android build template"
-          echo "This step may take several minutes."
-          echo "======================================"
-
-          timeout 10m godot --headless --editor --path . \
-            --install-android-build-template \
-            --quit
-
-          echo "Checking generated Godot Android libraries..."
-
-          if [ ! -d android/build/libs/debug ]; then
-            echo "::error::Godot debug Android libraries directory was not generated."
-            echo "Contents of android/build:"
-            find android/build -maxdepth 4 -type f | sort | head -200 || true
-            exit 1
-          fi
-
-          if [ ! -d android/build/libs/release ]; then
-            echo "::error::Godot release Android libraries directory was not generated."
-            echo "Contents of android/build:"
-            find android/build -maxdepth 4 -type f | sort | head -200 || true
-            exit 1
-          fi
-
-          if ! find android/build/libs/debug -maxdepth 1 -type f -name '*.aar' -print -quit | grep -q .; then
-            echo "::error::No Godot debug AAR libraries were generated."
-            find android/build/libs -maxdepth 3 -type f -print || true
-            exit 1
-          fi
-
-          if ! find android/build/libs/release -maxdepth 1 -type f -name '*.aar' -print -quit | grep -q .; then
-            echo "::error::No Godot release AAR libraries were generated."
-            find android/build/libs -maxdepth 3 -type f -print || true
-            exit 1
-          fi
-
-          echo "Godot Android libraries installed successfully."
-          find android/build/libs -maxdepth 2 -type f -name '*.aar' -print
+          echo "Test scripts excluded from Godot project scanning."
+          echo "No game tests will be executed."
 
       - name: Prepare notification resources
         shell: bash
@@ -188,15 +176,22 @@ jobs:
 
           echo "Preparing Android notification resources..."
 
-          mkdir -p android/build/res
-
-          cp -R android_extras/res/. android/build/res/
+          # The v6 exporter reads project assets and copies them into the
+          # Android Gradle template during export. Use Android monochrome
+          # notification icons with the name expected by v6.
+          asset_root="assets/NotificationSchedulerPlugin/android"
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "$asset_root/drawable-$density"
+            cp "android_extras/res/drawable-$density/ic_notification.png" \
+              "$asset_root/drawable-$density/ic_default_notification.png"
+          done
 
           chmod +x android/build/gradlew
 
-          test -f android/build/res/drawable-mdpi/ic_notification.png
+          test -s "$asset_root/drawable-mdpi/ic_default_notification.png"
+          test -s "$asset_root/drawable-xxxhdpi/ic_default_notification.png"
 
-          echo "Notification resources prepared."
+          echo "Notification Scheduler v6 icon resources prepared."
 
       - name: Export Debug APK
         shell: bash
@@ -206,25 +201,34 @@ jobs:
           mkdir -p build
 
           echo "======================================"
-          echo "Installing Android template and exporting APK"
+          echo "SPOTRUSH ANDROID BUILD"
           echo "======================================"
+          echo "Godot: $(godot --version)"
+          echo "Java: $JAVA_HOME"
+          echo "Android SDK: $ANDROID_HOME"
+          echo "Preset: Android"
+          echo "Output: build/SpotRush-debug.apk"
+          echo "======================================"
+
+          # Make Gradle print tasks instead of using an animated console.
+          export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.console=plain -Dorg.gradle.logging.level=info"
+
+          echo ""
+          echo "[1/3] Installing Android build template if necessary..."
+          echo "[2/3] Importing project and preparing Android resources..."
+          echo "[3/3] Building APK with Gradle..."
+          echo ""
 
           timeout 30m godot --headless --verbose --path . \
             --install-android-build-template \
             --export-debug "Android" \
             build/SpotRush-debug.apk
 
+          echo ""
           echo "======================================"
-          echo "Verifying APK"
+          echo "Godot export command finished."
           echo "======================================"
 
-          if [ ! -s build/SpotRush-debug.apk ]; then
-            echo "::error::APK was not generated."
-            exit 1
-          fi
-
-          ls -lh build/SpotRush-debug.apk
-          echo "APK generated successfully."
       - name: Verify APK
         shell: bash
         run: |

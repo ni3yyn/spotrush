@@ -50,6 +50,18 @@ func _ready() -> void:
         _apply_results_typography()
         _apply_column_layout()
         resized.connect(_apply_column_layout)
+        if not get_viewport().size_changed.is_connected(_apply_column_layout):
+                get_viewport().size_changed.connect(_apply_column_layout)
+        # Android can settle its viewport after the scene is mounted. Reapply
+        # the safe-area baseline and the centered content measure after layout.
+        await get_tree().process_frame
+        if not is_inside_tree():
+                return
+        _refresh_safe_area()
+        await get_tree().process_frame
+        if not is_inside_tree():
+                return
+        _refresh_safe_area()
         _label_button(btn_rematch, "PLAY AGAIN", 3, 31, Color.WHITE, NeuKit.COBALT)
         _label_button(btn_menu, "MAIN MENU", 0, 26, NeuKit.SLATE, NeuKit.COBALT)
         btn_rematch.pressed.connect(_on_rematch_pressed)
@@ -73,15 +85,27 @@ func _label_button(btn: Button, caption: String, look: int, font_size: int, colo
         if btn.has_meta("neu_style"):
                 label.bind_style(btn.get_meta("neu_style"))
 
-## Cards stay a centred editorial column: on wide (expanded-aspect) screens the
-## content is capped at a 620 px measure instead of stretching edge-to-edge.
+## Keep the results content centered and capped on wide/stale Android
+## viewports, while preserving the idempotent safe-area baseline.
 func _apply_column_layout() -> void:
         var safe := get_node_or_null("SafeArea") as MarginContainer
         if safe == null:
                 return
-        var side := int(maxf(30.0, (size.x - 620.0) * 0.5))
-        safe.add_theme_constant_override("margin_left", side)
-        safe.add_theme_constant_override("margin_right", side)
+        var viewport_width := get_viewport_rect().size.x
+        if viewport_width <= 1.0:
+                return
+        var insets := NeuSafe.canvas_insets()
+        var available := maxf(280.0, viewport_width - insets.x - insets.z)
+        var content_width := minf(620.0, available)
+        var side := maxf(0.0, (available - content_width) * 0.5)
+        safe.add_theme_constant_override("margin_left", int(round(side + insets.x)))
+        safe.add_theme_constant_override("margin_right", int(round(side + insets.z)))
+        safe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        safe.custom_minimum_size.x = 0.0
+
+func _refresh_safe_area() -> void:
+        NeuSafe.fit(get_node_or_null("SafeArea") as Control)
+        _apply_column_layout()
 
 ## Slimmer stat wells so the six tiles never force the row past the column.
 func _tighten_stat_tiles() -> void:
