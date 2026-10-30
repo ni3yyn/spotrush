@@ -29,6 +29,7 @@ NeuDialog="*res://scripts/ui/NeuDialog.gd"
 AppLifecycle="*res://scripts/core/AppLifecycle.gd"
 Music="*res://scripts/core/Music.gd"
 DailyReminder="*res://scripts/core/DailyReminder.gd"
+CrashLogger="*res://scripts/core/CrashLogger.gd"
 
 [display]
 
@@ -51,6 +52,12 @@ theme/custom="res://assets/ui/SpotRushTypography.tres"
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[logging]
+
+file_logging/enable_file_logging=true
+file_logging/log_path="user://logs/godot.log"
+file_logging/max_log_files=6
 
 [rendering]
 

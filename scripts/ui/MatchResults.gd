@@ -48,7 +48,6 @@ func _ready() -> void:
         Music.play_menu()
         _tighten_stat_tiles()
         _apply_results_typography()
-        _apply_column_layout()
         resized.connect(_apply_column_layout)
         if not get_viewport().size_changed.is_connected(_apply_column_layout):
                 get_viewport().size_changed.connect(_apply_column_layout)
