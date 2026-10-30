@@ -60,6 +60,7 @@ var _bridge = null
 var _bridge_ready := false
 var _permission_granted := false
 var _permission_denied := false
+var _channel_ensured := false
 
 signal permission_state_changed(granted: bool, denied: bool)
 
@@ -129,6 +130,14 @@ func evaluate_now() -> void:
 		if not _has_notification_permission():
 				print("[DailyReminder] Permission not granted; reminder was not scheduled.")
 				return
+		# Register the Android notification channel as soon as we know we're
+		# allowed to notify - NOT only once a reminder is actually about to be
+		# scheduled below. Before this fix, a fresh install (streak 0) or an
+		# already-played daily meant decide() always returned "cancel" and
+		# _ensure_channel() was never reached even once, so the channel never
+		# showed up in Android's notification settings no matter how many
+		# times permission was granted.
+		_ensure_channel_ready()
 		var decision := decide(
 				Time.get_datetime_dict_from_system(),
 				true,
@@ -246,6 +255,7 @@ func request_permission() -> void:
 				_permission_granted = true
 				_permission_denied = false
 				permission_state_changed.emit(true, false)
+				_ensure_channel_ready()
 				# Already granted: safe to evaluate immediately. If a dialog is
 				# shown, scheduling remains deferred until the next app pause.
 				evaluate_now()
@@ -270,6 +280,7 @@ func _on_os_permission_result(permission_name: String, granted: bool) -> void:
 		permission_state_changed.emit(_permission_granted, _permission_denied)
 		if granted:
 				print("[DailyReminder] Android POST_NOTIFICATIONS permission granted.")
+				_ensure_channel_ready()
 				evaluate_now()
 		else:
 				cancel_reminder()
@@ -279,6 +290,7 @@ func _on_permission_granted(_permission_name: String) -> void:
 		_permission_granted = true
 		_permission_denied = false
 		permission_state_changed.emit(true, false)
+		_ensure_channel_ready()
 		print("[DailyReminder] Android POST_NOTIFICATIONS permission granted.")
 
 func _on_permission_denied(_permission_name: String) -> void:
@@ -331,3 +343,51 @@ func _ensure_channel(native) -> void:
 		var result: Error = native.create_notification_channel(channel)
 		if result != OK and result != ERR_ALREADY_EXISTS:
 				push_warning("[DailyReminder] Notification channel creation returned error %d." % result)
+
+## Makes sure the Android notification channel exists whenever we know we're
+## allowed to notify, independent of whether a reminder is actually being
+## scheduled right now. Safe and cheap to call repeatedly (native call is
+## itself idempotent; _channel_ensured just skips the repeat round-trip).
+func _ensure_channel_ready() -> void:
+		if _channel_ensured:
+				return
+		if not _has_notification_permission():
+				return
+		var native: Node = bridge()
+		if native == null or not _bridge_ready or not _plugin_scripts():
+				return
+		_ensure_channel(native)
+		_channel_ensured = true
+
+## DEBUG ONLY - fires a real notification ~5 seconds from now, bypassing
+## every eligibility check (streak, played-today, the reminder toggle). Lets
+## you confirm permission -> channel -> native schedule -> an actual
+## notification arriving, in seconds, instead of waiting for a real
+## streak-at-risk evening. SettingsScreen only shows the button that calls
+## this when OS.is_debug_build(), and this refuses outright otherwise so it
+## can never fire from a release-signed build even if something else called it.
+func debug_fire_test_notification() -> void:
+		if not OS.is_debug_build():
+				push_warning("[DailyReminder] debug_fire_test_notification ignored in a release build.")
+				return
+		if not _has_notification_permission():
+				push_warning("[DailyReminder] Can't fire test notification - permission not granted.")
+				return
+		var native: Node = bridge()
+		if native == null or not _bridge_ready or not _plugin_scripts():
+				push_error("[DailyReminder] Can't fire test notification - bridge/models unavailable.")
+				return
+		_ensure_channel(native)
+		_channel_ensured = true
+		var data = _plugin_data_script.new()
+		data.set_id(NOTIFICATION_ID) \
+				.set_channel_id(CHANNEL_ID) \
+				.set_title("SpotRush test notification") \
+				.set_content("If you see this, the channel and scheduler are both working.") \
+				.set_small_icon_name(REMINDER_ICON) \
+				.set_delay(5)
+		var result: Error = native.schedule(data)
+		if result != OK:
+				push_warning("[DailyReminder] Test schedule returned error %d." % result)
+		else:
+				print("[DailyReminder] Test notification scheduled in 5 seconds.")
