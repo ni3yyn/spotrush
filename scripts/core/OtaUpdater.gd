@@ -46,7 +46,7 @@ signal update_failed(reason: String)
 ## set this once. Repo must be PUBLIC: release assets have no auth, and
 ## there's no safe way to embed a GitHub token in an APK for a private one.
 ## Left empty, check_for_update() is a silent no-op.
-const MANIFEST_URL: String = ""
+const MANIFEST_URL: String = "https://github.com/ni3yyn/spotrush/releases/latest/download/manifest.json"
 
 const STATE_PATH: String = "user://ota_state.json"
 const DOWNLOAD_DIR: String = "user://ota_downloads"

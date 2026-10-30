@@ -1,0 +1,6 @@
+﻿{
+    "version":  "1.0.1",
+    "pck_url":  "https://github.com/ni3yyn/spotrush/releases/latest/download/content.pck",
+    "sha256":  "12730ec1d877531db250f875f881192812973fec09e47a0cc698e0ffe2f58a11",
+    "notes":  "fix duel desync on reconnect"
+}
