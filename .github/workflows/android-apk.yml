@@ -29,6 +29,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
       - name: Setup Godot 4.7.2
         uses: chickensoft-games/setup-godot@v2
         with:
@@ -43,6 +48,7 @@ jobs:
 
           godot --version
           java -version
+          sdkmanager --version
 
           grep -qx "4.7.2.stable" android/.build_version
 
@@ -63,13 +69,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          if ! command -v sdkmanager >/dev/null 2>&1; then
-            echo "sdkmanager was not found in PATH."
-            exit 1
-          fi
-
-          yes | sdkmanager --licenses
 
           sdkmanager --install \
             "platform-tools" \
