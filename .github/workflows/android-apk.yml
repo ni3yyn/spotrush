@@ -1,0 +1,108 @@
+
+name: Build SpotRush Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Godot 4.7
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.0
+          use-dotnet: false
+          include-templates: true
+
+      - name: Verify tools
+        run: |
+          godot --version
+          java -version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "JAVA_HOME=$JAVA_HOME"
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "build-tools;36.1.0" \
+            "platforms;android-36" \
+            "cmdline-tools;latest" \
+            "ndk;29.0.14206865" \
+            "cmake;3.22.1"
+
+      - name: Configure Godot Android paths
+        shell: bash
+        run: |
+          mkdir -p ~/.config/godot
+
+          cat > ~/.config/godot/editor_settings-4.tres <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Install Android Gradle Build Template
+        run: |
+          godot --headless --path . --editor \
+            --install-android-build-template
+
+      - name: Add SpotRush notification resources
+        run: |
+          mkdir -p android/build/res
+          cp -R android_extras/res/. android/build/res/
+          chmod +x android/build/gradlew
+
+      - name: Import Godot project
+        run: |
+          godot --headless --editor --path . --import --quit
+
+      - name: Verify Android template
+        run: |
+          test -f android/build/gradlew
+          test -f android/build/res/drawable-mdpi/ic_notification.png
+          test -f addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-4.1-debug.aar
+          test -f addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-4.1-release.aar
+
+      - name: Export Debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path . \
+            --export-debug "Android" build/SpotRush-debug.apk
+
+      - name: Verify APK
+        run: |
+          test -s build/SpotRush-debug.apk
+          ls -lh build/SpotRush-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotRush-Android-APK
+          path: build/SpotRush-debug.apk
+          if-no-files-found: error
+          retention-days: 14
