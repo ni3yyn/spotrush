@@ -30,6 +30,7 @@ AppLifecycle="*res://scripts/core/AppLifecycle.gd"
 Music="*res://scripts/core/Music.gd"
 DailyReminder="*res://scripts/core/DailyReminder.gd"
 CrashLogger="*res://scripts/core/CrashLogger.gd"
+OtaUpdater="*res://scripts/core/OtaUpdater.gd"
 
 [display]
 
