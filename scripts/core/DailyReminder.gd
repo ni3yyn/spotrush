@@ -41,7 +41,7 @@ const CHANNEL_NAME := "Daily streak reminders"
 const CHANNEL_DESCRIPTION := "A daily nudge to keep your SpotRush streak alive"
 const CHANNEL_IMPORTANCE_DEFAULT := 3
 const DEFAULT_HOUR := 19
-const REMINDER_ICON := "ic_notification"
+const REMINDER_ICON := "ic_default_notification"
 
 # House pattern: Settings and Records are plain static classes, referenced
 # through preloads (they are not global class names).
@@ -58,6 +58,10 @@ var _plugin_channel_script: Script = null
 var _plugin_checked := false
 var _bridge: Node = null
 var _bridge_ready := false
+var _permission_granted := false
+var _permission_denied := false
+
+signal permission_state_changed(granted: bool, denied: bool)
 
 func _ready() -> void:
         # Must keep working while the app is paused - pausing is exactly when
@@ -109,12 +113,19 @@ static func _cancelled() -> Dictionary:
 
 # --- evaluation hooks --------------------------------------------------------------------
 
-## Reads today's streak state and schedules/cancels accordingly. Called when
-## the app pauses and when the player flips the setting.
+## Only schedule when the feature is enabled AND Android has explicitly granted
+## POST_NOTIFICATIONS. In particular, an app-pause caused by the permission
+## dialog must never try to post a notification before the user has answered.
 func evaluate_now() -> void:
+        if not Settings.reminder_enabled():
+                cancel_reminder()
+                return
+        if not _has_notification_permission():
+                print("[DailyReminder] Permission not granted; reminder was not scheduled.")
+                return
         var decision := decide(
                 Time.get_datetime_dict_from_system(),
-                Settings.reminder_enabled(),
+                true,
                 Records.daily_streak(),
                 Records.daily_completed_today())
         apply_decision(decision)
@@ -130,35 +141,49 @@ func apply_decision(decision: Dictionary) -> void:
                 cancel_reminder()
 
 func _on_app_paused() -> void:
+        # No lazy plugin initialization while disabled. A pause can also be the
+        # OS permission sheet taking focus; _has_notification_permission()
+        # blocks scheduling until the explicit grant signal/state is received.
         evaluate_now()
 
 func _on_app_resumed() -> void:
-        # The player is here; the pending nudge would be noise. If they leave
-        # without playing, the next pause schedules a fresh one.
         cancel_reminder()
+        _sync_permission_state()
 
-# --- native bridge (bundled plugin) -------------------------------------------------------
+# --- native bridge (Notification Scheduler v6 / Godot 4.7) -------------------------------
 
-## The plugin's wrapper node (NotificationScheduler), or null on desktop/editor
-## builds and if the AAR failed to load. Created lazily and kept as a child of
-## this autoload, so it lives as long as the game does.
-func bridge():
+## Construct the bridge only when the player opted in or explicitly asks for
+## permission. The v6 native initialize() marks its singleton initialized
+## synchronously; the completion signal is still connected for state updates.
+func bridge() -> Node:
         if not OS.has_feature("android"):
                 return null
+        if is_instance_valid(_bridge):
+                return _bridge
         if not Engine.has_singleton(BRIDGE_NAME):
+                push_warning("[DailyReminder] NotificationSchedulerPlugin native singleton is missing.")
                 return null
+        var wrapper_script: Script = load(WRAPPER_SCRIPT) if ResourceLoader.exists(WRAPPER_SCRIPT) else null
+        if wrapper_script == null:
+                push_error("[DailyReminder] v6 NotificationScheduler GDScript wrapper is missing.")
+                return null
+        _bridge = wrapper_script.new() as Node
         if _bridge == null:
-                var wrapper_script: Script = load(WRAPPER_SCRIPT) if ResourceLoader.exists(WRAPPER_SCRIPT) else null
-                if wrapper_script == null:
-                        return null
-                _bridge = wrapper_script.new()
-                _bridge.initialization_completed.connect(_on_bridge_initialization_completed, CONNECT_ONE_SHOT)
-                add_child(_bridge)
-                _bridge.initialize()
+                push_error("[DailyReminder] Could not instantiate NotificationScheduler wrapper.")
+                return null
+        _bridge.initialization_completed.connect(_on_bridge_initialization_completed)
+        _bridge.post_notifications_permission_granted.connect(_on_permission_granted)
+        _bridge.post_notifications_permission_denied.connect(_on_permission_denied)
+        add_child(_bridge)
+        _bridge.initialize()
+        # In v6 the Java initialize() sets isInitialized before it returns.
+        _bridge_ready = true
+        _sync_permission_state()
         return _bridge
 
 func _on_bridge_initialization_completed() -> void:
         _bridge_ready = true
+        _sync_permission_state()
 
 func _plugin_scripts() -> bool:
         if not _plugin_checked:
@@ -167,33 +192,90 @@ func _plugin_scripts() -> bool:
                         _plugin_data_script = load(PLUGIN_DATA_SCRIPT)
                 if ResourceLoader.exists(PLUGIN_CHANNEL_SCRIPT):
                         _plugin_channel_script = load(PLUGIN_CHANNEL_SCRIPT)
-        return _plugin_data_script != null
+        return _plugin_data_script != null and _plugin_channel_script != null
 
-## Android 13+ gates notifications behind a runtime permission. Asked once,
-## from the settings toggle the player just turned on (the polite moment).
+func _sync_permission_state() -> void:
+        var granted := false
+        if is_instance_valid(_bridge) and _bridge_ready:
+                granted = _bridge.has_post_notifications_permission()
+        elif OS.has_feature("android"):
+                granted = OS.get_granted_permissions().has("android.permission.POST_NOTIFICATIONS")
+        var changed := granted != _permission_granted
+        _permission_granted = granted
+        if granted:
+                _permission_denied = false
+        if changed:
+                permission_state_changed.emit(_permission_granted, _permission_denied)
+
+func _has_notification_permission() -> bool:
+        if not OS.has_feature("android"):
+                return false
+        _sync_permission_state()
+        return _permission_granted
+
+func permission_description() -> String:
+        if not Settings.reminder_enabled():
+                return "Turn this on to protect an active daily streak."
+        _sync_permission_state()
+        if _permission_granted:
+                return "Notifications are allowed. One reminder can be scheduled when you leave the app."
+        if _permission_denied:
+                return "Permission denied. Allow notifications in Android app settings to use this reminder."
+        return "Android will ask whether SpotRush can send notifications."
+
+## This calls the v6 plugin's ActivityCompat.requestPermissions(), which opens
+## Android's real Allow / Don't allow dialog and emits a grant/deny signal.
+## The OS API is a fallback only when the native plugin is unavailable.
 func request_permission() -> void:
-        var native = bridge()
-        if native == null:
-                push_warning("[DailyReminder] Android notification bridge is unavailable; permission was not requested.")
+        if not OS.has_feature("android"):
+                _permission_denied = true
+                permission_state_changed.emit(false, true)
                 return
-        # The native plugin initializes asynchronously. Calling its permission
-        # methods immediately after initialize() can hit an uninitialized
-        # singleton, which is especially likely when the setting is enabled
-        # from the settings screen. Wait for the plugin's ready signal first.
-        if not _bridge_ready:
-                await native.initialization_completed
-                if not is_instance_valid(native):
-                        return
-        if not native.has_post_notifications_permission():
-                native.request_post_notifications_permission()
+        var native := bridge()
+        if native == null:
+                push_warning("[DailyReminder] Falling back to Godot's Android permission request.")
+                OS.request_permission("android.permission.POST_NOTIFICATIONS")
+                await get_tree().process_frame
+                _sync_permission_state()
+                if not _permission_granted:
+                        _permission_denied = true
+                        permission_state_changed.emit(false, true)
+                return
+        if native.has_post_notifications_permission():
+                _permission_granted = true
+                _permission_denied = false
+                permission_state_changed.emit(true, false)
+                # Already granted: safe to evaluate immediately. If a dialog is
+                # shown, scheduling remains deferred until the next app pause.
+                evaluate_now()
+                return
+        var result: Error = native.request_post_notifications_permission()
+        if result != OK:
+                push_warning("[DailyReminder] v6 permission request returned error %d; using Godot fallback." % result)
+                OS.request_permission("android.permission.POST_NOTIFICATIONS")
+
+func _on_permission_granted(_permission_name: String) -> void:
+        _permission_granted = true
+        _permission_denied = false
+        permission_state_changed.emit(true, false)
+        print("[DailyReminder] Android POST_NOTIFICATIONS permission granted.")
+
+func _on_permission_denied(_permission_name: String) -> void:
+        _permission_granted = false
+        _permission_denied = true
+        cancel_reminder()
+        permission_state_changed.emit(false, true)
+        print("[DailyReminder] Android POST_NOTIFICATIONS permission denied.")
 
 func schedule_reminder(delay_seconds: int, title: String, content: String) -> void:
-        if delay_seconds <= 0:
+        if delay_seconds <= 0 or not Settings.reminder_enabled():
                 return
-        var native = bridge()
-        if native == null or not _plugin_scripts():
-                print("[DailyReminder] (no native bridge) would notify in %ds: %s - %s"
-                                % [delay_seconds, title, content])
+        if not _has_notification_permission():
+                push_warning("[DailyReminder] Refusing to schedule without POST_NOTIFICATIONS permission.")
+                return
+        var native := bridge()
+        if native == null or not _bridge_ready or not _plugin_scripts():
+                push_error("[DailyReminder] Cannot schedule: v6 Android notification bridge/models unavailable.")
                 return
         _ensure_channel(native)
         var data = _plugin_data_script.new()
@@ -203,22 +285,28 @@ func schedule_reminder(delay_seconds: int, title: String, content: String) -> vo
                 .set_content(content) \
                 .set_small_icon_name(REMINDER_ICON) \
                 .set_delay(delay_seconds)
-        native.schedule(data)
+        var result: Error = native.schedule(data)
+        if result != OK:
+                push_warning("[DailyReminder] Native schedule returned error %d." % result)
+        else:
+                print("[DailyReminder] Streak reminder scheduled in %d seconds." % delay_seconds)
 
-## Safe to call any time; a cancel with nothing pending is a no-op.
+## Do not initialize the native plugin just to cancel an empty queue.
 func cancel_reminder() -> void:
-        var native = bridge()
-        if native == null:
+        if not is_instance_valid(_bridge) or not _bridge_ready:
                 return
-        native.cancel(NOTIFICATION_ID)
+        var result: Error = _bridge.cancel(NOTIFICATION_ID)
+        if result != OK:
+                push_warning("[DailyReminder] Native cancel returned error %d." % result)
 
-func _ensure_channel(native) -> void:
+func _ensure_channel(native: Node) -> void:
         if _plugin_channel_script == null:
                 return
         var channel = _plugin_channel_script.new()
-        channel.set_id(CHANNEL_ID) \
+        var result: Error = native.create_notification_channel(channel \
+                .set_id(CHANNEL_ID) \
                 .set_name(CHANNEL_NAME) \
                 .set_description(CHANNEL_DESCRIPTION) \
-                .set_importance(CHANNEL_IMPORTANCE_DEFAULT)
-        # The wrapper converts the model into the raw dictionary the AAR expects.
-        native.create_notification_channel(channel)
+                .set_importance(CHANNEL_IMPORTANCE_DEFAULT))
+        if result != OK and result != ERR_ALREADY_EXISTS:
+                push_warning("[DailyReminder] Notification channel creation returned error %d." % result)
