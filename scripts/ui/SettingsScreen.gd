@@ -91,9 +91,13 @@ func _build_page() -> void:
         scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
         scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        # Leave a small tap deadzone, but let vertical finger drags begin on
+        # the option controls instead of requiring an empty background strip.
+        scroll.scroll_deadzone = 12
         page.add_child(scroll)
 
         _content = VBoxContainer.new()
+        _content.mouse_filter = Control.MOUSE_FILTER_PASS
         _content.name = "SettingsContent"
         _content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         _content.add_theme_constant_override("separation", 30)
@@ -105,6 +109,12 @@ func _build_page() -> void:
         _build_match_section()
         _build_reminder_section()
 
+        # Buttons, labels and nested card containers default to MOUSE_FILTER_STOP.
+        # That prevents the ScrollContainer from seeing a swipe that starts on an
+        # option. PASS preserves each control's own input while bubbling the
+        # gesture through the content hierarchy to SettingsScroll.
+        _set_scroll_event_passthrough(_content)
+
         var note := Label.new()
         note.text = "CHANGES ARE SAVED AUTOMATICALLY"
         note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -113,6 +123,13 @@ func _build_page() -> void:
         note.add_theme_color_override("font_color", NeuKit.SLATE)
         note.custom_minimum_size.y = 48
         _content.add_child(note)
+
+func _set_scroll_event_passthrough(node: Node) -> void:
+        if node is Control:
+                var control := node as Control
+                control.mouse_filter = Control.MOUSE_FILTER_PASS
+        for child in node.get_children():
+                _set_scroll_event_passthrough(child)
 
 func _build_header() -> Control:
         # Keep this bar geometrically identical to LocalLobby: same back key,
