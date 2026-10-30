@@ -1,0 +1,78 @@
+[gd_scene load_steps=2 format=3 uid="uid://bspotboot001"]
+
+[ext_resource type="Script" path="res://scripts/ui/BootScreen.gd" id="1_boot"]
+
+[node name="BootScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_boot")
+
+[node name="Wordmark" type="RichTextLabel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.08
+anchor_top = 0.5
+anchor_right = 0.92
+anchor_bottom = 0.5
+offset_top = 104.0
+offset_bottom = 218.0
+grow_horizontal = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[center][b][color=#47547E]SPOT[/color][color=#8B99B8]RUSH[/color][/b][/center]"
+fit_content = false
+scroll_active = false
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/bold_font_size = 70
+
+[node name="Tagline" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.1
+anchor_top = 0.5
+anchor_right = 0.9
+anchor_bottom = 0.5
+offset_top = 232.0
+offset_bottom = 264.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.443137, 0.509804, 0.662745, 1)
+theme_override_font_sizes/font_size = 18
+text = "T H I N K    ·    S P O T    ·    R E A C T"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Progress" type="ProgressBar" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.27
+anchor_top = 0.5
+anchor_right = 0.73
+anchor_bottom = 0.5
+offset_top = 288.0
+offset_bottom = 304.0
+grow_horizontal = 2
+mouse_filter = 2
+show_percentage = false
+
+[node name="Caption" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.1
+anchor_top = 0.5
+anchor_right = 0.9
+anchor_bottom = 0.5
+offset_top = 318.0
+offset_bottom = 350.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.443137, 0.509804, 0.662745, 1)
+theme_override_font_sizes/font_size = 20
+text = "WARMING UP"
+horizontal_alignment = 1
+vertical_alignment = 1

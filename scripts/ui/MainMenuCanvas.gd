@@ -1,328 +1,183 @@
 class_name MainMenuCanvas
 extends Control
 
+# Animated, interactive part of the menu art: the sculpted emblem dial, the nameplate
+# the wordmark sits on, four collectible tokens and tap sparkles.
+# The static surface/decor lives in NeuMenuBackdrop so it is not re-drawn every frame.
+
 signal token_clicked(token_name: String)
 signal emblem_clicked()
 
-# Floating time accumulator
-var anim_time: float = 0.0
+const NeuKit = preload("res://scripts/ui/NeuKit.gd")
+const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 
-# Mouse/touch tilt state
+var anim_time: float = 0.0
 var tilt_offset: Vector2 = Vector2.ZERO
 var target_tilt: Vector2 = Vector2.ZERO
 var emblem_pulse_scale: float = 1.0
-
-# Dynamic particle system
 var particles: Array[Dictionary] = []
 var particles_enabled: bool = true
 
-# Theme Colors
-const COLOR_BUTTER: Color = Color("FAF5E8")
-const COLOR_BUTTER_DARK: Color = Color("EDE5D0")
-const COLOR_COBALT: Color = Color("2B52E2")
-const COLOR_COBALT_LIGHT: Color = Color("6185FF")
-const COLOR_COBALT_DARK: Color = Color("122C99")
-const COLOR_TANGERINE: Color = Color("FF6B35")
-const COLOR_TANGERINE_LIGHT: Color = Color("FFB290")
-const COLOR_TANGERINE_DARK: Color = Color("BA3B0C")
-const COLOR_CORAL: Color = Color("FF5964")
-const COLOR_CORAL_LIGHT: Color = Color("FFA2A8")
-const COLOR_CORAL_DARK: Color = Color("B81B26")
-const COLOR_LAVENDER: Color = Color("7C5CFC")
-const COLOR_LAVENDER_LIGHT: Color = Color("9C80FF")
-const COLOR_LAVENDER_DARK: Color = Color("5333D0")
-const COLOR_CANARY: Color = Color("F4CB38")
-const COLOR_CANARY_LIGHT: Color = Color("FDE67A")
-const COLOR_CANARY_DARK: Color = Color("C49B0E")
-const COLOR_DARK_NAVY: Color = Color("1E2432")
-const COLOR_SHADOW_WARM: Color = Color(0.76, 0.72, 0.61, 0.45)
-const COLOR_WHITE: Color = Color("FFFFFF")
-
-# Interactive emblem bounds
 var emblem_center: Vector2 = Vector2.ZERO
 var token_eye_pos: Vector2 = Vector2.ZERO
 var token_watch_pos: Vector2 = Vector2.ZERO
 
+# 0 = resting, 1 = fully pressed in. Decays back so taps feel like physical keys.
+var _press: Dictionary = {"emblem": 0.0, "eye": 0.0, "watch": 0.0}
+
+var _plate: NeuStyle
+var _well: NeuStyle
+var _plaque: NeuStyle
+var _sphere_eye: NeuStyle
+var _sphere_watch: NeuStyle
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	_plate = NeuKit.raised(100.0, 11.0, 26.0)
+	_plate.gradient = 0.7
+	_well = NeuKit.inset(100.0, 7.0, 16.0)
+	_plaque = NeuKit.raised(40.0, 8.0, 18.0)
+	_plaque.gradient = 0.6
+	_sphere_eye = NeuKit.accent(NeuKit.CANARY, 20.0, 5.0, 11.0)
+	_sphere_watch = NeuKit.accent(NeuKit.MINT, 20.0, 5.0, 11.0)
 	set_process(true)
 
 func _process(delta: float) -> void:
 	anim_time += delta
-	tilt_offset = tilt_offset.lerp(target_tilt, delta * 8.0)
-	emblem_pulse_scale = move_toward(emblem_pulse_scale, 1.0, delta * 3.0)
-	
-	# Update particles
+	tilt_offset = tilt_offset.lerp(target_tilt, delta * 6.0)
+	emblem_pulse_scale = move_toward(emblem_pulse_scale, 1.0, delta * 3.2)
+	for key in _press.keys():
+		_press[key] = move_toward(float(_press[key]), 0.0, delta * 3.4)
 	if particles_enabled and not particles.is_empty():
 		var surviving: Array[Dictionary] = []
-		for p in particles:
-			p["pos"] += p["vel"] * delta * 60.0
-			p["alpha"] -= p["decay"] * delta * 60.0
-			if p["alpha"] > 0.0:
-				surviving.append(p)
+		for particle in particles:
+			particle["pos"] += particle["vel"] * delta * 60.0
+			particle["alpha"] -= particle["decay"] * delta * 60.0
+			if particle["alpha"] > 0.0:
+				surviving.append(particle)
 		particles = surviving
-		
 	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		var center = size * 0.5
-		var norm = (event.position - center) / maxf(1.0, minf(size.x, size.y))
-		target_tilt = Vector2(norm.x * 12.0, norm.y * 12.0)
-		
+		var motion_event: InputEventMouseMotion = event as InputEventMouseMotion
+		var center: Vector2 = size * 0.5
+		var normalized_offset: Vector2 = (motion_event.position - center) / maxf(1.0, minf(size.x, size.y))
+		target_tilt = Vector2(normalized_offset.x * 5.0, normalized_offset.y * 5.0)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var pos = event.position
-		trigger_sparkles(pos)
-		
-		# Check token clicks
-		if pos.distance_to(token_eye_pos) <= 24.0:
-			accept_event()
-			token_clicked.emit("Vision Pulse Token")
-			return
-		elif pos.distance_to(token_watch_pos) <= 24.0:
-			accept_event()
-			token_clicked.emit("Chrono Boost Token")
-			return
-			
-		# Check central emblem click
-		if pos.distance_to(emblem_center) <= 90.0:
-			accept_event()
-			emblem_pulse_scale = 0.92
-			emblem_clicked.emit()
-			return
+		_handle_background_tap(event.position)
+	elif event is InputEventScreenTouch and event.pressed:
+		_handle_background_tap(event.position)
+
+func _handle_background_tap(pos: Vector2) -> void:
+	trigger_sparkles(pos)
+	if pos.distance_to(token_eye_pos) <= 34.0:
+		accept_event()
+		_press["eye"] = 1.0
+		token_clicked.emit("Focus Spark")
+	elif pos.distance_to(token_watch_pos) <= 34.0:
+		accept_event()
+		_press["watch"] = 1.0
+		token_clicked.emit("Momentum Spark")
+	elif pos.distance_to(emblem_center) <= minf(size.x * 0.19, 88.0):
+		accept_event()
+		emblem_pulse_scale = 0.97
+		_press["emblem"] = 1.0
+		emblem_clicked.emit()
 
 func trigger_sparkles(pos: Vector2) -> void:
 	if not particles_enabled:
 		return
-	var colors = [COLOR_COBALT, COLOR_TANGERINE, COLOR_CORAL, COLOR_LAVENDER, COLOR_CANARY]
-	for i in range(16):
-		var angle = randf_range(0.0, TAU)
-		var spd = randf_range(2.0, 7.5)
+	var colors: Array[Color] = [NeuKit.COBALT, NeuKit.CORAL, NeuKit.LAVENDER, NeuKit.CANARY, NeuKit.MINT]
+	for i in range(12):
+		var angle := randf_range(0.0, TAU)
+		var speed := randf_range(1.7, 5.0)
 		particles.append({
 			"pos": pos,
-			"vel": Vector2(cos(angle) * spd, sin(angle) * spd),
-			"radius": randf_range(3.0, 6.5),
+			"vel": Vector2(cos(angle), sin(angle)) * speed,
+			"radius": randf_range(2.0, 4.5),
 			"color": colors[randi() % colors.size()],
-			"alpha": 1.0,
-			"decay": randf_range(0.02, 0.045)
+			"alpha": 0.9,
+			"decay": randf_range(0.025, 0.045)
 		})
 
 func _draw() -> void:
-	var w = size.x
-	var h = size.y
-	if w <= 0 or h <= 0:
+	var w := size.x
+	var h := size.y
+	if w <= 0.0 or h <= 0.0:
 		return
-		
-	# 1. Base Butter Background
-	draw_rect(Rect2(Vector2.ZERO, size), COLOR_BUTTER)
-	
-	# Subtle outer phone border inset
-	var inset = 6.0
-	draw_rect(Rect2(Vector2(inset, inset), size - Vector2(inset * 2.0, inset * 2.0)), COLOR_BUTTER_DARK, false, 3.0)
-	
-	# 2. Background 3D Sculpted Geometrics
-	_draw_background_geometrics(w, h)
-	
-	# 3. Central 3D Layered SpotRush Artifact Emblem
-	_draw_central_emblem(w, h)
-	
-	# 4. Particles
-	for p in particles:
-		var c = p["color"]
-		c.a = clampf(p["alpha"], 0.0, 1.0)
-		draw_circle(p["pos"], p["radius"], c)
+	_draw_emblem(w, h)
+	for particle in particles:
+		var color: Color = particle["color"]
+		color.a = clampf(float(particle["alpha"]), 0.0, 1.0)
+		draw_circle(particle["pos"], float(particle["radius"]), color)
 
-func _draw_background_geometrics(w: float, h: float) -> void:
-	# A. Top-Left Large Cobalt Sphere (floating slowly)
-	var f1 = sin(anim_time * 1.05) * 8.0
-	var pos_a = Vector2(w * 0.04, h * 0.03 + f1)
-	_draw_3d_sphere(pos_a, w * 0.28, COLOR_COBALT, COLOR_COBALT_LIGHT, COLOR_COBALT_DARK)
-	
-	# B. Top-Right Coral Red Torus Ring (reverse floating)
-	var f2 = cos(anim_time * 0.95) * 9.0
-	var pos_b = Vector2(w * 0.98, h * 0.05 + f2)
-	_draw_3d_torus_ring(pos_b, w * 0.24, w * 0.065, COLOR_CORAL, COLOR_CORAL_LIGHT, COLOR_CORAL_DARK)
-	
-	# C. Middle-Left Lavender Squircle (floating, rotated 12 deg)
-	var f3 = sin(anim_time * 0.85 + 1.2) * 7.0
-	var pos_c = Vector2(w * 0.02, h * 0.42 + f3)
-	_draw_3d_squircle(pos_c, w * 0.20, deg_to_rad(12.0), COLOR_LAVENDER, COLOR_LAVENDER_LIGHT, COLOR_LAVENDER_DARK)
-	
-	# D. Middle-Right Canary Yellow Squircle (floating, rotated -12 deg)
-	var f4 = cos(anim_time * 0.9 + 2.1) * 8.0
-	var pos_d = Vector2(w * 0.98, h * 0.52 + f4)
-	_draw_3d_squircle(pos_d, w * 0.17, deg_to_rad(-12.0), COLOR_CANARY, COLOR_CANARY_LIGHT, COLOR_CANARY_DARK)
-	
-	# E. Bottom-Right Oversized Tangerine Sphere
-	var f5 = sin(anim_time * 1.1 + 0.5) * 8.0
-	var pos_e = Vector2(w * 0.95, h * 0.94 + f5)
-	_draw_3d_sphere(pos_e, w * 0.32, COLOR_TANGERINE, COLOR_TANGERINE_LIGHT, COLOR_TANGERINE_DARK)
+func _draw_emblem(w: float, h: float) -> void:
+	var center_y := h * 0.222
+	var title_node := get_parent().get_node_or_null("SafeArea/VBoxMain/TitleContainer")
+	if title_node is Control and (title_node as Control).size.y > 0.0:
+		center_y = (title_node as Control).global_position.y + (title_node as Control).size.y * 0.52
+	center_y = clampf(center_y, h * 0.18, h * 0.25)
+	emblem_center = Vector2(w * 0.5, center_y) + tilt_offset
+	var c := emblem_center
+	var radius := minf(w * 0.23, h * 0.135) * emblem_pulse_scale
+	var sink := float(_press["emblem"])
 
-func _draw_central_emblem(w: float, h: float) -> void:
-	# Emblem is centered within the upper spacer region (~33% of screen height)
-	emblem_center = Vector2(w * 0.5, h * 0.33) + tilt_offset
-	var ec = emblem_center
-	var base_r = minf(w, h) * 0.22 * emblem_pulse_scale
-	
-	# 1. Orbital Dotted/Dashed Ring (Slow continuous spin)
-	var spin_angle = anim_time * 0.35
-	var orbit_r = base_r * 1.42
-	_draw_dashed_circle(ec, orbit_r, COLOR_LAVENDER, 2.5, 24, spin_angle)
-	
-	# 2. Concentric Outer Cobalt Blue Ring with Neumorphic Drop Shadow
-	draw_circle(ec + Vector2(6, 10), base_r * 1.15, COLOR_SHADOW_WARM)
-	draw_arc(ec, base_r * 1.12, 0, TAU, 48, COLOR_COBALT, 14.0, true)
-	# Outer ring bevel specular
-	draw_arc(ec - Vector2(2, 2), base_r * 1.12, -PI * 0.75, PI * 0.25, 32, Color(1, 1, 1, 0.45), 3.0, true)
-	
-	# 3. Recessed Inner Ring Groove (neu-pressed)
-	var groove_r = base_r * 0.92
-	draw_circle(ec, groove_r, Color("F3ECDC"))
-	draw_arc(ec - Vector2(1, 1), groove_r, 0, TAU, 36, Color("B9AC8E", 0.6), 3.0, true)
-	draw_arc(ec + Vector2(1, 1), groove_r, 0, TAU, 36, Color(1, 1, 1, 0.8), 3.0, true)
-	
-	# 4. Tilted Coral Ring Overlay Line (-35 deg tilt)
-	var tilt_rad = deg_to_rad(-35.0)
-	_draw_rotated_ellipse(ec, base_r * 1.35, base_r * 0.48, tilt_rad, COLOR_CORAL, 5.0)
-	
-	# 5. Central 3D Purple Diamond Squircle (rotated 45 deg) - corners pop out
-	var sqr_size = base_r * 0.95
-	_draw_3d_squircle(ec, sqr_size, deg_to_rad(45.0), COLOR_LAVENDER, COLOR_LAVENDER_LIGHT, COLOR_LAVENDER_DARK)
-	
-	# 6. Center High-Glint Tangerine Lightning Sphere (pulsing)
-	var pulse_glow = 1.0 + (sin(anim_time * 3.0) * 0.06)
-	var sphere_r = base_r * 0.44 * pulse_glow
-	# Glow halo
-	draw_circle(ec, sphere_r * 1.3, Color(1.0, 0.42, 0.21, 0.28))
-	_draw_3d_sphere(ec, sphere_r, COLOR_TANGERINE, COLOR_TANGERINE_LIGHT, COLOR_TANGERINE_DARK)
-	
-	# Draw crisp white lightning bolt icon in center
-	_draw_lightning_bolt(ec, sphere_r * 0.68, COLOR_WHITE)
-	
-	# 7. Orbiting Small Collectible Tokens
-	# Top-Right: Vision Pulse Token (Coral squircle with eye symbol)
-	var f_tok1 = sin(anim_time * 1.2) * 5.0
-	token_eye_pos = ec + Vector2(base_r * 0.88, -base_r * 0.92 + f_tok1)
-	_draw_collectible_token(token_eye_pos, 18.0, COLOR_CORAL, "eye")
-	
-	# Bottom-Left: Chrono Boost Token (Cobalt circle with stopwatch symbol)
-	var f_tok2 = cos(anim_time * 1.1) * 5.0
-	token_watch_pos = ec + Vector2(-base_r * 0.92, base_r * 0.85 + f_tok2)
-	_draw_collectible_token(token_watch_pos, 18.0, COLOR_COBALT, "watch")
+	# Dial: a raised plate with a sunken well cut into it. A restrained cobalt
+	# atmosphere separates the hero emblem from the similarly coloured backdrop.
+	for i in range(4, 0, -1):
+		draw_circle(c, radius * (1.12 + float(i) * 0.035), Color(NeuKit.COBALT.r, NeuKit.COBALT.g, NeuKit.COBALT.b, 0.008 * float(5 - i)))
+	_plate.depth = lerpf(1.0, 0.3, sink)
+	NeuKit.disc(self, _plate, c, radius * 1.12)
+	_well.depth = lerpf(-0.85, -1.1, sink)
+	NeuKit.disc(self, _well, c, radius * 0.90)
 
-# --- PRIMITIVE 3D DRAWING HELPERS ---
+	# Precision-machined orbit: inset ticks, two travelling glints and tiny metal
+	# pins. It adds craft at close range without competing with the wordmark.
+	var track_r := radius * 1.015
+	var drift := sin(anim_time * 0.35) * 0.018
+	for i in range(36):
+		var ang := TAU * float(i) / 36.0 + drift
+		var major := i % 3 == 0
+		var tick := radius * (0.038 if major else 0.020)
+		var direction := Vector2(cos(ang), sin(ang))
+		var tick_color := Color(NeuKit.SLATE.r, NeuKit.SLATE.g, NeuKit.SLATE.b, 0.22 if major else 0.11)
+		draw_line(c + direction * (track_r - tick), c + direction * track_r, tick_color, 1.6 if major else 1.0, true)
+	var glint_angle := anim_time * 0.16
+	draw_arc(c, track_r, glint_angle - 0.35, glint_angle + 0.12, 18, Color(1.0, 1.0, 1.0, 0.58), 2.2, true)
+	draw_arc(c, track_r, glint_angle + PI - 0.18, glint_angle + PI + 0.24, 18, Color(NeuKit.COBALT.r, NeuKit.COBALT.g, NeuKit.COBALT.b, 0.24), 2.0, true)
+	for ang in [-2.35, -0.79, 0.79, 2.35]:
+		var pin := c + Vector2(cos(ang), sin(ang)) * radius * 1.055
+		draw_circle(pin + Vector2(0.8, 1.2), 3.1, Color(NeuKit.DARK.r, NeuKit.DARK.g, NeuKit.DARK.b, 0.22))
+		draw_circle(pin, 2.5, Color(1.0, 1.0, 1.0, 0.68))
 
-func _draw_3d_sphere(center: Vector2, radius: float, base_col: Color, light_col: Color, dark_col: Color) -> void:
-	# Drop shadow
-	draw_circle(center + Vector2(radius * 0.18, radius * 0.26), radius * 0.96, COLOR_SHADOW_WARM)
-	
-	# Dark base
-	draw_circle(center, radius, dark_col)
-	
-	# Midtone blend
-	var mid_offset = center - Vector2(radius * 0.08, radius * 0.08)
-	draw_circle(mid_offset, radius * 0.85, base_col)
-	
-	# Specular highlight
-	var spec_offset = center - Vector2(radius * 0.32, radius * 0.32)
-	draw_circle(spec_offset, radius * 0.46, light_col)
-	draw_circle(spec_offset - Vector2(radius * 0.08, radius * 0.08), radius * 0.18, Color(1, 1, 1, 0.85))
+	# Nameplate the wordmark sits on: a raised capsule bridging the well.
+	var plaque_width := w * 0.80
+	var plaque_height := minf(h * 0.118, w * 0.30)
+	_plaque.depth = lerpf(1.0, 0.45, sink)
+	NeuKit.capsule(self, _plaque, c, plaque_width, plaque_height)
+	var signature_y := c.y + plaque_height * 0.40
+	draw_line(Vector2(c.x - plaque_width * 0.24, signature_y), Vector2(c.x + plaque_width * 0.24, signature_y), Color(1.0, 1.0, 1.0, 0.48), 1.4, true)
+	draw_line(Vector2(c.x - 27.0, signature_y + 1.0), Vector2(c.x + 27.0, signature_y + 1.0), Color(NeuKit.COBALT.r, NeuKit.COBALT.g, NeuKit.COBALT.b, 0.20), 2.0, true)
 
-func _draw_3d_torus_ring(center: Vector2, outer_r: float, thickness: float, base_col: Color, light_col: Color, dark_col: Color) -> void:
-	# Drop shadow
-	draw_arc(center + Vector2(6, 10), outer_r - (thickness * 0.5), 0, TAU, 40, COLOR_SHADOW_WARM, thickness, true)
-	
-	# Main ring
-	draw_arc(center, outer_r - (thickness * 0.5), 0, TAU, 40, base_col, thickness, true)
-	
-	# Top specular highlight arc
-	draw_arc(center - Vector2(2, 2), outer_r - (thickness * 0.3), -PI * 0.8, PI * 0.1, 24, light_col, thickness * 0.35, true)
-	
-	# Bottom inner shadow arc
-	draw_arc(center + Vector2(2, 2), outer_r - (thickness * 0.7), PI * 0.2, PI * 0.9, 24, dark_col, thickness * 0.35, true)
+	# Four collectible tokens, floating on the dial. Each is a real raised object.
+	var float_y := sin(anim_time * 1.25) * 3.5
+	var side := w * 0.104
+	var cobalt_pos := Vector2(w * 0.342, c.y - radius * 0.90 + float_y)
+	var cobalt_pts := NeuKit.round_poly(NeuKit.ngon(cobalt_pos, side * 0.74, 4, deg_to_rad(10.0)), side * 0.27)
+	NeuKit.poly_token(self, cobalt_pts, NeuKit.COBALT, 1.0 + float_y * 0.05)
 
-func _draw_3d_squircle(center: Vector2, sz: float, angle_rad: float, base_col: Color, light_col: Color, dark_col: Color) -> void:
-	# Drop shadow
-	_draw_rotated_rounded_rect(center + Vector2(6, 9), sz, sz, sz * 0.28, angle_rad, COLOR_SHADOW_WARM)
-	
-	# Dark base
-	_draw_rotated_rounded_rect(center, sz, sz, sz * 0.28, angle_rad, dark_col)
-	
-	# Midtone
-	_draw_rotated_rounded_rect(center - Vector2(sz * 0.06, sz * 0.06), sz * 0.90, sz * 0.90, sz * 0.25, angle_rad, base_col)
-	
-	# Specular highlight corner
-	_draw_rotated_rounded_rect(center - Vector2(sz * 0.14, sz * 0.14), sz * 0.55, sz * 0.55, sz * 0.20, angle_rad, light_col)
+	token_eye_pos = Vector2(w * 0.668, c.y - radius * 0.86 - float_y)
+	var p_eye := float(_press["eye"])
+	_sphere_eye.depth = lerpf(1.0 + (-float_y) * 0.05, -0.8, p_eye)
+	NeuKit.sphere_token(self, _sphere_eye, token_eye_pos, w * 0.049)
 
-func _draw_rotated_rounded_rect(center: Vector2, w: float, h: float, corner_r: float, angle_rad: float, col: Color) -> void:
-	var pts: PackedVector2Array = []
-	var half_w = (w * 0.5) - corner_r
-	var half_h = (h * 0.5) - corner_r
-	
-	var corners = [
-		Vector2(half_w, half_h),    # Bottom-right
-		Vector2(-half_w, half_h),   # Bottom-left
-		Vector2(-half_w, -half_h),  # Top-left
-		Vector2(half_w, -half_h)    # Top-right
-	]
-	
-	for i in range(4):
-		var base_pt = corners[i]
-		var start_ang = float(i) * (PI * 0.5)
-		for s in range(5):
-			var a = start_ang + (float(s) / 4.0 * PI * 0.5)
-			var offset = Vector2(cos(a) * corner_r, sin(a) * corner_r)
-			var pt = (base_pt + offset).rotated(angle_rad) + center
-			pts.append(pt)
-			
-	draw_colored_polygon(pts, col)
+	var tri_pos := Vector2(w * 0.352, c.y + radius * 0.74 - float_y)
+	var tri_side := w * 0.108
+	var tri_pts := NeuKit.round_poly(NeuKit.ngon(tri_pos + Vector2(0.0, tri_side * 0.08), tri_side * 0.62, 3, -PI * 0.5), tri_side * 0.12)
+	NeuKit.poly_token(self, tri_pts, NeuKit.CORAL, 1.0 - float_y * 0.05)
 
-func _draw_rotated_ellipse(center: Vector2, rx: float, ry: float, angle_rad: float, col: Color, width: float) -> void:
-	var pts: PackedVector2Array = []
-	var steps = 40
-	for i in range(steps + 1):
-		var th = (float(i) / float(steps)) * TAU
-		var p = Vector2(cos(th) * rx, sin(th) * ry).rotated(angle_rad) + center
-		pts.append(p)
-	draw_polyline(pts, col, width, true)
-
-func _draw_dashed_circle(center: Vector2, radius: float, col: Color, width: float, segments: int, rot_offset: float) -> void:
-	var step = TAU / float(segments)
-	for i in range(segments):
-		if i % 2 == 0:
-			var start_ang = rot_offset + (float(i) * step)
-			var end_ang = start_ang + (step * 0.65)
-			draw_arc(center, radius, start_ang, end_ang, 8, col, width, true)
-
-func _draw_lightning_bolt(center: Vector2, sz: float, col: Color) -> void:
-	var pts = PackedVector2Array([
-		center + Vector2(sz * 0.12, -sz * 0.95),
-		center + Vector2(-sz * 0.45, -sz * 0.05),
-		center + Vector2(-sz * 0.05, -sz * 0.05),
-		center + Vector2(-sz * 0.22, sz * 0.95),
-		center + Vector2(sz * 0.48, sz * 0.02),
-		center + Vector2(sz * 0.06, sz * 0.02)
-	])
-	draw_colored_polygon(pts, col)
-
-func _draw_collectible_token(center: Vector2, radius: float, base_col: Color, icon_type: String) -> void:
-	# Drop shadow
-	draw_circle(center + Vector2(2, 4), radius, COLOR_SHADOW_WARM)
-	# Token body
-	draw_circle(center, radius, base_col)
-	draw_arc(center, radius, 0, TAU, 24, Color(1, 1, 1, 0.4), 1.5, true)
-	
-	if icon_type == "eye":
-		# Eye icon
-		var eye_w = radius * 0.65
-		var eye_h = radius * 0.35
-		_draw_rotated_ellipse(center, eye_w, eye_h, 0.0, COLOR_WHITE, 1.8)
-		draw_circle(center, radius * 0.22, COLOR_WHITE)
-	elif icon_type == "watch":
-		# Stopwatch icon
-		draw_arc(center, radius * 0.52, 0, TAU, 20, COLOR_WHITE, 1.8, true)
-		# Top button
-		draw_line(center - Vector2(0, radius * 0.52), center - Vector2(0, radius * 0.75), COLOR_WHITE, 2.0)
-		# Hands
-		draw_line(center, center - Vector2(0, radius * 0.35), COLOR_WHITE, 1.6)
-		draw_line(center, center + Vector2(radius * 0.25, 0), COLOR_WHITE, 1.6)
+	token_watch_pos = Vector2(w * 0.662, c.y + radius * 0.75 + float_y)
+	var p_watch := float(_press["watch"])
+	_sphere_watch.depth = lerpf(1.0 + float_y * 0.05, -0.8, p_watch)
+	NeuKit.sphere_token(self, _sphere_watch, token_watch_pos, w * 0.049)

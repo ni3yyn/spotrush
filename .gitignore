@@ -6,3 +6,11 @@ export_presets.cfg
 .vscode/
 .idea/
 *.zip
+
+@"
+
+/android/build/build/
+/android/build/libs/
+/android/build/.gradle/
+/android/build/.cxx/
+"@ | Add-Content .gitignore
