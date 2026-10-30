@@ -58,7 +58,9 @@ func _ready() -> void:
         await get_tree().process_frame
         if not is_inside_tree():
                 return
-        NeuSafe.fit(get_node_or_null("SafeArea"))
+        # NeuSafe.fit() mutates the container offsets; calling it a second time
+        # accumulates the safe-area insets and can push the first results visit
+        # past the right edge. Recalculate only the centered column width here.
         await get_tree().process_frame
         if not is_inside_tree():
                 return
