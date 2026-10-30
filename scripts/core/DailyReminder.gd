@@ -67,6 +67,12 @@ func _ready() -> void:
         # Must keep working while the app is paused - pausing is exactly when
         # a reminder gets scheduled.
         process_mode = Node.PROCESS_MODE_ALWAYS
+        # Godot reports the result only after Android's permission UI has been
+        # answered. Never infer denial from a single process frame.
+        var main_loop := Engine.get_main_loop()
+        if main_loop != null and main_loop.has_signal("on_request_permissions_result"):
+                if not main_loop.is_connected("on_request_permissions_result", _on_os_permission_result):
+                        main_loop.connect("on_request_permissions_result", _on_os_permission_result)
         var life := get_node_or_null("/root/AppLifecycle")
         if life != null:
                 life.app_paused.connect(_on_app_paused)
@@ -234,12 +240,7 @@ func request_permission() -> void:
         var native := bridge()
         if native == null:
                 push_warning("[DailyReminder] Falling back to Godot's Android permission request.")
-                OS.request_permission("android.permission.POST_NOTIFICATIONS")
-                await get_tree().process_frame
-                _sync_permission_state()
-                if not _permission_granted:
-                        _permission_denied = true
-                        permission_state_changed.emit(false, true)
+                _request_os_permission_fallback()
                 return
         if native.has_post_notifications_permission():
                 _permission_granted = true
@@ -252,7 +253,27 @@ func request_permission() -> void:
         var result: Error = native.request_post_notifications_permission()
         if result != OK:
                 push_warning("[DailyReminder] v6 permission request returned error %d; using Godot fallback." % result)
-                OS.request_permission("android.permission.POST_NOTIFICATIONS")
+                _request_os_permission_fallback()
+
+## OS.request_permission() launches the Android prompt; its result arrives later
+## through MainLoop.on_request_permissions_result.
+func _request_os_permission_fallback() -> void:
+        var already_granted := OS.request_permission("android.permission.POST_NOTIFICATIONS")
+        if already_granted:
+                _on_os_permission_result("android.permission.POST_NOTIFICATIONS", true)
+
+func _on_os_permission_result(permission_name: String, granted: bool) -> void:
+        if permission_name != "android.permission.POST_NOTIFICATIONS":
+                return
+        _permission_granted = granted
+        _permission_denied = not granted
+        permission_state_changed.emit(_permission_granted, _permission_denied)
+        if granted:
+                print("[DailyReminder] Android POST_NOTIFICATIONS permission granted.")
+                evaluate_now()
+        else:
+                cancel_reminder()
+                print("[DailyReminder] Android POST_NOTIFICATIONS permission denied.")
 
 func _on_permission_granted(_permission_name: String) -> void:
         _permission_granted = true
