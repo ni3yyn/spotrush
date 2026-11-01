@@ -1,30 +1,16 @@
-SpotRush EOS Windows platform diagnostics patch
+SpotRush v46.6 — EOS ProductVersion fix
 
-Overlay these files on your project root, keeping your existing 94 MB addons directory:
-- scripts/networking/EOSOnline.gd
-- addons/epic-online-services-godot/heos/hplatform.gd
-- tools/fix_eos_autoload_comment.py
+Overlay scripts/networking/EOSOnline.gd onto the SpotRush project root.
+Keep the existing EOSG addon, local EOSLocalConfig.gd, and all other project files.
 
-Then:
-1. Close Godot.
-2. Run from the SpotRush project root:
-   python tools/fix_eos_autoload_comment.py
-3. Reopen Godot, run the game, and click Create Room once.
-4. Copy Output lines beginning with [EOS SDK], [HPlatform], or "EOS setup failed".
+Why: Godot's application/config/version setting has an empty-string default.
+ProjectSettings.get_setting(name, "1.0.0") returns the existing empty setting rather
+than the fallback argument. EOS_Initialize requires a non-empty ProductVersion, so
+EOS returns InvalidParameters (10) before Product/Sandbox/Deployment are consulted.
 
-This patch does not print Product/Sandbox/Deployment IDs, Client ID, Client Secret,
-or Encryption Key. Do not paste EOSLocalConfig.gd or any secret into chat.
+The fix reads the setting, trims it, and explicitly falls back to "1.0.0" when empty.
+It prints only the non-secret product name and version for verification.
 
-The patch:
-- exposes the exact EOS SDK Initialize result / stage;
-- enables verbose EOS SDK logs before Platform Create;
-- surfaces native EOS log messages through EOSOnline;
-- fixes EOSG HPlatform's handling of EOS.Result.AlreadyConfigured;
-- stops trying to format PlatformInterface.create()'s bool as an EOS.Result;
-- provides a small helper to change accidental '#' pseudo-comment lines in the
-  [autoload] section into valid ';' comments.
-
-Godot 4.7.2 compile/export and actual EOS initialization still need to be tested
-in the user's Windows editor. The Windows platform Create result is a bool in
-EOSG 2.3.1; the verbose EOS SDK log is needed to identify the native reason if it
-returns false.
+After overlaying, restart Godot and click Create Room. Expected output:
+[EOS] SDK initialize identity: product='SpotRush', version='1.0.0'
+Then the error should progress beyond sdk_initialize.

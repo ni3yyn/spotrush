@@ -1,6 +1,6 @@
 res://default_bus_layout.tres::df6c1a69312b0c5a5da6385ae8448bf7::1793384360::res://.godot/exported/133200997/export-19246414aa9fb561ced4b8dce477acec-default_bus_layout.res
 res://assets/ui/SpotRushTypography.tres::9466804f6c4c81f17cf4c9d353ec1ac1::1793384360::res://.godot/exported/133200997/export-17b5c230998bef6e71c02f6c308a09ef-SpotRushTypography.res
-res://scenes/boot/BootScreen.tscn::9036e1ec4e8ab3e4c169cee4563d679c::1793380760::res://.godot/exported/133200997/export-0e7abf0f36185f766ce2af3500e43ba9-BootScreen.scn
+res://scenes/boot/BootScreen.tscn::89b6b87d891c99e0c343459e7dc99b18::1793553473::res://.godot/exported/133200997/export-0e7abf0f36185f766ce2af3500e43ba9-BootScreen.scn
 res://scenes/game/ChallengeView.tscn::5b2e04ca3699320814499c85a9720e48::1793380760::res://.godot/exported/133200997/export-0d9d16399991c55ec320d0846816f925-ChallengeView.scn
 res://scenes/game/GameScreen.tscn::13a7f0541a33e27cacdde8d1b7a1cade::1793380760::res://.godot/exported/133200997/export-b283e90e9b29beccffa678fee60d87da-GameScreen.scn
 res://scenes/game/MatchResults.tscn::f154d2c4977c8b9147ec5f644158dd1b::1793380760::res://.godot/exported/133200997/export-7839a952888b683036b05baef9edcbcc-MatchResults.scn

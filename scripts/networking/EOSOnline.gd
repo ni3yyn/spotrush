@@ -113,8 +113,16 @@ func _initialize_async() -> bool:
                 last_error = "EOSG HCredentials was not found. Check addons/epic-online-services-godot and its version."
                 return false
         var credentials: Object = credentials_script.new()
-        credentials.set("product_name", "SpotRush")
-        credentials.set("product_version", str(ProjectSettings.get_setting("application/config/version", "1.0.0")))
+        var eos_product_name: String = "SpotRush"
+        # Godot registers application/config/version with an empty default.
+        # get_setting(name, default) returns that existing empty value rather
+        # than the supplied default, so explicitly fall back for EOS.
+        var eos_product_version: String = str(ProjectSettings.get_setting("application/config/version", "")).strip_edges()
+        if eos_product_version.is_empty():
+                eos_product_version = "1.0.0"
+        credentials.set("product_name", eos_product_name)
+        credentials.set("product_version", eos_product_version)
+        print("[EOS] SDK initialize identity: product='%s', version='%s'" % [eos_product_name, eos_product_version])
         credentials.set("product_id", product_id)
         credentials.set("sandbox_id", sandbox_id)
         credentials.set("deployment_id", deployment_id)
