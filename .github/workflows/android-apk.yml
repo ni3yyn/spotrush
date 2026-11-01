@@ -128,7 +128,7 @@ jobs:
           fi
           python3 tools/generate_eos_local_config.py
           python3 tools/patch_eosg_autoload_scope.py
-          python3 -m unittest tools.test_verify_eos_install
+          python3 -m unittest tools.test_verify_eos_install tools.test_install_deeplink_plugin
           python3 tools/verify_eos_install.py --platform android --require-local-config
 
       - name: Install Godot 4.7 Notification Scheduler 6.0
@@ -181,6 +181,19 @@ jobs:
 
           echo "Godot Notification Scheduler 6.0 debug/release AARs installed and checksum-verified."
 
+      - name: Install checksum-pinned Godot Deeplink Plugin 6.0.1
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Installing the official Godot Deeplink Plugin 6.0.1..."
+          python3 tools/install_deeplink_plugin.py
+
+          test -s addons/DeeplinkPlugin/plugin.cfg
+          test -s addons/DeeplinkPlugin/bin/debug/DeeplinkPlugin-debug.aar
+          test -s addons/DeeplinkPlugin/bin/release/DeeplinkPlugin-release.aar
+          echo "Godot Deeplink Plugin 6.0.1 is ready."
+
       - name: Verify project configuration
         shell: bash
         run: |
@@ -217,6 +230,20 @@ jobs:
           ! grep -R -Fq 'debug_fire_test_notification' scripts
           ! grep -Fq '4.1-debug.aar' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
           ! grep -Fq 'DATA_KEY_ID := &"id"' addons/NotificationSchedulerPlugin/model/NotificationChannel.gd
+
+          echo "Checking Godot Deeplink Plugin..."
+          test -s addons/DeeplinkPlugin/plugin.cfg
+          grep -Fq 'version="6.0.1"' addons/DeeplinkPlugin/plugin.cfg
+          test -s addons/DeeplinkPlugin/Deeplink.gd
+          test -s addons/DeeplinkPlugin/DeeplinkPlugin.gd
+          test -s addons/DeeplinkPlugin/bin/debug/DeeplinkPlugin-debug.aar
+          test -s addons/DeeplinkPlugin/bin/release/DeeplinkPlugin-release.aar
+          test -s addons/DeeplinkPlugin/export.cfg
+          grep -Fq 'res://addons/DeeplinkPlugin/plugin.cfg' project.godot
+          grep -Fq 'scheme = "spotrush"' addons/DeeplinkPlugin/export.cfg
+          grep -Fq 'host = "join"' addons/DeeplinkPlugin/export.cfg
+          grep -Fq 'path_prefix = ""' addons/DeeplinkPlugin/export.cfg
+          grep -Fq 'is_auto_verify = false' addons/DeeplinkPlugin/export.cfg
 
           echo "Checking Android export preset..."
           test -f export_presets.cfg
@@ -366,8 +393,8 @@ jobs:
             exit 1;
           fi
 
-          echo "[3/5] Registering SpotRush invitation deep links..."
-          python3 tools/patch_android_template.py --android-build android/build
+          echo "[3/5] Deeplink Plugin registers spotrush://join during Android export..."
+          test -s addons/DeeplinkPlugin/export.cfg
 
           echo "[4/5] Integrating EOS Android SDK, Gradle dependencies and native initialization..."
           python3 tools/patch_eos_android_template.py --android-build android/build
@@ -400,6 +427,19 @@ jobs:
 
           echo "APK generated successfully:"
           ls -lh build/SpotRush-debug.apk
+
+          echo "Checking that the APK registers SpotRush invitation links..."
+          aapt="$ANDROID_HOME/build-tools/36.1.0/aapt"
+          test -x "$aapt"
+          "$aapt" dump xmltree build/SpotRush-debug.apk AndroidManifest.xml > build/SpotRush-AndroidManifest.txt
+          manifest_dump="build/SpotRush-AndroidManifest.txt"
+          grep -Fq 'org.godotengine.plugin.deeplink.DeeplinkActivity' "$manifest_dump"
+          grep -Fq 'spotrush' "$manifest_dump"
+          grep -Fq 'join' "$manifest_dump"
+          grep -Fq 'android.intent.action.VIEW' "$manifest_dump"
+          grep -Fq 'android.intent.category.DEFAULT' "$manifest_dump"
+          grep -Fq 'android.intent.category.BROWSABLE' "$manifest_dump"
+          echo "PASS APK manifest: spotrush://join resolves through DeeplinkActivity."
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
