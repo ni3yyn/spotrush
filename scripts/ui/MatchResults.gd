@@ -8,6 +8,7 @@ const Records = preload("res://scripts/core/Records.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
+const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 @onready var hero_card: Control = %HeroCard
 @onready var medal: Control = %Medal
@@ -47,6 +48,7 @@ func _ready() -> void:
         NeuSafe.fit(get_node_or_null("SafeArea"))
         Music.play_menu()
         _tighten_stat_tiles()
+        _apply_column_layout()
         _apply_results_typography()
         resized.connect(_apply_column_layout)
         if not get_viewport().size_changed.is_connected(_apply_column_layout):
@@ -61,28 +63,20 @@ func _ready() -> void:
         if not is_inside_tree():
                 return
         _refresh_safe_area()
-        _label_button(btn_rematch, "PLAY AGAIN", 3, 31, Color.WHITE, NeuKit.COBALT)
-        _label_button(btn_menu, "MAIN MENU", 0, 26, NeuKit.SLATE, NeuKit.COBALT)
+        _label_button(btn_rematch, "PLAY AGAIN", 31)
+        _label_button(btn_menu, "MAIN MENU", 26)
         btn_rematch.pressed.connect(_on_rematch_pressed)
         btn_menu.pressed.connect(_on_menu_pressed)
         _populate_results()
         _play_intro()
 
-## Button captions are NeuText children so they can be engraved / lit and dip with the key.
-func _label_button(btn: Button, caption: String, look: int, font_size: int, color: Color, base: Color) -> void:
-        btn.text = ""
-        var label := NeuText.new()
-        label.text = caption
-        label.font_size = font_size
-        label.color = color
-        label.look = look
-        label.accent_base = base
-        label.tracking = 2.0
-        label.set_anchors_preset(Control.PRESET_FULL_RECT)
-        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        btn.add_child(label)
-        if btn.has_meta("neu_style"):
-                label.bind_style(btn.get_meta("neu_style"))
+## Result actions use the shared raised SpotRushButton style.
+func _label_button(btn: Button, caption: String, font_size: int) -> void:
+        # Results actions use the exact same raised key and cobalt ink as the lobby tabs.
+        var viewport_size := get_viewport_rect().size
+        var portrait := viewport_size.x < 860.0 or viewport_size.y > viewport_size.x * 1.18
+        var resolved_size := (28 if caption == "PLAY AGAIN" else 25) if portrait else font_size
+        SpotRushButton.configure(btn, caption, {"font_size": resolved_size, "radius": 22.0})
 
 ## Keep the results content centered and capped on wide/stale Android
 ## viewports, while preserving the idempotent safe-area baseline.
@@ -90,17 +84,148 @@ func _apply_column_layout() -> void:
         var safe := get_node_or_null("SafeArea") as MarginContainer
         if safe == null:
                 return
-        var viewport_width := get_viewport_rect().size.x
-        if viewport_width <= 1.0:
+        var viewport_size := get_viewport_rect().size
+        if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
                 return
         var insets := NeuSafe.canvas_insets()
-        var available := maxf(280.0, viewport_width - insets.x - insets.z)
-        var content_width := minf(620.0, available)
+        var available := maxf(280.0, viewport_size.x - insets.x - insets.z)
+        var is_portrait_phone := available < 860.0 or viewport_size.y > viewport_size.x * 1.18
+        var max_content_width := 760.0 if not is_portrait_phone else 720.0
+        var content_width := minf(max_content_width, available)
         var side := maxf(0.0, (available - content_width) * 0.5)
-        safe.add_theme_constant_override("margin_left", int(round(side + insets.x)))
-        safe.add_theme_constant_override("margin_right", int(round(side + insets.z)))
+        # NeuSafe.fit() already moves the SafeArea edges inward. Do not add the
+        # OS insets a second time as the old code did; only apply the inner gutter.
+        safe.add_theme_constant_override("margin_left", int(round(side + (12.0 if is_portrait_phone else 20.0))))
+        safe.add_theme_constant_override("margin_right", int(round(side + (12.0 if is_portrait_phone else 20.0))))
+        safe.add_theme_constant_override("margin_top", 14 if is_portrait_phone else 26)
+        safe.add_theme_constant_override("margin_bottom", 14 if is_portrait_phone else 26)
         safe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        safe.custom_minimum_size.x = 0.0
+        safe.custom_minimum_size = Vector2(0.0, 0.0)
+        if is_portrait_phone:
+                _apply_portrait_results_layout()
+
+## Portrait hierarchy: score summary, full-width accuracy, a 3x2 stat grid,
+## chart and actions. No side-by-side minimum widths can push the screen off-canvas.
+func _apply_portrait_results_layout() -> void:
+        var main := get_node_or_null("SafeArea/VBoxMain") as VBoxContainer
+        var mid := get_node_or_null("SafeArea/VBoxMain/MidRow") as HBoxContainer
+        var gauge_card := get_node_or_null("SafeArea/VBoxMain/MidRow/GaugeCard") as PanelContainer
+        var grid := get_node_or_null("SafeArea/VBoxMain/MidRow/StatGrid") as GridContainer
+        if main == null or mid == null or gauge_card == null or grid == null:
+                return
+
+        # Keep the gauge and stats side by side, but give the gauge a fixed,
+        # deliberately narrow column. The old 200px dial plus a 2-column grid
+        # could exceed a phone's inner width and push the right tiles off-screen.
+        mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        mid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+        mid.custom_minimum_size = Vector2(0.0, 248.0)
+        mid.add_theme_constant_override("separation", 10)
+        gauge_card.size_flags_horizontal = Control.SIZE_FILL
+        gauge_card.size_flags_stretch_ratio = 0.0
+        gauge_card.custom_minimum_size = Vector2(148.0, 248.0)
+        var gauge_node := get_node_or_null("SafeArea/VBoxMain/MidRow/GaugeCard/VBox/AccuracyGauge") as Control
+        if gauge_node != null:
+                gauge_node.custom_minimum_size = Vector2(112.0, 112.0)
+        var gauge_vbox := get_node_or_null("SafeArea/VBoxMain/MidRow/GaugeCard/VBox") as VBoxContainer
+        if gauge_vbox != null:
+                gauge_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+                gauge_vbox.add_theme_constant_override("separation", 2)
+        var gauge_caption := get_node_or_null("SafeArea/VBoxMain/MidRow/GaugeCard/VBox/LblGaugeCap") as Control
+        if gauge_caption != null:
+                gauge_caption.custom_minimum_size.y = 26.0
+        var gauge_sub := get_node_or_null("SafeArea/VBoxMain/MidRow/GaugeCard/VBox/LblGaugeSub") as Control
+        if gauge_sub != null:
+                gauge_sub.custom_minimum_size.y = 22.0
+
+        # Two columns of three tiles. This preserves the compact dashboard feel
+        # while assigning the grid only the width that remains beside the gauge.
+        grid.columns = 2
+        grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+        grid.custom_minimum_size = Vector2(0.0, 0.0)
+        grid.add_theme_constant_override("h_separation", 8)
+        grid.add_theme_constant_override("v_separation", 8)
+        for tile in grid.get_children():
+                if tile is PanelContainer:
+                        tile.custom_minimum_size = Vector2(0.0, 76.0)
+                        var col := tile.get_node_or_null("Col") as VBoxContainer
+                        if col != null:
+                                col.add_theme_constant_override("separation", 2)
+                        var cap := tile.get_node_or_null("Col/Cap") as Control
+                        if cap != null:
+                                cap.custom_minimum_size.y = 22.0
+                        var value := tile.get_node_or_null("Col/ValRow") as HBoxContainer
+                        if value != null:
+                                value.add_theme_constant_override("separation", 4)
+                                var icon := value.get_node_or_null("Icon") as Control
+                                if icon != null:
+                                        icon.custom_minimum_size = Vector2(20.0, 20.0)
+                                var value_text: Control = null
+                                if value.get_child_count() > 1:
+                                        value_text = value.get_child(1) as Control
+                                if value_text != null:
+                                        value_text.custom_minimum_size.y = 40.0
+
+        var chart_card := get_node_or_null("SafeArea/VBoxMain/ChartCard") as PanelContainer
+        if chart_card != null:
+                chart_card.custom_minimum_size.y = 280.0
+        var chart_vbox := get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox") as VBoxContainer
+        if chart_vbox != null:
+                chart_vbox.add_theme_constant_override("separation", 6)
+                var old_header := chart_vbox.get_node_or_null("ChartHeader") as HBoxContainer
+                if old_header != null and chart_vbox.get_node_or_null("ChartHeaderStack") == null:
+                        var header_index := old_header.get_index()
+                        var stack := VBoxContainer.new()
+                        stack.name = "ChartHeaderStack"
+                        stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                        stack.add_theme_constant_override("separation", 2)
+                        for child in old_header.get_children():
+                                old_header.remove_child(child)
+                                stack.add_child(child)
+                        chart_vbox.remove_child(old_header)
+                        chart_vbox.add_child(stack)
+                        chart_vbox.move_child(stack, header_index)
+                        old_header.queue_free()
+        var chart_title := get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox/ChartHeaderStack/LblChartTitle") as Control
+        if chart_title != null:
+                chart_title.custom_minimum_size.y = 34.0
+                chart_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        var best_label := get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox/ChartHeaderStack/LblBestRound") as NeuText
+        if best_label != null:
+                best_label.custom_minimum_size.y = 58.0
+                best_label.autowrap = true
+                best_label.align = HORIZONTAL_ALIGNMENT_LEFT
+                best_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        var chart := get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox/RoundChart") as Control
+        if chart != null:
+                chart.custom_minimum_size.y = 150.0
+                chart.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+                chart.queue_redraw()
+
+        var hero_row := get_node_or_null("SafeArea/VBoxMain/HeroCard/HeroRow") as HBoxContainer
+        if hero_row != null:
+                hero_row.add_theme_constant_override("separation", 14)
+        var medal_node := get_node_or_null("SafeArea/VBoxMain/HeroCard/HeroRow/Medal") as Control
+        if medal_node != null:
+                medal_node.custom_minimum_size = Vector2(112.0, 112.0)
+        var outcome := get_node_or_null("SafeArea/VBoxMain/HeroCard/HeroRow/HeroText/LblOutcome") as Control
+        if outcome != null:
+                outcome.custom_minimum_size.y = 42.0
+        var score_caption := get_node_or_null("SafeArea/VBoxMain/HeroCard/HeroRow/HeroText/LblScoreCaption") as Control
+        if score_caption != null:
+                score_caption.custom_minimum_size.y = 20.0
+        var score_value := get_node_or_null("SafeArea/VBoxMain/HeroCard/HeroRow/HeroText/LblFinalScores") as Control
+        if score_value != null:
+                score_value.custom_minimum_size.y = 64.0
+
+        main.add_theme_constant_override("separation", 7)
+        var actions := get_node_or_null("SafeArea/VBoxMain/ActionsContainer") as HBoxContainer
+        if actions != null:
+                actions.add_theme_constant_override("separation", 10)
+        for button in [btn_rematch, btn_menu]:
+                button.custom_minimum_size = Vector2(0.0, 64.0)
+                button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 func _refresh_safe_area() -> void:
         NeuSafe.fit(get_node_or_null("SafeArea") as Control)
@@ -115,10 +240,10 @@ func _tighten_stat_tiles() -> void:
                 if tile is PanelContainer:
                         var style := (tile as PanelContainer).get_theme_stylebox("panel") as NeuStyle
                         if style != null:
-                                style.content_margin_left = 12.0
-                                style.content_margin_right = 12.0
-                                style.content_margin_top = 9.0
-                                style.content_margin_bottom = 9.0
+                                style.content_margin_left = 8.0
+                                style.content_margin_right = 8.0
+                                style.content_margin_top = 6.0
+                                style.content_margin_bottom = 6.0
                                 style.emit_changed()
 
 ## Results cards use dedicated semantic roles so their captions remain readable
@@ -127,20 +252,24 @@ func _apply_results_typography() -> void:
         var gauge_title := get_node_or_null("SafeArea/VBoxMain/MidRow/GaugeCard/VBox/LblGaugeCap") as Control
         if gauge_title != null:
                 SpotRushTypography.apply_as(gauge_title, SpotRushTypography.Role.CARD_TITLE)
-        SpotRushTypography.apply_as(lbl_gauge_pct, SpotRushTypography.Role.HUD_VALUE)
+        SpotRushTypography.apply_as(lbl_gauge_pct, SpotRushTypography.Role.DISPLAY)
         SpotRushTypography.apply_as(lbl_gauge_sub, SpotRushTypography.Role.BODY)
 
-        var stat_grid := get_node_or_null("SafeArea/VBoxMain/MidRow/StatGrid") as GridContainer
+        var stat_grid := get_node_or_null("SafeArea/VBoxMain/StatGrid") as GridContainer
+        if stat_grid == null:
+                stat_grid = get_node_or_null("SafeArea/VBoxMain/MidRow/StatGrid") as GridContainer
         if stat_grid != null:
                 for tile in stat_grid.get_children():
                         var title := tile.get_node_or_null("Col/Cap") as Control
                         if title != null:
                                 SpotRushTypography.apply_as(title, SpotRushTypography.Role.STAT_LABEL)
 
-        var chart_title := get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox/ChartHeader/LblChartTitle") as Control
+        var chart_title := get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox/ChartHeaderStack/LblChartTitle") as Control
+        if chart_title == null:
+                chart_title = get_node_or_null("SafeArea/VBoxMain/ChartCard/VBox/ChartHeader/LblChartTitle") as Control
         if chart_title != null:
                 SpotRushTypography.apply_as(chart_title, SpotRushTypography.Role.CARD_TITLE)
-        SpotRushTypography.apply_as(lbl_best_round, SpotRushTypography.Role.BODY_STRONG)
+        SpotRushTypography.apply_as(lbl_best_round, SpotRushTypography.Role.STAT_LABEL)
 
 static func rank_for(accuracy: float) -> String:
         if accuracy >= 95.0:
@@ -245,14 +374,16 @@ func _populate_results() -> void:
 
         var best_idx: int = int(my_stats.get("best_round_index", -1))
         var best_score: int = int(my_stats.get("best_round_score", 0))
-        var best_line := ("Best: Round %d  +%s" % [best_idx + 1, Records.format(best_score)]) if best_idx >= 0 else ""
+        var best_parts := PackedStringArray()
+        if best_idx >= 0:
+                best_parts.append("BEST R%d  +%s" % [best_idx + 1, Records.format(best_score)])
         if best_idx >= 0 and best_score > 0 and not is_multiplayer and Records.submit_round(best_score):
-                best_line += "  -  NEW BEST ROUND!"
+                best_parts.append("NEW PB")
         var grade_counts: Dictionary = my_stats.get("grade_counts", {})
         var s_ranks: int = int(grade_counts.get("S", 0))
         if s_ranks > 0:
-                best_line += "  -  %d x S-RANK" % s_ranks
-        lbl_best_round.text = best_line
+                best_parts.append("S-RANK ×%d" % s_ranks)
+        lbl_best_round.text = "  •  ".join(best_parts)
         round_chart.set_data(my_stats.get("round_scores", []), best_idx)
 
         gauge.custom_color = Color("2DBE88") if _accuracy >= 80.0 else (NeuKit.CANARY if _accuracy >= 50.0 else Color("EE4458"))
@@ -267,7 +398,12 @@ func _play_intro() -> void:
                 _chime_for_rank(0.1)
                 return
         # Cards rise in one after another; numbers count up and the gauge/bars sweep in.
-        var cards: Array = [hero_card, get_node("SafeArea/VBoxMain/MidRow"), get_node("SafeArea/VBoxMain/ChartCard"), get_node("SafeArea/VBoxMain/ActionsContainer")]
+        var cards: Array = [hero_card, get_node("SafeArea/VBoxMain/MidRow")]
+        var stat_grid := get_node_or_null("SafeArea/VBoxMain/StatGrid")
+        if stat_grid != null:
+                cards.append(stat_grid)
+        cards.append(get_node("SafeArea/VBoxMain/ChartCard"))
+        cards.append(get_node("SafeArea/VBoxMain/ActionsContainer"))
         for card in cards:
                 (card as Control).modulate.a = 0.0 # hidden immediately so nothing flashes before the stagger
         await get_tree().process_frame
@@ -333,46 +469,28 @@ func _record_daily(my_stats: Dictionary, correct: int, rounds: int) -> void:
         lbl_outcome.text = "DAILY #%d DONE!" % int(dres.get("daily_no", 1))
         _rematch_as_share("SHARE RESULT")
 
-## Repurpose the rematch key as a copy key: the caption swaps to an engraved
-## slate style, exactly like the daily's share key.
+## Repurpose the rematch key as a copy key while retaining the shared button style.
 func _rematch_as_share(text: String) -> void:
-        for k in btn_rematch.get_children():
-                if k is NeuText:
-                        var nt := k as NeuText
-                        nt.text = text
-                        nt.color = NeuKit.SLATE
-                        nt.look = 0
-                        break
+        # Keep dynamic labels on Button.text so the shared label component mirrors them.
+        btn_rematch.text = text
 
 func _share_challenge_result() -> void:
         DisplayServer.clipboard_set(Records.challenge_result_share_text(
                         _final_score, _challenge_correct, _challenge_rounds,
                         GameManager.challenge_code_value))
         Feel.sfx("pop")
-        for k in btn_rematch.get_children():
-                if k is NeuText:
-                        (k as NeuText).text = "COPIED!"
-                        break
+        btn_rematch.text = "COPIED!"
         get_tree().create_timer(1.2).timeout.connect(func():
                 if is_instance_valid(btn_rematch) and btn_rematch.is_inside_tree():
-                        for k in btn_rematch.get_children():
-                                if k is NeuText:
-                                        (k as NeuText).text = "COPY RESULT"
-                                        break)
+                        btn_rematch.text = "COPY RESULT")
 
 func _share_daily_result() -> void:
         DisplayServer.clipboard_set(Records.daily_share_text())
         Feel.sfx("pop")
-        for k in btn_rematch.get_children():
-                if k is NeuText:
-                        (k as NeuText).text = "COPIED!"
-                        break
+        btn_rematch.text = "COPIED!"
         get_tree().create_timer(1.2).timeout.connect(func():
                 if is_instance_valid(btn_rematch) and btn_rematch.is_inside_tree():
-                        for k in btn_rematch.get_children():
-                                if k is NeuText:
-                                        (k as NeuText).text = "SHARE RESULT"
-                                        break)
+                        btn_rematch.text = "SHARE RESULT")
 
 func _on_rematch_pressed() -> void:
         if GameManager.is_daily_match:

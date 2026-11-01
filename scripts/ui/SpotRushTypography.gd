@@ -1,10 +1,9 @@
 extends RefCounted
 
 # One source of truth for every text size in SpotRush.
-#
-# Godot's font sizes are logical UI pixels (not Android sp or iOS pt), so these
-# tokens are tuned for the project's 720x1280 portrait canvas. Keep body copy at
-# 19px, supporting copy at 17px, and never push essential mobile copy below 16px.
+# Godot uses logical UI pixels. These values are tuned for the 720x1280
+# portrait canvas and intentionally favour readable, confident type over
+# fitting more copy into less space.
 # The node-added hook in SceneRouter normalizes static and runtime-created
 # Controls through this scale. NeuText uses resolve_neu_text() in its setter.
 
@@ -22,6 +21,7 @@ enum Role {
         SECTION_TITLE,
         SCREEN_TITLE,
         DISPLAY,
+        DISPLAY_COMPACT,
         HUD_VALUE,
         COUNTDOWN,
         HERO_SCORE,
@@ -30,23 +30,27 @@ enum Role {
 }
 
 const SIZES := {
-        Role.MICRO: 16,
-        Role.CAPTION: 17,
-        Role.BODY: 19,
-        Role.BODY_STRONG: 20,
-        Role.BUTTON_COMPACT: 18,
-        Role.BUTTON: 20,
-        Role.BUTTON_LARGE: 22,
-        Role.CARD_TITLE: 22,
-        Role.STAT_LABEL: 20,
-        Role.SECTION_TITLE: 24,
-        Role.SCREEN_TITLE: 32,
-        Role.DISPLAY: 44,
-        Role.HUD_VALUE: 56,
-        Role.COUNTDOWN: 64,
-        Role.HERO_SCORE: 84,
-        Role.WORDMARK: 76,
-        Role.INPUT_VALUE: 24,
+        # The old scale was designed around desktop-sized previews and rendered
+        # too quietly on real phones. The new baseline favours readable labels,
+        # clear hierarchy, and generous touch targets.
+        Role.MICRO: 20,
+        Role.CAPTION: 24,
+        Role.BODY: 28,
+        Role.BODY_STRONG: 30,
+        Role.BUTTON_COMPACT: 26,
+        Role.BUTTON: 30,
+        Role.BUTTON_LARGE: 34,
+        Role.CARD_TITLE: 36,
+        Role.STAT_LABEL: 24,
+        Role.SECTION_TITLE: 38,
+        Role.SCREEN_TITLE: 46,
+        Role.DISPLAY: 56,
+        Role.DISPLAY_COMPACT: 52,
+        Role.HUD_VALUE: 72,
+        Role.COUNTDOWN: 82,
+        Role.HERO_SCORE: 104,
+        Role.WORDMARK: 92,
+        Role.INPUT_VALUE: 32,
 }
 
 static func size(role: int) -> int:
@@ -72,6 +76,12 @@ static func apply_as(control: Control, role: int) -> void:
 static func apply_control(control: Control) -> void:
         if control == null or not is_instance_valid(control):
                 return
+        # A semantic role assigned by a component is authoritative. The
+        # SceneRouter's late node-added pass must not downgrade it by guessing
+        # from an old scene's raw font-size override.
+        if control.has_meta("spotrush_typography_role"):
+                apply_as(control, int(control.get_meta("spotrush_typography_role")))
+                return
         if control.has_method("apply_typography_scale"):
                 control.call("apply_typography_scale")
                 return
@@ -94,40 +104,42 @@ static func apply_control(control: Control) -> void:
                 control.add_theme_font_size_override("font_size", _label_role_for(current_label_px, false))
 
 static func _label_role_for(current_px: int, _bold: bool) -> int:
-        if current_px <= 16:
-                return size(Role.MICRO)
+        # Preserve values already emitted by SIZES. This makes repeated
+        # SceneRouter/NeuText normalization passes strictly idempotent.
+        if current_px in [20, 24, 26, 28, 30, 32, 34, 36, 38, 42, 46, 52, 56, 64, 72, 82, 92, 104]:
+                return current_px
         if current_px <= 17:
+                return size(Role.MICRO)
+        if current_px <= 21:
                 return size(Role.CAPTION)
-        if current_px <= 20:
-                return size(Role.BODY_STRONG) if current_px == 20 else size(Role.BODY)
-        if current_px <= 22:
+        if current_px <= 25:
+                return size(Role.BODY)
+        if current_px <= 29:
+                return size(Role.BODY_STRONG)
+        if current_px <= 33:
+                return size(Role.BUTTON_LARGE)
+        if current_px <= 37:
                 return size(Role.CARD_TITLE)
-        if current_px <= 24:
+        if current_px <= 41:
                 return size(Role.SECTION_TITLE)
-        if current_px <= 28:
-                return size(Role.SECTION_TITLE)
-        if current_px <= 36:
-                return size(Role.SCREEN_TITLE)
         if current_px <= 48:
+                return size(Role.SCREEN_TITLE)
+        if current_px <= 60:
                 return size(Role.DISPLAY)
-        if current_px <= 56:
-                return size(Role.HUD_VALUE)
         if current_px <= 70:
+                return size(Role.HUD_VALUE)
+        if current_px <= 82:
                 return size(Role.COUNTDOWN)
-        # Wordmarks sit between countdown numerals and hero scores. Keep this
-        # range explicit so a second normalization pass is idempotent.
-        if current_px <= 78:
+        if current_px <= 94:
                 return size(Role.WORDMARK)
-        if current_px <= 84:
-                return size(Role.HERO_SCORE)
-        return size(Role.WORDMARK)
+        return size(Role.HERO_SCORE)
 
 static func _button_role_for(current_px: int) -> int:
-        if current_px <= 18:
+        if current_px <= 21:
                 return size(Role.BUTTON_COMPACT)
-        if current_px <= 20:
+        if current_px <= 27:
                 return size(Role.BUTTON)
-        if current_px <= 28:
+        if current_px <= 32:
                 return size(Role.BUTTON_LARGE)
         return _label_role_for(current_px, true)
 
@@ -136,8 +148,8 @@ static func _button_role_for(current_px: int) -> int:
 static func _ensure_touch_target(control: Control) -> void:
         if control is Button or control is LineEdit or control is TextEdit:
                 var minimum := control.custom_minimum_size
-                minimum.x = maxf(minimum.x, 48.0)
-                minimum.y = maxf(minimum.y, 48.0)
+                minimum.x = maxf(minimum.x, 56.0)
+                minimum.y = maxf(minimum.y, 56.0)
                 control.custom_minimum_size = minimum
 
 ## NeuText is a custom Control with its own exported font_size property.

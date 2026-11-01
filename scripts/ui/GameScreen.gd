@@ -50,6 +50,7 @@ var countdown_tween: Tween = null
 var _feedback_correct_style: StyleBox
 var _feedback_wrong_style: StyleBox
 var _countdown_style: NeuStyle
+var _instruction_empty_style: StyleBoxEmpty
 var _countdown_press_tween: Tween = null
 var _timer_visual_state: String = ""
 var _last_tick_second: int = -1
@@ -86,7 +87,9 @@ var _tutorial_attempt_id: int = 0
 var _tutorial_challenge: ChallengeDefinition = null
 var _tutorial_skipped_families: Dictionary = {}
 var _tutorial_interrupted: bool = false
-const INTER_ROUND_INSTRUCTION_SECONDS: float = 2.5
+const INTER_ROUND_INSTRUCTION_SECONDS: float = 1.0
+const INTER_ROUND_ENTER_SECONDS: float = 0.16
+const INTER_ROUND_EXIT_SECONDS: float = 0.15
 
 func _ready() -> void:
 		SpotRushSkin.apply_screen(self, "game")
@@ -110,6 +113,7 @@ func _ready() -> void:
 		_feedback_correct_depth = (_feedback_correct_style as NeuStyle).depth
 		_feedback_wrong_depth = (_feedback_wrong_style as NeuStyle).depth
 		_countdown_style = NeuKit.accent(NeuKit.COBALT, 40.0, 12.0, 28.0)
+		_instruction_empty_style = StyleBoxEmpty.new()
 		_countdown_style.content_margin_left = 36.0
 		_countdown_style.content_margin_right = 36.0
 		_countdown_style.content_margin_top = 26.0
@@ -378,7 +382,10 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 		lbl_countdown.custom_minimum_size = Vector2(0.0, 92.0)
 		lbl_countdown.color = Color.WHITE
 		_countdown_style.depth = 1.0
-		countdown_overlay.scale = Vector2.ONE
+		# Explicit scale + alpha entrance. The prior countdown only faded/slid, and
+		# its scale stayed at 1, so the intended pop-in was never visible.
+		countdown_overlay.pivot_offset = countdown_overlay.size * 0.5
+		countdown_overlay.scale = Vector2(0.82, 0.82)
 		countdown_overlay.offset_top = _countdown_base_ot + 28.0
 		countdown_overlay.offset_bottom = _countdown_base_ob + 28.0
 		countdown_overlay.modulate.a = 0.0
@@ -392,6 +399,8 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		countdown_tween.tween_property(countdown_overlay, "modulate:a", 1.0, 0.22) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		countdown_tween.tween_property(countdown_overlay, "scale", Vector2.ONE, 0.30) \
+				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		countdown_tween.chain().tween_interval(maxf(0.14, (GameConfig.COUNTDOWN_DURATION * 0.5) - 0.26))
 		countdown_tween.tween_callback(func():
 				lbl_countdown.text = "SPOT!"
@@ -435,6 +444,39 @@ func _make_practice_challenge(family_type: String) -> ChallengeDefinition:
 				return practice
 		push_warning("Could not generate a valid practice challenge for %s" % family_type)
 		return null
+
+func _has_unresolved_tutorial_token(value: String) -> bool:
+	return value.contains("%s") or value.contains("%d") or value.contains("%f") or value.contains("%02d")
+
+func _tutorial_prompt(challenge: ChallengeDefinition) -> String:
+	if challenge == null:
+		return "READ THE RULE, THEN MAKE YOUR CHOICE."
+	var prompt := challenge.instruction.strip_edges()
+	# Challenge factories normally substitute every template token. This guard
+	# prevents a malformed or legacy challenge from exposing raw format tokens.
+	if not prompt.is_empty() and not _has_unresolved_tutorial_token(prompt):
+		return prompt
+	match challenge.type:
+		GameConfig.TYPE_ESTIMATION_COUNT:
+			return "HOW MANY DOTS ARE THERE?"
+		GameConfig.TYPE_COMPARISON_SIDES:
+			return "WHICH SIDE HAS MORE DOTS?" if challenge.rule == "more" else "WHICH SIDE HAS FEWER DOTS?"
+		GameConfig.TYPE_COLOR_TARGET:
+			return "TAP EVERY %s CIRCLE." % str(challenge.visual_data.get("target_color", "TARGET COLOUR"))
+		GameConfig.TYPE_SHAPE_TARGET:
+			return "TAP EVERY %s." % str(challenge.visual_data.get("target_shape", "TARGET SHAPE")).to_upper()
+		GameConfig.TYPE_DONT_TAP:
+			return "IF YOU SEE RED, DO NOT TAP." if bool(challenge.visual_data.get("should_withhold", false)) else "TAP ONLY WHEN THERE IS NO RED CIRCLE."
+		GameConfig.TYPE_SIZE_ORDER:
+			return "TAP THE SHAPES IN %s SIZE ORDER." % ("ASCENDING" if bool(challenge.visual_data.get("ascending", true)) else "DESCENDING")
+		GameConfig.TYPE_COMBINED_CONDITIONAL:
+			if challenge.rule == "majority":
+				return "WHICH SHAPE APPEARS MORE OFTEN?"
+			if challenge.rule == "threshold":
+				return "DOES THE NAMED COLOUR MEET THE NUMBER RULE?"
+			return "FOLLOW THE COLOUR AND SHAPE RULE."
+		_:
+			return "READ THE RULE, INSPECT THE FIELD, AND MAKE YOUR CHOICE."
 
 func _tutorial_explanation(challenge: ChallengeDefinition) -> String:
 		match challenge.type:
@@ -485,9 +527,15 @@ func _run_first_time_practice(live_challenge: ChallengeDefinition) -> void:
 		countdown_scrim.visible = false
 		feedback_panel.visible = false
 		var title: String = _tutorial_family_title(_tutorial_challenge)
-		var message: String = "FIRST-TIME PRACTICE\n\n%s\n\nTry one unscored example. The real round starts after you finish." % [
-				_tutorial_challenge.instruction, _tutorial_explanation(_tutorial_challenge)]
-		var begin_practice: bool = await _practice_coach.present(title, message, "PRACTICE NOW", "SKIP FOR NOW")
+		var prompt: String = _tutorial_prompt(_tutorial_challenge)
+		var explanation: String = "%s\n\nTry one unscored example. The real round starts after you finish." % _tutorial_explanation(_tutorial_challenge)
+		var begin_practice: bool = await _practice_coach.present_lesson(
+				title,
+				prompt,
+				explanation,
+				"PRACTICE NOW",
+				"SKIP FOR NOW"
+		)
 		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
 				return
 		if begin_practice:
@@ -527,7 +575,7 @@ func _run_first_time_practice(live_challenge: ChallengeDefinition) -> void:
 										safe_area.visible = false
 								var retry: bool = await _practice_coach.present(
 										"NOT QUITE — TRY AGAIN",
-										"%s\n\n%s" % [_tutorial_challenge.instruction, str(result.get("details", "Try the rule once more."))],
+										"%s\n\n%s" % [_tutorial_prompt(_tutorial_challenge), str(result.get("details", "Try the rule once more."))],
 										"TRY AGAIN",
 										"SKIP"
 								)
@@ -582,55 +630,97 @@ func _record_tutorial_submission(answer: Variant, is_timeout: bool) -> void:
 
 func _show_inter_round_instruction(instruction: String) -> void:
 		if instruction.strip_edges().is_empty():
-				return
+			return
 		var safe_was_visible: bool = safe_area.visible if safe_area != null else true
 		if safe_area != null:
-				safe_area.visible = false
+			safe_area.visible = false
+
+		# Use the existing countdown label as a floating, embossed text element.
+		# The card style and scrim are removed only for this brief instruction beat.
+		countdown_overlay.add_theme_stylebox_override("panel", _instruction_empty_style)
 		countdown_overlay.visible = true
-		countdown_scrim.visible = true
-		countdown_scrim.modulate.a = 0.0
+		countdown_scrim.visible = false
 		lbl_countdown_sub.visible = false
 		lbl_countdown.text = instruction.strip_edges()
-		lbl_countdown.font_size = 28
 		lbl_countdown.autowrap = true
-		lbl_countdown.custom_minimum_size = Vector2(0.0, 132.0)
-		lbl_countdown.color = Color.WHITE
+		lbl_countdown.bold = true
+		lbl_countdown.look = NeuText.Look.EMBOSS
+		lbl_countdown.color = NeuKit.INK
+		lbl_countdown.line_spacing = 7.0
+		lbl_countdown.align = HORIZONTAL_ALIGNMENT_CENTER
+		lbl_countdown.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl_countdown.custom_minimum_size = Vector2(0.0, 220.0)
+
+		# Give the sentence almost the entire screen width and enough height to wrap
+		# cleanly. Long rules step down slightly, but remain display-sized.
+		var viewport_size: Vector2 = get_viewport_rect().size
+		var instruction_length: int = instruction.strip_edges().length()
+		if instruction_length > 92:
+			lbl_countdown.font_size = 44
+		elif instruction_length > 68:
+			lbl_countdown.font_size = 48
+		elif instruction_length > 44:
+			lbl_countdown.font_size = 52
+		else:
+			lbl_countdown.font_size = 56
+		countdown_overlay.offset_left = -viewport_size.x * 0.5 + 22.0
+		countdown_overlay.offset_right = viewport_size.x * 0.5 - 22.0
+		countdown_overlay.offset_top = -190.0
+		countdown_overlay.offset_bottom = 190.0
+		countdown_overlay.pivot_offset = Vector2((viewport_size.x - 44.0) * 0.5, 190.0)
+		countdown_overlay.scale = Vector2(0.92, 0.92)
+		countdown_overlay.modulate.a = 0.0
+
+		# The full instruction beat is one second, including its entrance and exit.
+		var reduced_motion: bool = Feel.reduced()
+		var hold_seconds: float = INTER_ROUND_INSTRUCTION_SECONDS
+		if not reduced_motion:
+			hold_seconds = maxf(0.0, INTER_ROUND_INSTRUCTION_SECONDS - INTER_ROUND_ENTER_SECONDS - INTER_ROUND_EXIT_SECONDS)
+			var enter := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			enter.tween_property(countdown_overlay, "modulate:a", 1.0, INTER_ROUND_ENTER_SECONDS)
+			enter.tween_property(countdown_overlay, "scale", Vector2.ONE, INTER_ROUND_ENTER_SECONDS)
+			enter.tween_property(countdown_overlay, "offset_top", -178.0, INTER_ROUND_ENTER_SECONDS)
+			enter.tween_property(countdown_overlay, "offset_bottom", 178.0, INTER_ROUND_ENTER_SECONDS)
+			await enter.finished
+			if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				return
+		else:
+			countdown_overlay.modulate.a = 1.0
+			countdown_overlay.scale = Vector2.ONE
+
+		await get_tree().create_timer(hold_seconds).timeout
+		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+			return
+
+		if not reduced_motion:
+			var exit := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			exit.tween_property(countdown_overlay, "modulate:a", 0.0, INTER_ROUND_EXIT_SECONDS)
+			exit.tween_property(countdown_overlay, "scale", Vector2(0.94, 0.94), INTER_ROUND_EXIT_SECONDS)
+			exit.tween_property(countdown_overlay, "offset_top", -184.0, INTER_ROUND_EXIT_SECONDS)
+			exit.tween_property(countdown_overlay, "offset_bottom", 184.0, INTER_ROUND_EXIT_SECONDS)
+			await exit.finished
+
+		countdown_overlay.visible = false
+		countdown_overlay.add_theme_stylebox_override("panel", _countdown_style)
+		countdown_overlay.offset_left = -250.0
+		countdown_overlay.offset_right = 250.0
 		countdown_overlay.offset_top = _countdown_base_ot
 		countdown_overlay.offset_bottom = _countdown_base_ob
-		countdown_overlay.scale = Vector2(0.96, 0.96)
-		countdown_overlay.modulate.a = 0.0
-		_countdown_style.depth = -0.18
-		countdown_overlay.pivot_offset = countdown_overlay.size * 0.5
-		var enter := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		enter.tween_property(countdown_scrim, "modulate:a", 1.0, 0.20)
-		enter.tween_property(countdown_overlay, "modulate:a", 1.0, 0.22)
-		enter.tween_property(countdown_overlay, "scale", Vector2.ONE, 0.24)
-		enter.tween_property(_countdown_style, "depth", 0.85, 0.24)
-		await enter.finished
-		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
-				return
-		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_SECONDS).timeout
-		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
-				return
-		var exit := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		exit.tween_property(countdown_overlay, "modulate:a", 0.0, 0.16)
-		exit.tween_property(countdown_overlay, "scale", Vector2(0.975, 0.975), 0.16)
-		exit.tween_property(countdown_scrim, "modulate:a", 0.0, 0.18)
-		exit.tween_property(_countdown_style, "depth", -0.18, 0.16)
-		await exit.finished
-		countdown_overlay.visible = false
+		countdown_overlay.scale = Vector2.ONE
+		countdown_overlay.modulate.a = 1.0
 		countdown_scrim.visible = false
+		countdown_scrim.modulate.a = 1.0
 		lbl_countdown_sub.visible = true
 		lbl_countdown.autowrap = false
 		lbl_countdown.custom_minimum_size = Vector2(0.0, 92.0)
 		lbl_countdown.font_size = 62
+		lbl_countdown.bold = true
+		lbl_countdown.look = NeuText.Look.ON_ACCENT
+		lbl_countdown.color = Color.WHITE
+		lbl_countdown.line_spacing = 4.0
 		lbl_countdown.text = "GET READY!"
-		_countdown_style.depth = 1.0
-		countdown_overlay.scale = Vector2.ONE
-		countdown_overlay.modulate.a = 1.0
-		countdown_scrim.modulate.a = 1.0
 		if safe_area != null:
-				safe_area.visible = safe_was_visible
+			safe_area.visible = safe_was_visible
 
 func _press_countdown_card() -> void:
 		if _countdown_press_tween != null and _countdown_press_tween.is_valid():

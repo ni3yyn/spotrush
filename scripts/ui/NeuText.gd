@@ -24,7 +24,7 @@ enum Look { DEBOSS, EMBOSS, LIT, ON_ACCENT }
                 _dirty()
 @export var font_size: int = 20:
         set(value):
-                var resolved := SpotRushTypography.resolve_neu_text(value)
+                var resolved := value if _setting_semantic_size else SpotRushTypography.resolve_neu_text(value)
                 if font_size == resolved:
                         return
                 font_size = resolved
@@ -71,6 +71,7 @@ enum Look { DEBOSS, EMBOSS, LIT, ON_ACCENT }
                 _dirty()
 
 var _font: Font
+var _setting_semantic_size: bool = false
 var _lines: Array = []
 var _line_h: float = 0.0
 var _content: Vector2 = Vector2.ZERO
@@ -101,7 +102,11 @@ func get_text_size() -> Vector2:
 ## Shared typography hooks used by SpotRushTypography for both scene-authored
 ## and runtime-created NeuText controls.
 func set_typography_size(px: int) -> void:
+        # apply_as() already resolved a semantic role. Preserve that exact
+        # token instead of sending it through the legacy-size inference again.
+        _setting_semantic_size = true
         font_size = px
+        _setting_semantic_size = false
 
 func apply_typography_scale() -> void:
         font_size = SpotRushTypography.resolve_neu_text(font_size)

@@ -1,6 +1,6 @@
 ﻿{
-    "version":  "1.0.17",
+    "version":  "1.0.25",
     "pck_url":  "https://github.com/ni3yyn/spotrush/releases/latest/download/content.pck",
-    "sha256":  "49737fa698af032da59ecce44ea5e6643337fa541c60c573a5dc29d5a4ab3caa",
-    "notes":  "notif remake"
+    "sha256":  "2efadb5ed8a3140a5809c77e47ab8feaf6d67b5d557e1962ea0fc16421eefde0",
+    "notes":  "remove ota, prfl, fmly bsd games"
 }

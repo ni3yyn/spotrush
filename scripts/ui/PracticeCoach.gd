@@ -1,26 +1,24 @@
 class_name PracticeCoach
 extends Control
 
-## Reusable first-time practice sheet. It intentionally lives outside Settings
-## and uses the same soft neumorphic material as the rest of SpotRush.
+## Full-screen, text-first practice guidance. The game backdrop remains visible;
+## there is no scrim or modal card. Lesson content has distinct editorial roles:
+## title -> context eyebrow -> live challenge instruction -> explanation -> actions.
 
 signal choice_made(primary: bool)
 
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
-const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 const NeuText = preload("res://scripts/ui/NeuText.gd")
-const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
+const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
-var _scrim: ColorRect
-var _card: PanelContainer
-var _card_style: NeuStyle
+var _content: VBoxContainer
 var _title: NeuText
+var _eyebrow: NeuText
+var _instruction: NeuText
 var _message: NeuText
 var _primary_button: Button
 var _secondary_button: Button
-var _primary_label: NeuText
-var _secondary_label: NeuText
 var _waiting_for_choice: bool = false
 var _last_choice: bool = false
 var _tween: Tween
@@ -29,135 +27,158 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
+	if not resized.is_connected(_reflow):
+		resized.connect(_reflow)
+	if not get_viewport().size_changed.is_connected(_reflow):
+		get_viewport().size_changed.connect(_reflow)
 	visible = false
 
 func _build() -> void:
-	_scrim = ColorRect.new()
-	_scrim.color = Color(NeuKit.SURFACE.r, NeuKit.SURFACE.g, NeuKit.SURFACE.b, 0.96)
-	_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
-	_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_scrim)
+	_content = VBoxContainer.new()
+	_content.name = "TutorialContent"
+	_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_content.offset_left = 34.0
+	_content.offset_top = 30.0
+	_content.offset_right = -34.0
+	_content.offset_bottom = -30.0
+	_content.add_theme_constant_override("separation", 16)
+	_content.alignment = BoxContainer.ALIGNMENT_CENTER
+	_content.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_content)
 
-	var center := CenterContainer.new()
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	_title = _new_text("TutorialTitle", 52, NeuKit.INK, true, NeuText.Look.EMBOSS)
+	_title.custom_minimum_size = Vector2(0.0, 88.0)
+	_content.add_child(_title)
 
-	_card = PanelContainer.new()
-	_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	_card_style = NeuKit.raised(30.0, 12.0, 26.0)
-	_card_style.content_margin_left = 24.0
-	_card_style.content_margin_right = 24.0
-	_card_style.content_margin_top = 24.0
-	_card_style.content_margin_bottom = 24.0
-	_card.add_theme_stylebox_override("panel", _card_style)
-	center.add_child(_card)
+	_eyebrow = _new_text("TutorialEyebrow", 24, NeuKit.COBALT, true, NeuText.Look.DEBOSS)
+	_eyebrow.custom_minimum_size = Vector2(0.0, 34.0)
+	_eyebrow.tracking = 2.0
+	_eyebrow.visible = false
+	_content.add_child(_eyebrow)
 
-	var margin := MarginContainer.new()
-	_card.add_child(margin)
+	_instruction = _new_text("TutorialInstruction", 38, NeuKit.INK, true, NeuText.Look.EMBOSS)
+	_instruction.custom_minimum_size = Vector2(0.0, 88.0)
+	_instruction.visible = false
+	_content.add_child(_instruction)
 
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 16)
-	margin.add_child(column)
+	_message = _new_text("TutorialExplanation", 28, NeuKit.SLATE, false, NeuText.Look.EMBOSS)
+	_message.custom_minimum_size = Vector2(0.0, 108.0)
+	_message.line_spacing = 7.0
+	_content.add_child(_message)
 
-	_title = NeuText.new()
-	_title.custom_minimum_size = Vector2(0.0, 42.0)
-	_title.font_size = 31
-	_title.bold = true
-	_title.color = NeuKit.INK
-	_title.look = NeuText.Look.DEBOSS
-	_title.align = HORIZONTAL_ALIGNMENT_CENTER
-	SpotRushTypography.apply_as(_title, SpotRushTypography.Role.SCREEN_TITLE)
-	column.add_child(_title)
+	var button_stack := VBoxContainer.new()
+	button_stack.name = "TutorialActions"
+	button_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button_stack.add_theme_constant_override("separation", 12)
+	_content.add_child(button_stack)
 
-	_message = NeuText.new()
-	_message.custom_minimum_size = Vector2(0.0, 76.0)
-	_message.font_size = 21
-	_message.bold = false
-	_message.color = NeuKit.SLATE
-	_message.look = NeuText.Look.DEBOSS
-	_message.align = HORIZONTAL_ALIGNMENT_CENTER
-	_message.autowrap = true
-	_message.line_spacing = 6.0
-	SpotRushTypography.apply_as(_message, SpotRushTypography.Role.BODY)
-	column.add_child(_message)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_child(row)
-
-	_secondary_button = _make_button("SKIP FOR NOW", false)
-	_secondary_label = _secondary_button.get_child(0) as NeuText
-	_secondary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_secondary_button.pressed.connect(_on_secondary_pressed)
-	row.add_child(_secondary_button)
-
-	_primary_button = _make_button("PRACTICE NOW", true)
-	_primary_label = _primary_button.get_child(0) as NeuText
-	_primary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_primary_button = _make_button("PRACTICE NOW", 88.0)
 	_primary_button.pressed.connect(_on_primary_pressed)
-	row.add_child(_primary_button)
+	button_stack.add_child(_primary_button)
+
+	_secondary_button = _make_button("SKIP FOR NOW", 88.0)
+	_secondary_button.pressed.connect(_on_secondary_pressed)
+	button_stack.add_child(_secondary_button)
 
 	_reflow()
 
-func _make_button(caption: String, primary: bool) -> Button:
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(0.0, 64.0)
-	button.focus_mode = Control.FOCUS_NONE
-	var style: NeuStyle = NeuKit.style_button(button, "primary" if primary else "raised", 22.0)
-	if primary:
-		NeuKit.set_accent(button, NeuKit.COBALT)
+func _new_text(node_name: String, px: int, tint: Color, is_bold: bool, text_look: int) -> NeuText:
 	var label := NeuText.new()
-	label.text = caption
-	label.font_size = 17
-	label.bold = true
-	label.color = Color.WHITE if primary else NeuKit.INK
-	label.look = NeuText.Look.ON_ACCENT if primary else NeuText.Look.DEBOSS
-	label.accent_base = NeuKit.COBALT
-	label.tracking = 0.7
-	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.name = node_name
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.font_size = px
+	label.bold = is_bold
+	label.color = tint
+	label.look = text_look
+	label.align = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap = true
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.add_child(label)
-	label.bind_style(style)
+	return label
+
+func _make_button(caption: String, height: float) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(0.0, height)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.focus_mode = Control.FOCUS_NONE
+	SpotRushButton.configure(button, caption, {
+		"font_size": 30,
+		"radius": 22.0,
+	})
 	return button
 
 func _reflow() -> void:
-	if _card == null:
+	if _content == null:
 		return
 	var viewport_size: Vector2 = get_viewport_rect().size
-	_card.custom_minimum_size = Vector2(maxf(260.0, minf(viewport_size.x - 44.0, 520.0)), 0.0)
+	var compact: bool = viewport_size.y < 760.0
+	var side_margin: float = clampf(viewport_size.x * 0.055, 22.0, 48.0)
+	_content.offset_left = side_margin
+	_content.offset_right = -side_margin
+	_content.offset_top = 22.0 if compact else 34.0
+	_content.offset_bottom = -22.0 if compact else -34.0
+	_content.add_theme_constant_override("separation", 12 if compact else 18)
+	_title.font_size = 42 if compact else 48
+	_eyebrow.font_size = 22 if compact else 24
+	_instruction.font_size = 34 if compact else 40
+	_message.font_size = 26 if compact else 28
+	_title.custom_minimum_size.y = 78.0 if compact else 88.0
+	_instruction.custom_minimum_size.y = 82.0 if compact else 96.0
+	_message.custom_minimum_size.y = 96.0 if compact else 108.0
+	_primary_button.custom_minimum_size.y = 82.0 if compact else 90.0
+	_secondary_button.custom_minimum_size.y = 82.0 if compact else 90.0
 
 func present(title_text: String, message_text: String, primary_text: String,
 		secondary_text: String = "SKIP FOR NOW") -> bool:
-	_title.text = title_text
+	_eyebrow.visible = false
+	_instruction.visible = false
+	_message.visible = true
 	_message.text = message_text
-	_primary_label.text = primary_text
+	return await _present_common(title_text, primary_text, secondary_text)
+
+## First-time lessons keep the actual instruction visually separate from the
+## supporting explanation. This also prevents format placeholders from leaking
+## into the screen when a family-specific challenge rule changes.
+func _contains_unresolved_token(value: String) -> bool:
+	return value.contains("%s") or value.contains("%d") or value.contains("%f") or value.contains("%02d")
+
+func present_lesson(title_text: String, instruction_text: String, explanation_text: String,
+		primary_text: String, secondary_text: String = "SKIP FOR NOW") -> bool:
+	_eyebrow.text = "FIRST-TIME PRACTICE"
+	_eyebrow.visible = true
+	var safe_instruction := instruction_text.strip_edges()
+	if _contains_unresolved_token(safe_instruction):
+		safe_instruction = "READ THE RULE, THEN MAKE YOUR CHOICE."
+	_instruction.text = safe_instruction
+	_instruction.visible = not safe_instruction.is_empty()
+	var safe_explanation := explanation_text
+	if _contains_unresolved_token(safe_explanation):
+		safe_explanation = "Try one unscored example. The real round starts after you finish."
+	_message.text = safe_explanation
+	_message.visible = not safe_explanation.is_empty()
+	return await _present_common(title_text, primary_text, secondary_text)
+
+func _present_common(title_text: String, primary_text: String, secondary_text: String) -> bool:
+	_title.text = title_text
+	_primary_button.text = primary_text
 	_secondary_button.visible = not secondary_text.is_empty()
 	if _secondary_button.visible:
-		_secondary_label.text = secondary_text
+		_secondary_button.text = secondary_text
 	_waiting_for_choice = true
 	_last_choice = false
 	visible = true
 	_reflow()
 	await get_tree().process_frame
-	_card.pivot_offset = _card.size * 0.5
+	_content.pivot_offset = _content.size * 0.5
+	_kill_tween()
 	if Feel.reduced():
-		_scrim.modulate.a = 1.0
-		_card.modulate.a = 1.0
-		_card.scale = Vector2.ONE
-		_card_style.depth = 0.85
+		_content.modulate.a = 1.0
+		_content.scale = Vector2.ONE
 	else:
-		_scrim.modulate.a = 0.0
-		_card.modulate.a = 0.0
-		_card.scale = Vector2(0.955, 0.955)
-		_card_style.depth = -0.18
-		_kill_tween()
+		_content.modulate.a = 0.0
+		_content.scale = Vector2(0.965, 0.965)
 		_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		_tween.tween_property(_scrim, "modulate:a", 1.0, 0.20)
-		_tween.tween_property(_card, "modulate:a", 1.0, 0.22)
-		_tween.tween_property(_card, "scale", Vector2.ONE, 0.26)
-		_tween.tween_property(_card_style, "depth", 0.85, 0.26)
+		_tween.tween_property(_content, "modulate:a", 1.0, 0.24)
+		_tween.tween_property(_content, "scale", Vector2.ONE, 0.30)
 	await choice_made
 	var selected_primary: bool = _last_choice
 	await _dismiss()
@@ -182,23 +203,17 @@ func cancel() -> void:
 func _dismiss() -> void:
 	if Feel.reduced():
 		visible = false
-		_card.modulate.a = 1.0
-		_scrim.modulate.a = 1.0
-		_card.scale = Vector2.ONE
-		_card_style.depth = 0.85
+		_content.modulate.a = 1.0
+		_content.scale = Vector2.ONE
 		return
 	_kill_tween()
 	_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	_tween.tween_property(_card, "scale", Vector2(0.975, 0.975), 0.15)
-	_tween.tween_property(_card, "modulate:a", 0.0, 0.15)
-	_tween.tween_property(_scrim, "modulate:a", 0.0, 0.17)
-	_tween.tween_property(_card_style, "depth", -0.18, 0.15)
+	_tween.tween_property(_content, "scale", Vector2(0.98, 0.98), 0.15)
+	_tween.tween_property(_content, "modulate:a", 0.0, 0.15)
 	await _tween.finished
 	visible = false
-	_card.modulate.a = 1.0
-	_scrim.modulate.a = 1.0
-	_card.scale = Vector2.ONE
-	_card_style.depth = 0.85
+	_content.modulate.a = 1.0
+	_content.scale = Vector2.ONE
 
 func _kill_tween() -> void:
 	if _tween != null and _tween.is_valid():

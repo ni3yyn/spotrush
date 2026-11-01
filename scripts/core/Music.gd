@@ -1,13 +1,11 @@
 extends Node
 
-# The ambient music engine (v21).
+# Restored original SpotRush music composition (v20) with the newer lazy threaded loader.
 #
 # Both themes are synthesized at boot; no music assets are required.
-# The sound palette is intentionally soft and "neumorphic": warm low-mid
-# frequencies, rounded attacks, long overlapping envelopes, almost no bright
-# transients, and very slow movement. The menu gets a sparse felt-like motif;
-# the gameplay bed stays rhythm-free so it never competes with the round clock
-# or the action sounds.
+# Menu: Fmaj7 -> Am7 warm pad, deep bass and five soft tine notes.
+# Gameplay: A-minor drone, a slow swell and three faint bells. Both loops are
+# rhythm-free so they never compete with the round clock or action sounds.
 #
 # Menu and gameplay loops are forged independently on a worker thread. The
 # menu stream is built first and starts as soon as it is ready; gameplay never
@@ -16,20 +14,14 @@ extends Node
 const Sfx = preload("res://scripts/core/Sfx.gd")
 const Settings = preload("res://scripts/core/Settings.gd")
 
-const RATE := 44100
-const LOOP_LEN := 32.0
-const FADE_IN := 0.95
-const FADE_OUT := 2.4
+const RATE := 22050
+const LOOP_LEN := 16.0
+const FADE_IN := 1.6
+const FADE_OUT := 1.0
 
-# These are intentionally lower than the old bright pad/bell mix. The Music
-# bus and the user's saved volume setting still control the final level.
-const MENU_PEAK := 0.43
-# Challenges need a real audible bed on phone speakers, where low fundamentals
-# disappear easily. This is roughly a 9 dB peak lift over the previous game loop; the user's
-# Music bus slider remains the final master control.
-const GAME_PEAK := 0.90
 
 static var _bank: Dictionary = {}
+static var _bank_mutex := Mutex.new()
 
 var _menu_player: AudioStreamPlayer
 var _game_player: AudioStreamPlayer
@@ -147,254 +139,117 @@ func _on_stream_ready(kind: String, stream: AudioStreamWAV) -> void:
 func _stream_is_ready(kind: String) -> bool:
         return _menu_ready if kind == "menu" else _game_ready
 
-## Builds and caches one seamless 32-second ambient loop.
+## Builds and caches one seamless 16-second original ambient loop.
 static func build_stream(kind: String) -> AudioStreamWAV:
+        # The self-test can request a stream on the main thread while the menu
+        # worker is filling the same static cache. Lock only cache access; keep
+        # the expensive synthesis outside the mutex to avoid blocking either.
+        _bank_mutex.lock()
         if _bank.has(kind):
-                return _bank[kind]
+                var cached: AudioStreamWAV = _bank[kind]
+                _bank_mutex.unlock()
+                return cached
+        _bank_mutex.unlock()
+
         var n := int(RATE * LOOP_LEN)
         var samples := PackedFloat32Array()
         samples.resize(n)
         if kind == "menu":
                 _forge_menu(samples)
-                # The melody gently ducks at a few uneven moments, then returns
-                # on a slower curve. Add a handful of soft, random brush-like
-                # scratches before the final low-pass, so they sit inside the bed.
-                _add_random_scratches(samples, float(RATE), 3, 0.009)
-                # Quick, rounded dips across the whole mix. The fall is brief
-                # and noticeable; the return is slower, like the music taking
-                # a calm breath rather than a hard volume cut.
-                _apply_volume_dips(samples, float(RATE), [
-                        [7.0, 0.22, 0.10, 0.12, 0.78],
-                        [17.0, 0.26, 0.11, 0.14, 0.88],
-                        [25.2, 0.24, 0.10, 0.12, 0.82],
-                ])
-                _soften(samples, 0.30)
-                _normalize(samples, MENU_PEAK)
+                _normalize(samples, 0.72)
         else:
                 _forge_game(samples)
-                _add_random_scratches(samples, float(RATE), 3, 0.0055)
-                _apply_volume_dips(samples, float(RATE), [
-                        [11.6, 0.46, 0.10, 0.16, 0.92],
-                        [24.0, 0.52, 0.10, 0.14, 0.86],
-                ])
-                _soften(samples, 0.27)
-                _normalize(samples, GAME_PEAK)
+                _normalize(samples, 0.52)
+
         var wav := Sfx._to_wav(samples)
         wav.mix_rate = RATE
         wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
         wav.loop_begin = 0
         wav.loop_end = n
-        _bank[kind] = wav
+
+        _bank_mutex.lock()
+        if _bank.has(kind):
+                wav = _bank[kind]
+        else:
+                _bank[kind] = wav
+        _bank_mutex.unlock()
         return wav
 
 # --- composition -----------------------------------------------------------------------
 
-## Menu: a slow Fmaj9 -> Dm9 -> Am9 -> Cmaj9 journey.
-## Chords overlap by roughly two seconds, so the harmony breathes into each new
-## shape instead of switching abruptly. A rounded felt-key motif sits above it.
+## Menu: Fmaj7 (8 s) -> Am7 (8 s). The chord boundary lands on the loop seam
+## and both chords' envelopes reach zero there, so the loop is seamless.
 static func _forge_menu(samples: PackedFloat32Array) -> void:
         var rate := float(RATE)
         var chords := [
-                {"start": 0.0, "dur": 8.0, "bass": 87.31, "pad": [174.61, 220.0, 261.63, 329.63, 392.0]},
-                {"start": 6.0, "dur": 10.0, "bass": 73.42, "pad": [146.83, 174.61, 220.0, 261.63, 329.63]},
-                {"start": 14.0, "dur": 10.0, "bass": 55.0, "pad": [130.81, 164.81, 196.0, 246.94, 329.63]},
-                {"start": 22.0, "dur": 10.0, "bass": 65.41, "pad": [130.81, 164.81, 196.0, 246.94, 293.66]},
+                {"bass": 87.31, "pad": [174.61, 220.0, 261.63, 329.63]},  # F2 + Fmaj7
+                {"bass": 110.0, "pad": [196.0, 220.0, 261.63, 329.63]},   # A2 + Am7
         ]
         for ci in chords.size():
-                var chord: Dictionary = chords[ci]
-                var begin := float(chord["start"])
-                var duration := float(chord["dur"])
-                var phase := float(ci) * 1.31
-                for j in chord["pad"].size():
-                        var gain := 0.042 if j < 3 else 0.030
-                        _render_warm_pad(samples, rate, begin, duration,
-                                float(chord["pad"][j]), gain, phase + float(j) * 0.37)
-                _render_warm_pad(samples, rate, begin, duration,
-                        float(chord["bass"]), 0.092, phase, true)
+                var start := float(ci) * 8.0
+                var phase := float(ci) * 1.7
+                for f in chords[ci]["pad"]:
+                        _render_pad(samples, rate, start, 8.0, float(f), 0.105, phase)
+                _render_pad(samples, rate, start, 8.0, float(chords[ci]["bass"]), 0.15, phase, true)
+        # Gentle tine melody from F pentatonic; every note ends before the seam.
+        var tines := [[1.1, 440.0, 0.15], [4.3, 523.25, 0.14], [6.4, 392.0, 0.13],
+                [9.4, 329.63, 0.15], [12.6, 440.0, 0.12]]
+        for ev in tines:
+                _render_tine(samples, rate, float(ev[0]), float(ev[1]), float(ev[2]))
 
-        # Keep the five original low, widely-spaced anchor notes. Their contour
-        # now moves through clearer, chord-aware intervals, so each new phrase
-        # feels like a response rather than a barely perceptible pitch drift.
-        var notes := [
-                [3.0, 392.0, 0.056, 3.8],
-                [9.4, 349.23, 0.054, 3.8],
-                [15.5, 329.63, 0.055, 3.8],
-                [21.0, 246.94, 0.056, 3.8],
-                [27.0, 293.66, 0.056, 3.8],
-        ]
-        # A quieter answer note follows each anchor, with loose spacing and
-        # slightly different intervals. It adds emotional movement without
-        # creating a beat or turning the theme into an arcade tune.
-        var answers := [
-                [4.55, 329.63, 0.030, 2.8],
-                [10.95, 293.66, 0.029, 2.8],
-                [17.05, 261.63, 0.030, 2.8],
-                [22.65, 196.00, 0.031, 2.8],
-                [28.55, 246.94, 0.030, 2.8],
-        ]
-        for ev in notes + answers:
-                _render_soft_note(samples, rate, float(ev[0]),
-                        float(ev[1]), float(ev[2]), float(ev[3]))
-
-## Gameplay: the darker Am9 -> Fmaj7 -> Cmaj7 -> G6 bed. A low, slow melodic
-## line makes the music audible on phone speakers, but stays behind timer ticks
-## and action cues instead of introducing a regular rhythm.
+## Game: A-minor drone bed (A2 + E3 over an A1 floor) with a slow breathing
+## swell and three near-whisper bells. No rhythm - the clock owns rhythm.
 static func _forge_game(samples: PackedFloat32Array) -> void:
         var rate := float(RATE)
-        var chords := [
-                {"start": 0.0, "dur": 8.0, "bass": 55.0, "pad": [110.0, 164.81, 220.0, 261.63]},
-                {"start": 6.0, "dur": 10.0, "bass": 43.65, "pad": [87.31, 130.81, 174.61, 220.0]},
-                {"start": 14.0, "dur": 10.0, "bass": 65.41, "pad": [130.81, 164.81, 196.0, 246.94]},
-                {"start": 22.0, "dur": 10.0, "bass": 49.0, "pad": [98.0, 146.83, 196.0, 293.66]},
-        ]
-        for ci in chords.size():
-                var chord: Dictionary = chords[ci]
-                var begin := float(chord["start"])
-                var duration := float(chord["dur"])
-                var phase := float(ci) * 0.83 + 0.6
-                for j in chord["pad"].size():
-                        var gain := 0.030 if j < 3 else 0.020
-                        _render_warm_pad(samples, rate, begin, duration,
-                                float(chord["pad"][j]), gain, phase + float(j) * 0.29)
-                _render_warm_pad(samples, rate, begin, duration,
-                        float(chord["bass"]), 0.075, phase, true)
-
-        # A distinct but restrained low-mid phrase for challenge play. These
-        # notes sit above the phone speaker's weakest sub-bass range and move
-        # through the underlying chords, while leaving several seconds of air.
-        var notes := [
-                [2.8, 220.0, 0.071, 4.0],
-                [9.4, 261.63, 0.069, 4.0],
-                [15.7, 196.0, 0.072, 4.0],
-                [21.6, 164.81, 0.069, 4.0],
-                [27.4, 220.0, 0.071, 4.0],
-        ]
-        var answers := [
-                [4.45, 329.63, 0.038, 2.9],
-                [11.0, 293.66, 0.037, 2.9],
-                [17.3, 261.63, 0.039, 2.9],
-                [23.1, 246.94, 0.037, 2.9],
-                [28.95, 293.66, 0.038, 2.9],
-        ]
-        for ev in notes + answers:
-                _render_soft_note(samples, rate, float(ev[0]),
-                        float(ev[1]), float(ev[2]), float(ev[3]))
-
-## Short, soft amplitude drops. The fall is quick enough to be felt, but uses
-## a smooth curve so there is no click; the return is deliberately slower.
-static func _apply_volume_dips(samples: PackedFloat32Array, rate: float, dips: Array) -> void:
-        for i in samples.size():
-                var time := float(i) / rate
-                var level := 1.0
-                for dip in dips:
-                        var start := float(dip[0])
-                        var floor_level := float(dip[1])
-                        var fall_time := float(dip[2])
-                        var hold_time := float(dip[3])
-                        var rise_time := float(dip[4])
-                        var local := time - start
-                        if local < 0.0 or local >= fall_time + hold_time + rise_time:
+        var n := samples.size()
+        var drones := [[110.0, 0.13], [164.81, 0.085], [55.0, 0.10]]
+        for d in drones:
+                var freq := float(d[0])
+                var gain := float(d[1])
+                for i in n:
+                        var t := float(i) / rate
+                        var env := minf(1.0, t / 2.5) * minf(1.0, (LOOP_LEN - t) / 2.5)
+                        if env <= 0.0:
                                 continue
-                        var current := 1.0
-                        if local < fall_time:
-                                current = lerpf(1.0, floor_level, _smooth_unit(local / fall_time))
-                        elif local < fall_time + hold_time:
-                                current = floor_level
-                        else:
-                                var progress := (local - fall_time - hold_time) / rise_time
-                                current = lerpf(floor_level, 1.0, _smooth_unit(progress))
-                        level = minf(level, current)
-                samples[i] *= level
+                        var lfo := 0.75 + 0.25 * sin(TAU * 0.09 * t + 1.3)
+                        samples[i] += (sin(TAU * freq * t) + 0.22 * sin(TAU * freq * 2.0 * t)) \
+                                        * env * gain * lfo
+        var bells := [[5.2, 329.63, 0.085], [11.8, 261.63, 0.075], [14.0, 196.0, 0.06]]
+        for ev in bells:
+                _render_tine(samples, rate, float(ev[0]), float(ev[1]), float(ev[2]))
 
-## Very quiet vinyl/brush-like traces, placed at random points in the loop.
-## Their envelopes meet silence at both ends; the loop seam stays untouched.
-static func _add_random_scratches(samples: PackedFloat32Array, rate: float,
-                count: int, amplitude: float) -> void:
-        var rng := RandomNumberGenerator.new()
-        rng.randomize()
-        for _scratch_index in count:
-                var start := rng.randf_range(1.8, LOOP_LEN - 2.2)
-                var duration := rng.randf_range(0.18, 0.36)
-                var from_hz := rng.randf_range(420.0, 820.0)
-                var to_hz := rng.randf_range(250.0, 520.0)
-                var phase := rng.randf_range(0.0, TAU)
-                var first := maxi(0, int(start * rate))
-                var last := mini(samples.size(), int((start + duration) * rate))
-                var filtered_noise := 0.0
-                for i in range(first, last):
-                        var t := float(i) / rate - start
-                        var x := clampf(t / duration, 0.0, 1.0)
-                        var envelope := sin(PI * x)
-                        envelope *= envelope
-                        var noise := rng.randf_range(-1.0, 1.0)
-                        filtered_noise += (noise - filtered_noise) * 0.10
-                        var sweep_hz := lerpf(from_hz, to_hz, x)
-                        # Mostly a soft filtered brush with a small tonal glide;
-                        # very little raw noise, so it never turns into static.
-                        var friction := noise * 0.07 + filtered_noise * 0.58 \
-                                + sin(TAU * sweep_hz * t + phase) * 0.35
-                        samples[i] += friction * envelope * amplitude
+# --- voices ----------------------------------------------------------------------------
 
-# --- voices -----------------------------------------------------------------------------
-
-## Softly chorused pad voice. The second oscillator is only fractionally detuned,
-## creating slow movement without audible wobble. Harmonics are deliberately low.
-static func _render_warm_pad(samples: PackedFloat32Array, rate: float,
-                t0: float, dur: float, freq: float, gain: float,
-                phase: float, is_bass := false) -> void:
+static func _render_pad(samples: PackedFloat32Array, rate: float, t0: float, dur: float,
+                freq: float, gain: float, phase: float, is_bass := false) -> void:
+        var n := samples.size()
         var i0 := maxi(0, int(t0 * rate))
-        var i1 := mini(samples.size(), int((t0 + dur) * rate))
-        var attack := 2.0 if is_bass else 2.5
-        var release := 2.2 if is_bass else 2.7
+        var i1 := mini(n, int((t0 + dur) * rate))
         for i in range(i0, i1):
                 var t := float(i) / rate - t0
-                var fade_in := _smooth_unit(t / attack)
-                var fade_out := _smooth_unit((dur - t) / release)
-                var env := fade_in * fade_out
-                if env <= 0.0001:
+                var env := minf(1.0, t / 1.6) * minf(1.0, (dur - t) / 2.2)
+                if env <= 0.0:
                         continue
-                var breathe := 0.91 + 0.09 * sin(TAU * 0.038 * t + phase)
-                var fundamental := sin(TAU * freq * t + phase)
-                var voice: float
+                var v: float
                 if is_bass:
-                        voice = fundamental * 0.88 \
-                                + sin(TAU * freq * 2.0 * t + phase * 0.5) * 0.12
+                        v = (sin(TAU * freq * t) + 0.28 * sin(TAU * freq * 2.0 * t)) * env * gain
                 else:
-                        var detuned := sin(TAU * (freq * 1.0022) * t + phase + 0.55)
-                        var warm_partial := sin(TAU * freq * 2.0 * t + phase * 0.4)
-                        voice = fundamental * 0.76 + detuned * 0.19 + warm_partial * 0.05
-                samples[i] += voice * env * gain * breathe
+                        var lfo := 0.88 + 0.12 * sin(TAU * (0.13 * t + phase))
+                        v = (sin(TAU * freq * t) + 0.32 * sin(TAU * freq * 2.0 * t) \
+                                        + 0.10 * sin(TAU * freq * 3.01 * t)) * env * gain * lfo
+                samples[i] += v
 
-## A muted, rounded key-like tone: quick-but-not-sharp onset, soft upper partials,
-## and a long natural decay. No metallic bell spectrum or high-frequency click.
-static func _render_soft_note(samples: PackedFloat32Array, rate: float,
-                t0: float, freq: float, gain: float, dur: float) -> void:
+static func _render_tine(samples: PackedFloat32Array, rate: float, t0: float,
+                freq: float, gain: float) -> void:
+        var dur := 0.9
+        var n := samples.size()
         var i0 := maxi(0, int(t0 * rate))
-        var i1 := mini(samples.size(), int((t0 + dur) * rate))
+        var i1 := mini(n, int((t0 + dur) * rate))
         for i in range(i0, i1):
                 var t := float(i) / rate - t0
-                # Soft felt-key onset, then a rounded, audible tail.
-                var attack := 1.0 - exp(-t * 5.5)
-                var decay := exp(-t * 0.92)
-                var fundamental := sin(TAU * freq * t)
-                var octave := sin(TAU * freq * 2.0 * t + 0.18)
-                var fifth := sin(TAU * freq * 3.0 * t + 0.31)
-                var tone := fundamental * 0.80 + octave * 0.155 + fifth * 0.045
-                var tail := _smooth_unit((dur - t) / 0.42)
-                samples[i] += tone * attack * decay * tail * gain
-
-## Cubic easing keeps the envelopes rounded at both ends.
-static func _smooth_unit(v: float) -> float:
-        var x := clampf(v, 0.0, 1.0)
-        return x * x * (3.0 - 2.0 * x)
-
-## A very gentle one-pole low-pass takes the brittle edge off the synthesized
-## partials while preserving the fundamental and the soft low-end body.
-static func _soften(samples: PackedFloat32Array, amount: float) -> void:
-        var filtered := 0.0
-        for i in samples.size():
-                filtered += (samples[i] - filtered) * amount
-                samples[i] = filtered
+                var v := Sfx._bell(t, freq, 0.0, 6.0) * gain
+                v *= minf(1.0, t / 0.002) * minf(1.0, (dur - t) / 0.02)
+                samples[i] += v
 
 static func _normalize(samples: PackedFloat32Array, target: float) -> void:
         var peak := 0.0

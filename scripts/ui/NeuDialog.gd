@@ -9,19 +9,19 @@ extends Node
 #
 # Design notes:
 #   * Same anatomy as the menu sheets: a raised card (radius 32 / dist 12 /
-#     blur 26), a wordmark-weight title, a slate message, and results-screen
-#     style keys - the coral key is the irreversible action, the plain key
-#     is the safe one.
+#     blur 26), a wordmark-weight title, a slate message, and two matching
+#     raised action keys.
 #   * The scrim eats every touch, so a run can't be answered underneath a
 #     quit question; tapping outside the card = stay.
+#   * Both decision keys use the same neutral raised SpotRushButton component.
 #   * Hardware back / Escape cancels (BackNav protocol).
 #   * Sits on CanvasLayer 110 - above all scene UI, under the transition
 #     curtain (120), so a confirmed quit wipes over the sheet cleanly.
 
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
-const NeuText = preload("res://scripts/ui/NeuText.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
+const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 const SCRIM_COLOR: Color = Color(0.62, 0.68, 0.80, 0.40)
 
@@ -32,8 +32,6 @@ var _title: Label
 var _message: Label
 var _btn_confirm: Button
 var _btn_cancel: Button
-var _confirm_label: NeuText
-var _cancel_label: NeuText
 
 var _on_confirm: Callable = Callable()
 var _open: bool = false
@@ -109,10 +107,9 @@ func _build() -> void:
 
 # --- public API ------------------------------------------------------------------
 
-## Ask a yes/no question. `danger = true` paints the confirm key coral
-## (irreversible); false paints it cobalt (a plain choice).
+## Ask a yes/no question. Both actions keep the shared cobalt action-key style.
 func ask(title: String, message: String, confirm_text: String, cancel_text: String,
-                on_confirm: Callable, danger: bool = true) -> void:
+                on_confirm: Callable, _danger: bool = true) -> void:
         if _open:
                 push_warning("NeuDialog.ask ignored - a sheet is already open")
                 return
@@ -120,9 +117,9 @@ func ask(title: String, message: String, confirm_text: String, cancel_text: Stri
         _title.text = title
         _message.text = message
         _btn_cancel.visible = true
-        _set_key_caption(_btn_confirm, _confirm_label, confirm_text)
-        _set_key_caption(_btn_cancel, _cancel_label, cancel_text)
-        _paint_confirm(danger)
+        _set_key_caption(_btn_confirm, confirm_text)
+        _set_key_caption(_btn_cancel, cancel_text)
+        _paint_confirm(_danger)
         _present()
 
 ## A one-key notice (nothing to decide - just say why something happened).
@@ -134,7 +131,7 @@ func inform(title: String, message: String, ok_text: String = "GOT IT") -> void:
         _title.text = title
         _message.text = message
         _btn_cancel.visible = false
-        _set_key_caption(_btn_confirm, _confirm_label, ok_text)
+        _set_key_caption(_btn_confirm, ok_text)
         _paint_confirm(false)
         _present()
 
@@ -150,43 +147,26 @@ func handle_back() -> bool:
 
 # --- wiring ----------------------------------------------------------------------
 
-## A results-screen style key: engraved slate text on the plain surface
-## (cancel), or lit white text on an accent surface (confirm, tinted later).
+## Shared full-size action key, used for both confirm and cancel.
 func _make_key(is_confirm: bool) -> Button:
         var btn := Button.new()
-        btn.custom_minimum_size = Vector2(0, 62)
+        btn.custom_minimum_size = Vector2(0, 92)
         btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         btn.focus_mode = Control.FOCUS_NONE
-        NeuKit.style_button(btn, "raised", 24.0)
-        var label := NeuText.new()
-        SpotRushTypography.apply_as(label, SpotRushTypography.Role.BUTTON)
-        label.tracking = 1.5
-        label.set_anchors_preset(Control.PRESET_FULL_RECT)
-        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        btn.add_child(label)
-        if btn.has_meta("neu_style"):
-                label.bind_style(btn.get_meta("neu_style"))
+        SpotRushButton.apply(btn, {"font_size": 30, "radius": 22.0})
         if is_confirm:
-                _confirm_label = label
-                label.look = NeuText.Look.ON_ACCENT
-                label.color = Color.WHITE
                 btn.pressed.connect(func(): _finish(true))
         else:
-                _cancel_label = label
-                label.look = NeuText.Look.DEBOSS
-                label.color = NeuKit.SLATE
                 btn.pressed.connect(func(): _finish(false))
         return btn
 
-## Key captions are NeuText children, so a re-ask just rewrites them.
-func _set_key_caption(btn: Button, label: NeuText, caption: String) -> void:
-        btn.text = ""
-        label.text = caption
+## Keep Button.text as the source of truth; the shared face mirrors it.
+func _set_key_caption(btn: Button, caption: String) -> void:
+        btn.text = caption
 
-func _paint_confirm(danger: bool) -> void:
-        var accent: Color = NeuKit.CORAL if danger else NeuKit.COBALT
-        NeuKit.set_accent(_btn_confirm, accent)
-        _confirm_label.accent_base = accent
+func _paint_confirm(_danger: bool) -> void:
+        # All actions share the same lobby-tab material and cobalt ink.
+        SpotRushButton.set_selected(_btn_confirm, false)
 
 func _on_scrim_input(event: InputEvent) -> void:
         # Tap anywhere outside the card = the safe choice.

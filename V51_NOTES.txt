@@ -1,0 +1,9 @@
+SpotRush v51
+
+- Solo Play now opens Build Your Run. Choose one or more of the seven challenge families and 3–20 rounds.
+- The run schedule uses only selected families and avoids consecutive repeats when multiple families are selected.
+- Settings > Diagnostics includes REMOVE ALL OTA UPDATES. It deletes cached OTA packs/state and writes a persistent opt-out flag, so the app uses the resources bundled in the installed APK on subsequent launches. Fully close and reopen SpotRush after using it.
+- Restored project.godot Autoload order to the pre-v49 configuration. No project.godot Autoload-order change is included in this version.
+- Notification logic was not modified.
+
+Validation: source-level checks and ZIP integrity only; Godot runtime/parser unavailable in this environment.

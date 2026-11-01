@@ -1,8 +1,8 @@
 extends RefCounted
 
 # Shared SpotRush visual language: soft-UI / neumorphic surfaces lit from the top-left.
-# Every Button / Panel / ProgressBar / LineEdit in a screen is routed through NeuStyle
-# (dual light+dark shadows, real inset states, animated click depth) by node name.
+# Every non-menu action Button uses the reusable SpotRushButton key; MainMenu keeps its
+# established special button treatment. Panels, progress bars and text fields use NeuStyle.
 #
 # Legacy constant names are kept so existing scripts keep compiling; they now map to the
 # neumorphic palette defined in NeuKit (change SURFACE/LIGHT/DARK there to re-skin).
@@ -10,6 +10,7 @@ extends RefCounted
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
 const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
+const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 const INK: Color = NeuKit.INK
 const MUTED: Color = NeuKit.SLATE
@@ -65,7 +66,10 @@ static func _visit(node: Node, screen: String) -> void:
 		elif node is CheckButton:
 				pass # NeuSwitch draws itself; a plain CheckButton keeps the engine look.
 		elif node is Button:
-				_style_button(node as Button, str(node.name))
+				if screen == "menu":
+						_style_button(node as Button, str(node.name))
+				else:
+						SpotRushButton.apply(node as Button)
 		elif node is ProgressBar:
 				_style_progress(node as ProgressBar)
 		elif node is LineEdit:
@@ -280,7 +284,7 @@ static func _style_label(label: Label) -> void:
 
 static func _etch_label(label: Label) -> void:
 		# Dark text gets a light lip (letterpress); light text on accent surfaces a dark one.
-		if str(label.name) in ["TokenToast", "LblCountdown"]:
+		if str(label.name) in ["TokenToast", "LblCountdown", "SpotRushButtonFace"]:
 				return
 		var c := label.get_theme_color("font_color")
 		NeuKit.etch(label, c.get_luminance() > 0.72)

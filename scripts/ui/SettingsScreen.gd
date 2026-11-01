@@ -13,6 +13,7 @@ const Settings = preload("res://scripts/core/Settings.gd")
 const ColorVision = preload("res://scripts/ui/ColorVision.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
+const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 const LogExport = preload("res://scripts/core/LogExport.gd")
 
 var _round_buttons: Dictionary = {}
@@ -154,11 +155,7 @@ func _build_header() -> Control:
 		back.text = "BACK"
 		back.custom_minimum_size = Vector2(100, 56)
 		back.focus_mode = Control.FOCUS_NONE
-		back.add_theme_font_override("font", NeuKit.bold_font(back))
-		SpotRushTypography.apply_as(back, SpotRushTypography.Role.BUTTON)
-		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-				back.add_theme_color_override(key, NeuKit.INK)
-		NeuKit.style_button(back, "raised", 22.0)
+		SpotRushButton.configure(back, "BACK", {"font_size": 20, "radius": 22.0})
 		back.pressed.connect(_go_back)
 		header.add_child(back)
 
@@ -392,13 +389,9 @@ func _build_accessibility_section() -> void:
 		]
 		for option in options:
 				var button := Button.new()
-				button.text = str(option[0])
 				button.custom_minimum_size = Vector2(0, 90)
 				button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				button.add_theme_font_override("font", NeuKit.bold_font(button, 0.36))
-				SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON)
-				button.add_theme_color_override("font_color", NeuKit.SLATE)
-				NeuKit.style_button(button, "raised", 18.0)
+				SpotRushButton.configure(button, str(option[0]))
 				var mode := str(option[1])
 				button.pressed.connect(_select_vision.bind(mode))
 				_vision_buttons[mode] = button
@@ -428,10 +421,8 @@ func _sync_vision_buttons() -> void:
 		for mode in _vision_buttons:
 				var button: Button = _vision_buttons[mode]
 				var selected := str(mode) == current
-				NeuKit.set_selected(button, selected)
-				var tint := NeuKit.COBALT if selected else NeuKit.SLATE
-				for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-						button.add_theme_color_override(key, tint)
+				SpotRushButton.set_selected(button, selected)
+
 
 func _build_match_section() -> void:
 		var section := _section("Match length", "Choose the default number of rounds for solo play.")
@@ -440,12 +431,9 @@ func _build_match_section() -> void:
 		section.add_child(row)
 		for count in [5, 10, 15]:
 				var button := Button.new()
-				button.text = "%d rounds" % count
 				button.custom_minimum_size = Vector2(0, 90)
 				button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				button.add_theme_font_override("font", NeuKit.bold_font(button, 0.4))
-				SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON)
-				NeuKit.style_button(button, "raised", 18.0)
+				SpotRushButton.configure(button, "%d ROUNDS" % count)
 				button.pressed.connect(_set_rounds.bind(count))
 				_round_buttons[count] = button
 				row.add_child(button)
@@ -459,10 +447,8 @@ func _sync_round_buttons() -> void:
 		for count in _round_buttons:
 				var button: Button = _round_buttons[count]
 				var selected := int(count) == current
-				NeuKit.set_selected(button, selected)
-				var tint := NeuKit.COBALT if selected else NeuKit.SLATE
-				for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-						button.add_theme_color_override(key, tint)
+				SpotRushButton.set_selected(button, selected)
+
 
 func _build_reminder_section() -> void:
 		var section := _section("Daily reminder", "Choose when SpotRush should nudge you if today's Daily Spot is still unfinished.")
@@ -483,9 +469,7 @@ func _build_reminder_section() -> void:
 
 		_reminder_time_picker = OptionButton.new()
 		_reminder_time_picker.custom_minimum_size = Vector2(230, 70)
-		_reminder_time_picker.add_theme_font_override("font", NeuKit.bold_font(_reminder_time_picker, 0.36))
-		SpotRushTypography.apply_as(_reminder_time_picker, SpotRushTypography.Role.BUTTON)
-		NeuKit.style_button(_reminder_time_picker, "raised", 18.0)
+		SpotRushButton.apply(_reminder_time_picker, {"text_padding_right": 42.0})
 		var selected_index := Settings.reminder_hour()
 		for hour in range(24):
 				_reminder_time_picker.add_item(_format_reminder_hour(hour), hour)
@@ -567,13 +551,9 @@ func _build_diagnostics_section() -> void:
 
 func _diagnostics_button(label: String) -> Button:
 		var btn := Button.new()
-		btn.text = label
 		btn.custom_minimum_size = Vector2(0, 90)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.add_theme_font_override("font", NeuKit.bold_font(btn, 0.36))
-		SpotRushTypography.apply_as(btn, SpotRushTypography.Role.BUTTON)
-		btn.add_theme_color_override("font_color", NeuKit.SLATE)
-		NeuKit.style_button(btn, "raised", 18.0)
+		SpotRushButton.configure(btn, label)
 		return btn
 
 func _refresh_diagnostics_status() -> void:
@@ -680,8 +660,6 @@ func _on_viewport_resized() -> void:
 				header_pad.custom_minimum_size.x = 88 if compact else 100
 		if header_title != null:
 				SpotRushTypography.apply_as(header_title, SpotRushTypography.Role.SCREEN_TITLE)
-		for button in _round_buttons.values():
-				SpotRushTypography.apply_as(button as Button, SpotRushTypography.Role.BUTTON)
 		# On narrow phones the icon and switch must not squeeze the explanatory
 		# copy into a thin column. Keep type readable; reclaim space from chrome.
 		for layout in _toggle_layouts:

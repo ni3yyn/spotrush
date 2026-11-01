@@ -10,6 +10,7 @@ const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 const NeuText = preload("res://scripts/ui/NeuText.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
+const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 @onready var challenge_canvas: ChallengeCanvas = %ChallengeCanvas
 @onready var options_container: HBoxContainer = %OptionsContainer
@@ -72,8 +73,6 @@ func _polish_challenge_surfaces() -> void:
 						badge_style.depth = 0.40
 						badge_style.gradient = 0.28
 						_soft_surface(badge_style, 0.44, 0.32, 0.35)
-		if btn_action_done != null and btn_action_done.has_meta("neu_style"):
-				_soft_surface(btn_action_done.get_meta("neu_style") as NeuStyle, 0.50, 0.36, 0.42)
 
 func _soft_surface(style: NeuStyle, light_alpha: float, dark_alpha: float, rim_strength: float) -> void:
 		if style == null:
@@ -228,26 +227,12 @@ func _setup_options() -> void:
 						btn_action_done.text = RuleBook.GONOGO_KEY_LABEL
 						_set_action_look("go")
 
-## Confirm key colour by state: plain (pending / go), mint (ready), coral (hold back).
-func _set_action_look(kind: String) -> void:
+## Every in-round action uses the same neutral raised key as the lobby tabs.
+func _set_action_look(_kind: String) -> void:
 		if btn_action_done == null:
-				return
-		var text_color: Color = NeuKit.COBALT
-		match kind:
-				"complete", "clear":
-						NeuKit.set_accent(btn_action_done, NeuKit.MINT)
-						text_color = Color.WHITE
-				"inhibit":
-						NeuKit.set_accent(btn_action_done, NeuKit.CORAL)
-						text_color = Color.WHITE
-				_:
-						# "pending", "go" and anything else: plain cobalt - the
-						# neutral look that leaks nothing about the answer.
-						NeuKit.set_plain(btn_action_done)
-		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-				btn_action_done.add_theme_color_override(key, text_color)
+			return
+		SpotRushButton.set_selected(btn_action_done, false)
 		btn_action_done.modulate = Color.WHITE
-		SpotRushTypography.apply_as(btn_action_done, SpotRushTypography.Role.BUTTON_LARGE)
 
 func _make_option_button(opt: Variant) -> Button:
 		var btn := Button.new()
@@ -256,44 +241,10 @@ func _make_option_button(opt: Variant) -> Button:
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		btn.focus_mode = Control.FOCUS_NONE
-		var kind := "raised"
-		var text_color: Color = NeuKit.INK
-		var look := 0 # engraved into the key
-		var base: Color = NeuKit.COBALT
-		match str(opt).to_upper():
-				"YES":
-						kind = "accent:" + Color("26B07C").to_html(false)
-						text_color = Color.WHITE
-						look = 3
-						base = Color("26B07C")
-				"NO":
-						kind = "accent:" + Color("EE4458").to_html(false)
-						text_color = Color.WHITE
-						look = 3
-						base = Color("EE4458")
-				"LEFT":
-						text_color = NeuKit.COBALT
-				"RIGHT":
-						text_color = Color("E04555")
-		var style: NeuStyle = NeuKit.style_button(btn, kind, 28.0)
-		style.distance = 7.0
-		style.blur = 16.0
-		_soft_surface(style, 0.50, 0.36, 0.42)
-		if style.colored:
-				style.glow = Color(style.glow.r, style.glow.g, style.glow.b, 0.24)
-		# A locked key keeps the same body so the chosen one stays pressed into the surface.
-		btn.add_theme_stylebox_override("disabled", style)
-		# The key's label is a NeuText child so it can be engraved / lit, and it dips with the key.
-		var label := NeuText.new()
-		label.text = str(opt)
-		label.font_size = 32
-		label.color = text_color
-		label.look = look
-		label.accent_base = base
-		label.set_anchors_preset(Control.PRESET_FULL_RECT)
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		btn.add_child(label)
-		label.bind_style(style)
+		SpotRushButton.configure(btn, str(opt), {
+				"font_size": 30,
+				"radius": 22.0,
+		})
 		return btn
 
 func _get_tap_target_count() -> int:
@@ -332,7 +283,7 @@ func _on_option_button_pressed(val: Variant, btn: Button = null) -> void:
 								break
 		if btn != null:
 				btn.set_meta("chosen", true)
-				NeuKit.set_selected(btn, true)
+				SpotRushButton.set_selected(btn, true)
 		lock_input()
 		option_selected.emit(val)
 

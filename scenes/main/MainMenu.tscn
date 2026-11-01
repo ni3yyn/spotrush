@@ -1304,13 +1304,13 @@ layout_mode = 2
 size_flags_vertical = 4
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
 theme_override_font_sizes/font_size = 40
-text = "Challenge"
+text = "RIVAL CODE"
 
 [node name="Subtitle" type="Label" parent="ModalChallenge/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
 theme_override_font_sizes/font_size = 17
-text = "One seeded run, two rivals, zero internet. Copy your code to a friend - or type theirs in - and race the exact same rounds."
+text = "Share your seeded run or enter a friend's code. Both players get the exact same rounds."
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -1321,43 +1321,52 @@ theme_override_font_sizes/font_size = 15
 text = "YOUR CHALLENGE"
 horizontal_alignment = 1
 
-[node name="CodeRow" type="HBoxContainer" parent="ModalChallenge/Margin/VBox"]
+[node name="CodeRow" type="VBoxContainer" parent="ModalChallenge/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
 [node name="CodeWell" type="PanelContainer" parent="ModalChallenge/Margin/VBox/CodeRow"]
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="WellMargin" type="MarginContainer" parent="ModalChallenge/Margin/VBox/CodeRow/CodeWell"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="LblMyCode" type="Label" parent="ModalChallenge/Margin/VBox/CodeRow/CodeWell/WellMargin"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.117647, 0.141176, 0.196078, 1)
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 36
 text = "000-000-000"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="BtnCopyCode" type="Button" parent="ModalChallenge/Margin/VBox/CodeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
+[node name="CodeActions" type="HBoxContainer" parent="ModalChallenge/Margin/VBox/CodeRow"]
 layout_mode = 2
-focus_mode = 0
-text = "COPY"
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
 
-[node name="BtnNewCode" type="Button" parent="ModalChallenge/Margin/VBox/CodeRow"]
+[node name="BtnCopyCode" type="Button" parent="ModalChallenge/Margin/VBox/CodeRow/CodeActions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
+custom_minimum_size = Vector2(0, 78)
 layout_mode = 2
+size_flags_horizontal = 3
 focus_mode = 0
-text = "NEW"
+text = "COPY CODE"
+
+[node name="BtnNewCode" type="Button" parent="ModalChallenge/Margin/VBox/CodeRow/CodeActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 78)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "NEW CODE"
 
 [node name="BtnPlayMine" type="Button" parent="ModalChallenge/Margin/VBox"]
 unique_name_in_owner = true
