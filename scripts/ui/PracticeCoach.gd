@@ -7,15 +7,17 @@ extends Control
 signal choice_made(primary: bool)
 
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
+const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 const NeuText = preload("res://scripts/ui/NeuText.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
-const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 var _content: VBoxContainer
 var _title: NeuText
 var _message: NeuText
 var _primary_button: Button
 var _secondary_button: Button
+var _primary_label: NeuText
+var _secondary_label: NeuText
 var _waiting_for_choice: bool = false
 var _last_choice: bool = false
 var _tween: Tween
@@ -72,24 +74,37 @@ func _build() -> void:
 	_content.add_child(button_stack)
 
 	_primary_button = _make_button("PRACTICE NOW", true, 92.0)
+	_primary_label = _primary_button.get_child(0) as NeuText
 	_primary_button.pressed.connect(_on_primary_pressed)
 	button_stack.add_child(_primary_button)
 
-	_secondary_button = _make_button("SKIP FOR NOW", false, 92.0)
+	_secondary_button = _make_button("SKIP FOR NOW", false, 84.0)
+	_secondary_label = _secondary_button.get_child(0) as NeuText
 	_secondary_button.pressed.connect(_on_secondary_pressed)
 	button_stack.add_child(_secondary_button)
 
 	_reflow()
 
-func _make_button(caption: String, _primary: bool, height: float) -> Button:
+func _make_button(caption: String, primary: bool, height: float) -> Button:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(0.0, height)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.focus_mode = Control.FOCUS_NONE
-	SpotRushButton.configure(button, caption, {
-		"font_size": 30,
-		"radius": 22.0,
-	})
+	var style: NeuStyle = NeuKit.style_button(button, "raised", 24.0)
+	if primary:
+		NeuKit.set_accent(button, NeuKit.MINT)
+	var label := NeuText.new()
+	label.text = caption
+	label.font_size = 34
+	label.bold = true
+	label.color = NeuKit.INK
+	label.look = NeuText.Look.EMBOSS
+	label.accent_base = NeuKit.MINT
+	label.tracking = 0.5
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(label)
+	label.bind_style(style)
 	return button
 
 func _reflow() -> void:
@@ -106,16 +121,16 @@ func _reflow() -> void:
 	_message.font_size = 30 if _message.text.length() > 175 or compact else 34
 	_message.custom_minimum_size.y = 220.0 if compact else 250.0
 	_primary_button.custom_minimum_size.y = 84.0 if compact else 92.0
-	_secondary_button.custom_minimum_size.y = 84.0 if compact else 92.0
+	_secondary_button.custom_minimum_size.y = 78.0 if compact else 84.0
 
 func present(title_text: String, message_text: String, primary_text: String,
 		secondary_text: String = "SKIP FOR NOW") -> bool:
 	_title.text = title_text
 	_message.text = message_text
-	_primary_button.text = primary_text
+	_primary_label.text = primary_text
 	_secondary_button.visible = not secondary_text.is_empty()
 	if _secondary_button.visible:
-		_secondary_button.text = secondary_text
+		_secondary_label.text = secondary_text
 	_waiting_for_choice = true
 	_last_choice = false
 	visible = true

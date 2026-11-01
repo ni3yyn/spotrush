@@ -4,8 +4,9 @@ extends Control
 #
 # Everything on this screen speaks player, not protocol: a big "game code" well
 # with a copy key, two player chips that light up when the friend arrives, a
-# pulsing status line that always says what to do next, and consistent raised
-# action keys that match the HOST / JOIN mode tabs. No ports, no jargon.
+# pulsing status line that always says what to do next, and results-screen
+# style action keys (lit caption on cobalt, engraved caption on the pad) with
+# a guidance line under each title. No ports, no jargon.
 #
 # v21: joining stopped requiring typing, three ways over. While a room is open
 # the host's phone shouts a small beacon onto the Wi-Fi (LanDiscovery), the
@@ -24,13 +25,13 @@ extends Control
 
 const SpotRushSkin = preload("res://scripts/ui/SpotRushSkin.gd")
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
+const NeuText = preload("res://scripts/ui/NeuText.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 const LanDiscoveryScript = preload("res://scripts/networking/LanDiscovery.gd")
 const CommunityQRCodeRect = preload("res://addons/kenyoni/qr_code/qr_code_rect.gd")
 const CommunityQRCode = preload("res://addons/kenyoni/qr_code/qr_code.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
-const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 const GUIDE_HOST := "[b]HOW TO DUEL[/b]
 1. Tap [color=#2B52E2]CREATE ROOM[/color] - your game pops up on your friend's phone.
@@ -76,6 +77,14 @@ var _pulse_tween: Tween = null
 var _watchdog_token: int = 0
 var discovery = null  # v21: the Lan beacon engine (advertiser + scanner)
 
+# Action-key caption labels (NeuText titles dip with the key press).
+var _create_title: NeuText = null
+var _create_caption: Label = null
+var _launch_title: NeuText = null
+var _launch_caption: Label = null
+var _connect_title: NeuText = null
+var _connect_caption: Label = null
+
 func _ready() -> void:
         SpotRushSkin.apply_screen(self, "lobby")
         BackNav.register(self)
@@ -110,6 +119,8 @@ func _ready() -> void:
         NetworkSession.server_disconnected.connect(_on_server_disconnected)
 
         btn_launch_match.disabled = true
+        _launch_caption.text = "create your room first"
+        _set_key_fade(btn_launch_match, false)
         _display_local_ips()
         _set_chip(lbl_chip_p2, "WAITING...", NeuKit.SLATE)
         _update_tabs()
@@ -131,8 +142,9 @@ func _boost_lobby_readability() -> void:
         SpotRushTypography.apply_as(guide_text, SpotRushTypography.Role.BODY)
         guide_text.add_theme_constant_override("line_separation", 4)
         guide_text.add_theme_color_override("default_color", NeuKit.INK)
-        # Keep the compact back key and title geometrically aligned with Settings.
+        # Keep the back key and title geometrically identical to Settings.
         btn_back.custom_minimum_size = Vector2(100, 56)
+        SpotRushTypography.apply_as(btn_back, SpotRushTypography.Role.BUTTON)
 
 ## Entrance: the lobby pieces rise in one after another, the same choreography
 ## as the results screen, so this screen feels like part of the same game.
@@ -167,11 +179,54 @@ func _play_entrance() -> void:
 
 # --- action keys ----------------------------------------------------------------------
 
-## Every non-menu action uses the same raised key as the HOST / JOIN tabs.
+## Results-screen style keys: a NeuText title that dips with the press plus a
+## small guidance line pinned to the bottom of the key face.
 func _label_action_keys() -> void:
-        SpotRushButton.configure(btn_create_room, "CREATE ROOM", {"font_size": 30})
-        SpotRushButton.configure(btn_launch_match, "START THE DUEL", {"font_size": 30})
-        SpotRushButton.configure(btn_connect, "JOIN THE DUEL", {"font_size": 30})
+        _create_title = _key_title(btn_create_room, "CREATE ROOM", 30, 3, Color.WHITE, NeuKit.COBALT)
+        _create_caption = _key_caption(btn_create_room, "open your room on this Wi-Fi", Color(1, 1, 1, 0.90))
+        _launch_title = _key_title(btn_launch_match, "START THE DUEL", 30, 3, Color.WHITE, NeuKit.COBALT)
+        _launch_caption = _key_caption(btn_launch_match, "create your room first", Color(1, 1, 1, 0.90))
+        _connect_title = _key_title(btn_connect, "JOIN THE DUEL", 30, 3, Color.WHITE, NeuKit.COBALT)
+        _connect_caption = _key_caption(btn_connect, "same Wi-Fi as the host", Color(1, 1, 1, 0.90))
+
+func _key_title(btn: Button, caption: String, font_size: int, look: int, color: Color, base: Color) -> NeuText:
+        btn.text = ""
+        var label := NeuText.new()
+        label.text = caption
+        label.font_size = font_size
+        label.color = color
+        label.look = look
+        label.accent_base = base
+        label.tracking = 2.0
+        label.set_anchors_preset(Control.PRESET_FULL_RECT)
+        label.offset_bottom = -38.0 # reserve a deeper, readable two-line caption area
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        btn.add_child(label)
+        if btn.has_meta("neu_style"):
+                label.bind_style(btn.get_meta("neu_style"))
+        return label
+
+func _key_caption(btn: Button, caption: String, color: Color) -> Label:
+        var label := Label.new()
+        label.text = caption
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        label.custom_minimum_size.y = 34
+        SpotRushTypography.apply_as(label, SpotRushTypography.Role.BODY)
+        label.add_theme_color_override("font_color", color)
+        label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+        label.offset_top = -40.0
+        label.offset_bottom = -5.0
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        btn.add_child(label)
+        return label
+
+## Disabled keys keep their labels but sit back visually.
+func _set_key_fade(btn: Button, enabled: bool) -> void:
+        for child in btn.get_children():
+                if child is CanvasItem:
+                        (child as CanvasItem).modulate.a = 1.0 if enabled else 0.72
 
 # --- helpers --------------------------------------------------------------------------
 
@@ -235,7 +290,10 @@ func _update_tabs() -> void:
         for pair in tabs:
                 var button: Button = pair[0]
                 var selected: bool = bool(pair[1]) == _host_mode
-                SpotRushButton.set_selected(button, selected)
+                NeuKit.set_selected(button, selected)
+                var text_color: Color = NeuKit.COBALT if selected else NeuKit.SLATE
+                for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+                        button.add_theme_color_override(key, text_color)
         guide_text.text = GUIDE_HOST if _host_mode else GUIDE_JOIN
 
 func _crossfade(panel: Control) -> void:
@@ -259,10 +317,12 @@ func _display_local_ips() -> void:
         if _local_ips.is_empty():
                 lbl_host_ip.text = "No Wi-Fi yet"
                 btn_copy_ip.disabled = true
+                _set_key_fade(btn_copy_ip, false)
                 _hide_host_qr()
         else:
                 lbl_host_ip.text = _local_ips[0]
                 btn_copy_ip.disabled = false
+                _set_key_fade(btn_copy_ip, true)
         # A room that is already open must re-stamp its QR if the address
         # changed (Wi-Fi reconnected while hosting).
         if _room_open:
@@ -287,7 +347,10 @@ func _on_create_room_pressed() -> void:
         if err == OK:
                 _room_open = true
                 btn_create_room.disabled = true
-                btn_create_room.text = "ROOM OPEN!"
+                _create_title.text = "ROOM OPEN!"
+                _create_caption.text = "your friend's JOIN tab now lists your game"
+                _set_key_fade(btn_create_room, false)
+                _launch_caption.text = "waiting for your friend..."
                 _set_host_status("Room open! Your friend taps your game in their list - or you read the code above.", _ok_color())
                 # v21: shout the beacon so the friend's phone finds this room,
                 # and stamp the QR square with the current game code.
@@ -307,6 +370,10 @@ func _on_peer_connected(_peer_id: int) -> void:
         avatar_p2.set("glyph_color", NeuKit.COBALT)
         _set_host_status("Your friend is here - START THE DUEL!", _ok_color())
         btn_launch_match.disabled = false
+        _set_key_fade(btn_launch_match, true)
+        _launch_caption.text = "you're both in - go!"
+        _launch_title.accent_base = NeuKit.MINT
+        NeuKit.set_accent(btn_launch_match, NeuKit.MINT)
         # Room is full: stop shouting the beacon and tuck the QR away -
         # nobody else needs either.
         if discovery != null:
@@ -322,6 +389,10 @@ func _on_peer_disconnected(_peer_id: int) -> void:
         avatar_p2.set("glyph_color", NeuKit.SLATE)
         _set_host_status("Your friend left - the room is still open.", _neutral_color())
         btn_launch_match.disabled = true
+        _set_key_fade(btn_launch_match, false)
+        _launch_caption.text = "waiting for your friend..."
+        _launch_title.accent_base = NeuKit.COBALT
+        NeuKit.set_accent(btn_launch_match, NeuKit.COBALT)
         # The seat is free again - shout the beacon and re-show the QR.
         if _room_open and discovery != null:
                 discovery.start_advertising(GameConfig.DEFAULT_PORT)
@@ -389,12 +460,16 @@ func _on_connect_pressed() -> void:
 func _start_join(ip: String, port: int) -> void:
         _set_join_status("Knocking on the host's door...", _neutral_color())
         btn_connect.disabled = true
+        _set_key_fade(btn_connect, false)
+        _connect_caption.text = "connecting..."
         _arm_join_watchdog()
         var err := NetworkSession.join_host(ip, port)
         if err != OK:
                 _cancel_join_watchdog()
                 _set_join_status("Couldn't start connecting. Check the code and try again.", _err_color())
                 btn_connect.disabled = false
+                _set_key_fade(btn_connect, true)
+                _connect_caption.text = "same Wi-Fi as the host"
 
 ## A wrong code or dead host used to hang "connecting..." until ENet's long
 ## internal timeout. This watchdog gives up after 10 seconds with a friendly
@@ -409,6 +484,8 @@ func _arm_join_watchdog() -> void:
                         NetworkSession.disconnect_session()
                         _set_join_status("No answer from the room. Make sure both phones are on the same Wi-Fi, then try again.", _err_color())
                         btn_connect.disabled = false
+                        _set_key_fade(btn_connect, true)
+                        _connect_caption.text = "same Wi-Fi as the host"
                         Feel.sfx("wrong")
                         Feel.haptic("error"))
 
@@ -422,11 +499,15 @@ func _on_join_succeeded() -> void:
                 discovery.stop_scanning()
         _set_join_status("You're in! Waiting for the host to start the duel...", _ok_color())
         btn_connect.disabled = true
-        btn_connect.text = "CONNECTED!"
+        _set_key_fade(btn_connect, false)
+        _connect_title.text = "CONNECTED!"
+        _connect_caption.text = "the host starts the duel"
 
 func _on_join_failed() -> void:
         _set_join_status("Couldn't reach the room. Check the code and Wi-Fi, then try again.", _err_color())
         btn_connect.disabled = false
+        _set_key_fade(btn_connect, true)
+        _connect_caption.text = "same Wi-Fi as the host"
         Feel.sfx("wrong")
         Feel.haptic("error")
 
@@ -436,7 +517,9 @@ func _on_server_disconnected() -> void:
         _cancel_join_watchdog()
         _set_join_status("The host closed the room.", _err_color())
         btn_connect.disabled = false
-        btn_connect.text = "JOIN THE DUEL"
+        _set_key_fade(btn_connect, true)
+        _connect_title.text = "JOIN THE DUEL"
+        _connect_caption.text = "same Wi-Fi as the host"
 
 # --- nearby games (v21 LAN discovery) -----------------------------------------------
 
@@ -477,7 +560,20 @@ func _make_nearby_row(ip: String, port: int) -> Button:
         var row := Button.new()
         row.custom_minimum_size = Vector2(0, 84)
         row.focus_mode = Control.FOCUS_NONE
-        SpotRushButton.configure(row, ip, {"font_size": 26})
+        row.text = ip
+        SpotRushTypography.apply_as(row, SpotRushTypography.Role.BUTTON_LARGE)
+        var caption := Label.new()
+        caption.text = "tap to join this game"
+        caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        SpotRushTypography.apply_as(caption, SpotRushTypography.Role.BODY)
+        caption.add_theme_color_override("font_color", Color(1, 1, 1, 0.90))
+        caption.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+        caption.offset_top = -31.0
+        caption.offset_bottom = -5.0
+        caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_child(caption)
         row.pressed.connect(func():
                 Feel.haptic("light")
                 _start_join(ip, port))

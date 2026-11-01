@@ -8,7 +8,6 @@ const Records = preload("res://scripts/core/Records.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
-const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 @onready var hero_card: Control = %HeroCard
 @onready var medal: Control = %Medal
@@ -62,17 +61,28 @@ func _ready() -> void:
         if not is_inside_tree():
                 return
         _refresh_safe_area()
-        _label_button(btn_rematch, "PLAY AGAIN", 31)
-        _label_button(btn_menu, "MAIN MENU", 26)
+        _label_button(btn_rematch, "PLAY AGAIN", 3, 31, Color.WHITE, NeuKit.COBALT)
+        _label_button(btn_menu, "MAIN MENU", 0, 26, NeuKit.SLATE, NeuKit.COBALT)
         btn_rematch.pressed.connect(_on_rematch_pressed)
         btn_menu.pressed.connect(_on_menu_pressed)
         _populate_results()
         _play_intro()
 
-## Result actions use the shared raised SpotRushButton style.
-func _label_button(btn: Button, caption: String, font_size: int) -> void:
-        # Results actions use the exact same raised key and cobalt ink as the lobby tabs.
-        SpotRushButton.configure(btn, caption, {"font_size": font_size, "radius": 22.0})
+## Button captions are NeuText children so they can be engraved / lit and dip with the key.
+func _label_button(btn: Button, caption: String, look: int, font_size: int, color: Color, base: Color) -> void:
+        btn.text = ""
+        var label := NeuText.new()
+        label.text = caption
+        label.font_size = font_size
+        label.color = color
+        label.look = look
+        label.accent_base = base
+        label.tracking = 2.0
+        label.set_anchors_preset(Control.PRESET_FULL_RECT)
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        btn.add_child(label)
+        if btn.has_meta("neu_style"):
+                label.bind_style(btn.get_meta("neu_style"))
 
 ## Keep the results content centered and capped on wide/stale Android
 ## viewports, while preserving the idempotent safe-area baseline.
@@ -323,28 +333,46 @@ func _record_daily(my_stats: Dictionary, correct: int, rounds: int) -> void:
         lbl_outcome.text = "DAILY #%d DONE!" % int(dres.get("daily_no", 1))
         _rematch_as_share("SHARE RESULT")
 
-## Repurpose the rematch key as a copy key while retaining the shared button style.
+## Repurpose the rematch key as a copy key: the caption swaps to an engraved
+## slate style, exactly like the daily's share key.
 func _rematch_as_share(text: String) -> void:
-        # Keep dynamic labels on Button.text so the shared label component mirrors them.
-        btn_rematch.text = text
+        for k in btn_rematch.get_children():
+                if k is NeuText:
+                        var nt := k as NeuText
+                        nt.text = text
+                        nt.color = NeuKit.SLATE
+                        nt.look = 0
+                        break
 
 func _share_challenge_result() -> void:
         DisplayServer.clipboard_set(Records.challenge_result_share_text(
                         _final_score, _challenge_correct, _challenge_rounds,
                         GameManager.challenge_code_value))
         Feel.sfx("pop")
-        btn_rematch.text = "COPIED!"
+        for k in btn_rematch.get_children():
+                if k is NeuText:
+                        (k as NeuText).text = "COPIED!"
+                        break
         get_tree().create_timer(1.2).timeout.connect(func():
                 if is_instance_valid(btn_rematch) and btn_rematch.is_inside_tree():
-                        btn_rematch.text = "COPY RESULT")
+                        for k in btn_rematch.get_children():
+                                if k is NeuText:
+                                        (k as NeuText).text = "COPY RESULT"
+                                        break)
 
 func _share_daily_result() -> void:
         DisplayServer.clipboard_set(Records.daily_share_text())
         Feel.sfx("pop")
-        btn_rematch.text = "COPIED!"
+        for k in btn_rematch.get_children():
+                if k is NeuText:
+                        (k as NeuText).text = "COPIED!"
+                        break
         get_tree().create_timer(1.2).timeout.connect(func():
                 if is_instance_valid(btn_rematch) and btn_rematch.is_inside_tree():
-                        btn_rematch.text = "SHARE RESULT")
+                        for k in btn_rematch.get_children():
+                                if k is NeuText:
+                                        (k as NeuText).text = "SHARE RESULT"
+                                        break)
 
 func _on_rematch_pressed() -> void:
         if GameManager.is_daily_match:
