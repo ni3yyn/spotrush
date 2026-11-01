@@ -10,18 +10,27 @@ const LOBBY_SCENE_PATH: String = "res://scenes/multiplayer/LocalLobby.tscn"
 const URI_PREFIX: String = "spotrush://join"
 const ROOM_CODE_ALPHABET: String = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const ROOM_CODE_LENGTH: int = 8
+const DEEPLINK_SCRIPT_PATH: String = "res://addons/DeeplinkPlugin/Deeplink.gd"
+const DEEPLINK_SINGLETON_NAME: String = "DeeplinkPlugin"
 
 var _pending_invitation: Dictionary = {}
 var _boot_transition_finished: bool = false
 var _last_received_uri: String = ""
+var _deeplink_node: Node = null
+var _using_deeplink_plugin: bool = false
 
 func _ready() -> void:
         process_mode = Node.PROCESS_MODE_ALWAYS
         if AppLifecycle.has_signal("app_resumed"):
-                AppLifecycle.app_resumed.connect(_read_android_intent)
+                AppLifecycle.app_resumed.connect(_on_app_resumed)
         if SceneRouter.has_signal("transition_finished"):
                 SceneRouter.transition_finished.connect(_on_scene_transition_finished)
-        call_deferred("_read_android_intent")
+
+        # The plugin's native activity forwards both cold-start and warm-start
+        # intents to this autoload. Fall back to Godot's AndroidRuntime only if
+        # the native plugin is not present in this APK.
+        if not _initialize_deeplink_plugin():
+                call_deferred("_read_android_intent")
 
 ## The invite survives the boot scene and is consumed by LocalLobby exactly once.
 func consume_pending_invitation() -> Dictionary:
@@ -97,6 +106,74 @@ func _is_valid_room_code(code: String) -> bool:
                 if not ROOM_CODE_ALPHABET.contains(str(character)):
                         return false
         return true
+
+func _initialize_deeplink_plugin() -> bool:
+        if OS.get_name() != "Android":
+                return false
+        if not Engine.has_singleton(DEEPLINK_SINGLETON_NAME):
+                push_warning("[DeepLink] Native DeeplinkPlugin singleton is not loaded; using AndroidRuntime fallback.")
+                return false
+
+        var deeplink_script: Script = load(DEEPLINK_SCRIPT_PATH) as Script
+        if deeplink_script == null:
+                push_warning("[DeepLink] Deeplink.gd is missing; using AndroidRuntime fallback.")
+                return false
+
+        _deeplink_node = deeplink_script.new() as Node
+        if _deeplink_node == null:
+                push_warning("[DeepLink] Could not create the Deeplink node; using AndroidRuntime fallback.")
+                return false
+        _deeplink_node.name = "SpotRushDeeplink"
+        add_child(_deeplink_node)
+
+        if not _deeplink_node.has_signal("deeplink_received"):
+                push_warning("[DeepLink] Deeplink node has no deeplink_received signal.")
+                _deeplink_node.queue_free()
+                _deeplink_node = null
+                return false
+
+        var callback: Callable = Callable(self, "_on_deeplink_plugin_received")
+        if not _deeplink_node.is_connected("deeplink_received", callback):
+                var connect_result: int = _deeplink_node.connect("deeplink_received", callback)
+                if connect_result != OK:
+                        push_warning("[DeepLink] Could not connect the native deeplink signal.")
+                        _deeplink_node.queue_free()
+                        _deeplink_node = null
+                        return false
+
+        var initialize_result: int = int(_deeplink_node.call("initialize"))
+        if initialize_result != OK:
+                push_warning("[DeepLink] Native plugin initialization failed with error %d." % initialize_result)
+                _deeplink_node.queue_free()
+                _deeplink_node = null
+                return false
+
+        _using_deeplink_plugin = true
+        print("[DeepLink] Native DeeplinkPlugin initialized.")
+
+        # The plugin forwards cold-start URLs before this autoload necessarily
+        # connects its signal. Read the launch URL once to cover that startup race.
+        var initial_uri: String = str(_deeplink_node.call("get_link_url")).strip_edges()
+        if not initial_uri.is_empty():
+                call_deferred("receive_link", initial_uri)
+        return true
+
+func _on_deeplink_plugin_received(url: Variant) -> void:
+        if url == null:
+                return
+        var invitation_uri: String = ""
+        if url is Object and url.has_method("get_url"):
+                invitation_uri = str(url.call("get_url")).strip_edges()
+        if invitation_uri.is_empty():
+                invitation_uri = str(url).strip_edges()
+        if not invitation_uri.is_empty():
+                receive_link(invitation_uri)
+
+func _on_app_resumed() -> void:
+        # The native plugin emits the incoming URI itself. Reading the main
+        # activity intent as well can replay a stale URL after a warm launch.
+        if not _using_deeplink_plugin:
+                _read_android_intent()
 
 func _read_android_intent() -> void:
         if OS.get_name() != "Android":

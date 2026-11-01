@@ -55,6 +55,13 @@ Desktop.ini
 *.swo
 *~
 
+# The Deeplink plugin binary/source package is installed from a checksum-pinned release.
+# Keep SpotRush's export.cfg while ignoring the generated plugin implementation and AARs.
+/addons/DeeplinkPlugin/
+!/addons/DeeplinkPlugin/
+/addons/DeeplinkPlugin/*
+!/addons/DeeplinkPlugin/export.cfg
+
 # Keep these tracked:
 # - addons/ (EOSG GDScript, Android AAR/.so and Windows DLLs are required by CI)
 # - *.uid files (Godot 4 resource/script identifiers)
