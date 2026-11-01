@@ -37,6 +37,7 @@ var _h_auth: Node = null
 var _h_lobbies: Node = null
 var _h_p2p: Node = null
 var _eos_runtime: Node = null
+var _eos_scope_fingerprint: String = "unknown"
 
 func is_initialized() -> bool:
         return _initialized
@@ -107,6 +108,9 @@ func _initialize_async() -> bool:
         if encryption_key.length() != 64 or not encryption_key.is_valid_hex_number(false):
                 last_error = "EOS Encryption Key must contain exactly 64 hexadecimal characters. Set it in EOSLocalConfig.gd."
                 return false
+
+        _eos_scope_fingerprint = (product_id + "|" + sandbox_id + "|" + deployment_id).sha256_text().substr(0, 12)
+        print("[EOS ROOM] EOS scope fingerprint=%s platform=%s" % [_eos_scope_fingerprint, OS.get_name()])
 
         var credentials_script: Script = load("res://addons/epic-online-services-godot/heos/hcredentials.gd") as Script
         if credentials_script == null:
@@ -269,6 +273,25 @@ func create_public_room_async() -> Dictionary:
                 last_error = "The room was created but its public listing could not be published."
                 return {"ok": false, "error": last_error}
 
+        # HLobby.update_async can log and skip an individual AddAttribute error
+        # while the final UpdateLobby request still succeeds. Verify the exact
+        # public fields from refreshed lobby details before displaying a code.
+        var published_code: String = _get_lobby_attribute(_current_lobby, "sr_code").strip_edges().to_upper()
+        var published_game: String = _get_lobby_attribute(_current_lobby, "sr_game")
+        var published_status: String = _get_lobby_attribute(_current_lobby, "sr_status")
+        print("[EOS ROOM] Host publish env=%s bucket=%s game=%s status=%s code_attribute=%s lobby_update=true" % [
+                _eos_scope_fingerprint,
+                str(_current_lobby.get("bucket_id")),
+                published_game,
+                published_status,
+                published_code
+        ])
+        if published_code != _current_room_code or published_game != GAME_ID or published_status != "open":
+                await leave_current_lobby_async()
+                NetworkSession.disconnect_session()
+                last_error = "EOS created the room, but did not retain its public room-code attributes. Please try again."
+                return {"ok": false, "error": last_error}
+
         last_error = ""
         room_status_changed.emit("open")
         return {"ok": true, "code": _current_room_code, "name": _current_room_name}
@@ -280,43 +303,100 @@ func search_public_rooms_async(query_text: String = "") -> Array[Dictionary]:
                 return rooms
 
         var clean_query: String = query_text.strip_edges().to_upper()
+        var bucket_results: Variant = null
 
-        # Search only the public lobby bucket on EOS. Filtering custom attributes
-        # server-side can hide a valid room when an attribute is not indexed yet.
-        # All SpotRush attributes are public, so validate them on returned details.
-        var search_result: Variant = await _h_lobbies.call(
-                "search_by_attribute_async",
-                {
-                        "key": EOS.Lobby.SEARCH_BUCKET_ID,
-                        "value": LOBBY_BUCKET,
-                        "comparison": EOS.ComparisonOp.Equal
-                }
-        )
-        if search_result == null or not (search_result is Array):
-                last_error = "EOS Lobby search failed. Check that both players use the same EOS deployment and that Lobbies are enabled for this deployment."
+        print("[EOS ROOM] Search start env=%s bucket=%s query=%s" % [
+                _eos_scope_fingerprint,
+                LOBBY_BUCKET,
+                clean_query if not clean_query.is_empty() else "<all>"
+        ])
+
+        # Epic documents a short indexing delay for newly created public rooms.
+        # Retry beyond that window before falling back to a broad public search.
+        for attempt in range(4):
+                bucket_results = await _h_lobbies.call(
+                        "search_by_attribute_async",
+                        {
+                                "key": EOS.Lobby.SEARCH_BUCKET_ID,
+                                "value": LOBBY_BUCKET,
+                                "comparison": EOS.ComparisonOp.Equal
+                        }
+                )
+                if bucket_results == null or not (bucket_results is Array):
+                        last_error = "EOS Lobby search failed. Check Lobby permissions and that both devices use the same EOS deployment."
+                        print("[EOS ROOM] Bucket search failed on attempt %d: %s" % [attempt + 1, last_error])
+                        return rooms
+
+                print("[EOS ROOM] Bucket search attempt %d returned %d lobby result(s)." % [attempt + 1, bucket_results.size()])
+                rooms = _rooms_from_search_results(bucket_results, clean_query, false)
+                if not rooms.is_empty():
+                        last_error = ""
+                        return rooms
+                if attempt < 3:
+                        await get_tree().create_timer(1.0).timeout
+
+        # Fallback: search all public lobbies in this EOS deployment and match
+        # the generated 8-character code. This also distinguishes an empty
+        # bucket from a room whose bucket metadata was not indexed as expected.
+        var search_options: EOS.Lobby.CreateLobbySearchOptions = EOS.Lobby.CreateLobbySearchOptions.new()
+        search_options.max_results = MAX_ROOM_RESULTS
+        var search_handle: Variant = _h_lobbies.call("create_search", search_options)
+        if search_handle == null:
+                last_error = "EOS could not create a public lobby search. Check the EOS Lobby service configuration."
                 return rooms
 
-        for lobby in search_result:
+        var all_results: Variant = await _h_lobbies.call("search_async", search_handle)
+        if all_results == null or not (all_results is Array):
+                last_error = "EOS could not complete the public lobby search. Check that both devices use the same EOS deployment."
+                return rooms
+
+        print("[EOS ROOM] Unfiltered public search returned %d lobby result(s)." % all_results.size())
+        rooms = _rooms_from_search_results(all_results, clean_query, true)
+        if rooms.is_empty():
+                last_error = "No open room matches that code. Compare the EOS environment fingerprints in both devices' logs; they must match."
+                print("[EOS ROOM] No match env=%s code=%s bucket_results=%d all_results=%d" % [
+                        _eos_scope_fingerprint,
+                        clean_query,
+                        bucket_results.size(),
+                        all_results.size()
+                ])
+        else:
+                last_error = ""
+                print("[EOS ROOM] Exact room code found through unfiltered fallback.")
+        return rooms
+
+
+func _rooms_from_search_results(search_results: Array, clean_query: String, allow_exact_code_fallback: bool) -> Array[Dictionary]:
+        var rooms: Array[Dictionary] = []
+        var exact_code_query: bool = _is_valid_room_code(clean_query)
+
+        for lobby in search_results:
                 if lobby == null or not is_instance_valid(lobby):
                         continue
-                if str(lobby.get("bucket_id")) != LOBBY_BUCKET:
-                        continue
-                if _get_lobby_attribute(lobby, "sr_game") != GAME_ID:
-                        continue
-                if _get_lobby_attribute(lobby, "sr_status") != "open":
-                        continue
 
+                var bucket_id: String = str(lobby.get("bucket_id"))
+                var game_id: String = _get_lobby_attribute(lobby, "sr_game")
+                var room_status: String = _get_lobby_attribute(lobby, "sr_status").to_lower()
                 var room_code: String = _get_lobby_attribute(lobby, "sr_code").strip_edges().to_upper()
                 var room_name: String = _get_lobby_attribute(lobby, "sr_name")
-                if not clean_query.is_empty():
-                        if _is_valid_room_code(clean_query):
-                                if room_code != clean_query:
-                                        continue
-                        else:
-                                var searchable_name: String = room_name.to_lower()
-                                var searchable_code: String = room_code.to_lower()
-                                if not searchable_name.contains(clean_query.to_lower()) and not searchable_code.contains(clean_query.to_lower()):
-                                        continue
+                var bucket_matches: bool = bucket_id == LOBBY_BUCKET
+                var game_matches: bool = game_id == GAME_ID
+                var code_matches: bool = exact_code_query and room_code == clean_query
+
+                # Normally keep discovery within SpotRush's bucket and game ID.
+                # In the exact-code fallback, the generated code is also a lookup
+                # key, so it can recover a room with stale bucket metadata.
+                if not (bucket_matches and game_matches) and not (allow_exact_code_fallback and code_matches):
+                        continue
+                if exact_code_query and not code_matches:
+                        continue
+                if not exact_code_query and not clean_query.is_empty():
+                        var searchable_name: String = room_name.to_lower()
+                        var searchable_code: String = room_code.to_lower()
+                        if not searchable_name.contains(clean_query.to_lower()) and not searchable_code.contains(clean_query.to_lower()):
+                                continue
+                if not room_status.is_empty() and room_status != "open":
+                        continue
 
                 var available_slots: int = int(lobby.get("available_slots"))
                 if available_slots < 1:
@@ -325,6 +405,9 @@ func search_public_rooms_async(query_text: String = "") -> Array[Dictionary]:
                 if has_current_lobby() and lobby_id == str(_current_lobby.get("lobby_id")):
                         continue
 
+                print("[EOS ROOM] Candidate accepted bucket=%s game=%s status=%s code=%s slots=%d" % [
+                        bucket_id, game_id, room_status, room_code, available_slots
+                ])
                 rooms.append({
                         "lobby": lobby,
                         "lobby_id": lobby_id,
@@ -337,7 +420,6 @@ func search_public_rooms_async(query_text: String = "") -> Array[Dictionary]:
         rooms.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
                 return str(a.get("room_name", "")).to_lower() < str(b.get("room_name", "")).to_lower()
         )
-        last_error = ""
         return rooms
 
 func join_public_lobby_async(lobby: Variant) -> bool:
