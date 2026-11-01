@@ -31,6 +31,7 @@ REQUIRED_ARCHIVE_FILES = (
     "DeeplinkPlugin.gd",
     "Deeplink.gd",
     "config/DeeplinkExportConfig.gd",
+    "config/DeeplinkExportConfigItem.gd",
     "model/DeeplinkUrl.gd",
     "bin/debug/DeeplinkPlugin-debug.aar",
     "bin/release/DeeplinkPlugin-release.aar",
