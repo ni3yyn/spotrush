@@ -174,7 +174,9 @@ func _set_create_room_idle() -> void:
 	btn_create_room.disabled = false
 	btn_copy_room_code.visible = false
 	btn_end_room.visible = false
+	btn_end_room.disabled = false
 	btn_start_match.visible = false
+	btn_start_match.disabled = false
 	_friend_connected = false
 	_set_status(lbl_create_status, "Create a room to reveal its QR invitation and shareable code.", NeuKit.SLATE)
 
