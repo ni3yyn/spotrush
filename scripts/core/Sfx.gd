@@ -5,7 +5,7 @@ extends RefCounted
 # tones with quick decays and a gentle low-pass - to match the soft UI instead of the
 # harsh square/saw blips typical of procedural sfx.
 
-const RATE := 32000
+const RATE := 44100
 
 static var _bank: Dictionary = {}
 static var _root: Node = null

@@ -42,6 +42,7 @@ func _init() -> void:
         failures += _test_determinism()
         failures += _test_schedules()
         failures += _test_quality()
+        failures += _test_size_order_submission()
         failures += _test_balance()
         failures += _test_curve()
         failures += _test_small_runs()
@@ -195,10 +196,51 @@ func _test_quality() -> int:
                 for r in range(10):
                         seen_types[deck.begin_round(r).type] = true
         for want in ["estimation_count", "comparison_sides", "color_target",
-                        "shape_target", "dont_tap", "combined_conditional"]:
+                        "shape_target", "dont_tap", "combined_conditional", "size_order"]:
                 if not seen_types.has(want):
                         print("FAIL quality/type_coverage missing=%s" % want)
                         failures += 1
+        return failures
+
+func _test_size_order_submission() -> int:
+        var failures := 0
+        var rng := RandomNumberGenerator.new()
+        rng.seed = 90421
+        var book := RuleBook.new(90421)
+        var challenge := ChallengeFactory.build(rng, GameConfig.TYPE_SIZE_ORDER, 0, 1.2, book, 90421)
+        if challenge == null or not challenge.is_valid():
+                print("FAIL size_order/generated_challenge_invalid")
+                return 1
+        if challenge.input_mode != "tap_targets":
+                print("FAIL size_order/not_using_shared_tap_targets_input")
+                failures += 1
+        var items: Array = challenge.visual_data.get("items", [])
+        var expected: Array[int] = []
+        for i in range(items.size()):
+                expected.append(i)
+                if items[i].has("seq"):
+                        print("FAIL size_order/legacy_rank_metadata")
+                        failures += 1
+        expected.sort_custom(func(a: int, b: int):
+                return float(items[a].get("size", 0.0)) < float(items[b].get("size", 0.0))
+        )
+        if not bool(challenge.visual_data.get("ascending", true)):
+                expected.reverse()
+        var correct_result := AnswerValidator.validate_submission(challenge, expected, 0.5, false)
+        if not bool(correct_result.get("is_correct", false)):
+                print("FAIL size_order/correct_order_rejected details=%s" % str(correct_result.get("details", "")))
+                failures += 1
+        var reversed_order := expected.duplicate()
+        reversed_order.reverse()
+        var wrong_result := AnswerValidator.validate_submission(challenge, reversed_order, 0.5, false)
+        if bool(wrong_result.get("is_correct", false)):
+                print("FAIL size_order/reversed_order_accepted")
+                failures += 1
+        var partial_order: Array = expected.slice(0, maxi(0, expected.size() - 1))
+        var partial_result := AnswerValidator.validate_submission(challenge, partial_order, 0.5, false)
+        if bool(partial_result.get("is_correct", false)):
+                print("FAIL size_order/partial_order_accepted")
+                failures += 1
         return failures
 
 func _items_ok(ch: ChallengeDefinition, items: Array, d: int, r: int) -> bool:
@@ -377,7 +419,7 @@ func _mode_of(ctype: String) -> String:
         match ctype:
                 GameConfig.TYPE_ESTIMATION_COUNT, GameConfig.TYPE_COMPARISON_SIDES:
                         return "choice"
-                GameConfig.TYPE_COLOR_TARGET, GameConfig.TYPE_SHAPE_TARGET:
+                GameConfig.TYPE_COLOR_TARGET, GameConfig.TYPE_SHAPE_TARGET, GameConfig.TYPE_SIZE_ORDER:
                         return "tap"
                 GameConfig.TYPE_DONT_TAP:
                         return "withhold"
@@ -832,6 +874,13 @@ func _qr_structure_ok(grid: Array, n: int) -> bool:
 
 func _test_daily_reminder() -> int:
         var failures := 0
+        # The manual test must never overwrite or cancel the real daily alarm.
+        if DailyReminderScript.REMINDER_NOTIFICATION_ID == DailyReminderScript.TEST_NOTIFICATION_ID:
+                print("FAIL reminder/test_and_daily_ids_must_be_distinct")
+                failures += 1
+        if int(DailyReminderScript.TEST_DELAY_SECONDS) != 5:
+                print("FAIL reminder/test_should_arrive_quickly")
+                failures += 1
         var morning := {"year": 2026, "month": 11, "day": 1, "hour": 10, "minute": 0, "second": 0}
         var evening := {"year": 2026, "month": 11, "day": 1, "hour": 20, "minute": 0, "second": 0}
         # Live streak + unplayed daily + enabled -> schedule today's hour.
@@ -840,10 +889,13 @@ func _test_daily_reminder() -> int:
                 print("FAIL reminder/schedule_today delay=%s" % str(d.get("delay")))
                 failures += 1
         # The nudge always names the streak it is protecting.
-        if not str(d.get("content", "")).contains("5-day"):
-                print("FAIL reminder/streak_in_copy")
+        if not str(d.get("content", "")).contains("streak"):
+                print("FAIL reminder/streak_copy")
                 failures += 1
-        if str(d.get("title")) != "SpotRush daily is waiting":
+        if int(d.get("interval", 0)) != 86400:
+                print("FAIL reminder/daily_repeat_interval")
+                failures += 1
+        if str(d.get("title")) != "Your Daily Spot is waiting":
                 print("FAIL reminder/title")
                 failures += 1
         # Past the hour -> tomorrow's fire, 23h away.
@@ -868,11 +920,16 @@ func _test_daily_reminder() -> int:
         if int(d.get("delay")) != 13 * 3600:
                 print("FAIL reminder/custom_hour delay=%s" % str(d.get("delay")))
                 failures += 1
-        # The cancel table: played today, disabled, or no streak at risk.
+        # A player with no streak still receives a reminder; this feature can
+        # help start a streak, not only protect an existing one.
+        d = DailyReminderScript.decide(morning, true, 0, false)
+        if str(d.get("action")) != "schedule" or not str(d.get("content", "")).contains("start building your streak"):
+                print("FAIL reminder/no_streak_can_start")
+                failures += 1
+        # Only a disabled reminder or a Daily Spot already completed today cancels.
         for case in [
                 [true, 5, true],    # played today
                 [false, 5, false],  # setting off
-                [true, 0, false],   # nothing to protect
         ]:
                 d = DailyReminderScript.decide(morning, bool(case[0]), int(case[1]), bool(case[2]))
                 if str(d.get("action")) != "cancel":
@@ -890,4 +947,10 @@ func _test_daily_reminder() -> int:
                 print("FAIL reminder/setting_roundtrip")
                 failures += 1
         Settings.set_reminder_enabled(saved)
+        var saved_hour := Settings.reminder_hour()
+        Settings.set_reminder_hour(21)
+        if Settings.reminder_hour() != 21:
+                print("FAIL reminder/hour_setting_roundtrip")
+                failures += 1
+        Settings.set_reminder_hour(saved_hour)
         return failures

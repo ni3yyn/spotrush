@@ -22,6 +22,8 @@ const GONOGO_NOISE_POOL := ["BLUE", "YELLOW", "MINT"]
 const MULTI_COLORS := ["RED", "BLUE", "YELLOW"]
 const MULTI_SHAPES := ["triangle", "square", "diamond"]
 const COMBINED_VARIANTS := ["multi_attribute", "majority", "threshold"]
+const SIZE_ORDER_SHAPES := ["circle", "square", "triangle", "diamond"]
+const SIZE_ORDER_COLORS := ["MINT", "BLUE", "YELLOW", "RED"]
 
 static func build(rng: RandomNumberGenerator, type: String, round_idx: int,
 				intensity: float, book: RuleBook, run_seed: int) -> ChallengeDefinition:
@@ -40,6 +42,8 @@ static func build(rng: RandomNumberGenerator, type: String, round_idx: int,
 						return _build_gonogo(rng, round_idx, t, band, book, run_seed)
 				GameConfig.TYPE_COMBINED_CONDITIONAL:
 						return _build_combined(rng, round_idx, t, band, book, run_seed)
+				GameConfig.TYPE_SIZE_ORDER:
+						return _build_size_order(rng, round_idx, t, band, book, run_seed)
 				_:
 						return _build_comparison(rng, round_idx, t, band, book, run_seed)
 
@@ -533,6 +537,64 @@ static func _build_threshold(rng: RandomNumberGenerator, round_idx: int, t: floa
 				"count_target": actual,
 				"threshold": threshold,
 				"target_color": color,
+		}
+		return challenge
+
+# --- 7. SIZE ORDER (shared tap-target interaction) ----------------------------------
+
+## A straightforward perception challenge: tap every token from smallest to
+## largest (or largest to smallest). It uses the ordinary tap_targets input
+## stream and completion quota; only AnswerValidator checks the tap order.
+static func _build_size_order(rng: RandomNumberGenerator, round_idx: int, t: float,
+				band: int, book: RuleBook, run_seed: int) -> ChallengeDefinition:
+		var count := clampi(int(round(lerpf(5.0, 9.0, t))) + rng.randi_range(0, 1), 5, 10)
+		var ascending := book.take_flip("size_order_direction")
+
+		var base_shape := str(book.next_from_pool("size_order_shape", SIZE_ORDER_SHAPES))
+		var base_color := str(book.next_from_pool("size_order_color", SIZE_ORDER_COLORS))
+		var vary_shape := t >= 0.38
+		var vary_color := t >= 0.68
+
+		# Distinct sizes form a clear ladder. The gap narrows with difficulty,
+		# while bounded jitter keeps every token's size unambiguous.
+		var size_mid := lerpf(30.0, 27.0, t)
+		var spread := lerpf(23.0, 12.0, t)
+		var step := spread / float(maxi(1, count - 1))
+		var sizes: Array = []
+		for i in range(count):
+			var token_size := size_mid - spread * 0.5 + step * float(i)
+			token_size += rng.randf_range(-step * 0.18, step * 0.18)
+			sizes.append(token_size)
+		_shuffle_with(rng, sizes)
+
+		var max_size := size_mid + spread * 0.5 + step * 0.18
+		var separation := LayoutSampler.separation_for(max_size * 1.08, 1.28)
+		var positions := LayoutSampler.sample_field(rng, count, separation)
+		var items: Array = []
+		for i in range(count):
+			var shape_name: String = str(SIZE_ORDER_SHAPES[rng.randi_range(0, SIZE_ORDER_SHAPES.size() - 1)]) if vary_shape else base_shape
+			var color_name: String = str(SIZE_ORDER_COLORS[rng.randi_range(0, SIZE_ORDER_COLORS.size() - 1)]) if vary_color else base_color
+			items.append({
+				"x": positions[i].x,
+				"y": positions[i].y,
+				"size": sizes[i],
+				"color": color_name,
+				"shape": shape_name,
+			})
+
+		var challenge := ChallengeDefinition.new(
+				"", GameConfig.TYPE_SIZE_ORDER,
+				RuleBook.size_order_phrase(rng, ascending),
+				clampf(4.8 + 0.34 * float(count) * (1.0 - 0.18 * t),
+						GameConfig.MIN_CHALLENGE_DURATION, GameConfig.MAX_CHALLENGE_DURATION))
+		_stamp(challenge, GameConfig.TYPE_SIZE_ORDER, rng, round_idx, t, band, run_seed)
+		challenge.input_mode = "tap_targets"
+		challenge.rule = "size_order"
+		challenge.correct_answer = count
+		challenge.visual_data = {
+			"items": items,
+			"target_count": count,
+			"ascending": ascending,
 		}
 		return challenge
 

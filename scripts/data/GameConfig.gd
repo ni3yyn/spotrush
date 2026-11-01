@@ -127,6 +127,7 @@ const TYPE_COLOR_TARGET: String = "color_target"
 const TYPE_SHAPE_TARGET: String = "shape_target"
 const TYPE_DONT_TAP: String = "dont_tap"
 const TYPE_COMBINED_CONDITIONAL: String = "combined_conditional"
+const TYPE_SIZE_ORDER: String = "size_order"
 
 # Game Modes
 enum GameMode {

@@ -11,7 +11,7 @@ const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 const NeuText = preload("res://scripts/ui/NeuText.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 
-@onready var challenge_canvas: Control = %ChallengeCanvas
+@onready var challenge_canvas: ChallengeCanvas = %ChallengeCanvas
 @onready var options_container: HBoxContainer = %OptionsContainer
 @onready var instruction_label: NeuText = %InstructionLabel
 @onready var badge_label: Label = %BadgeLabel
@@ -32,18 +32,20 @@ func _ready() -> void:
 		SpotRushSkin.apply_screen(self, "game")
 		_polish_challenge_surfaces()
 		_ensure_nodes()
-		if challenge_canvas != null:
-				if not challenge_canvas.item_tapped.is_connected(_on_canvas_item_tapped):
-						challenge_canvas.item_tapped.connect(_on_canvas_item_tapped)
-				if not challenge_canvas.item_untapped.is_connected(_on_canvas_item_untapped):
-						challenge_canvas.item_untapped.connect(_on_canvas_item_untapped)
-				if not challenge_canvas.side_tapped.is_connected(_on_canvas_side_tapped):
-						challenge_canvas.side_tapped.connect(_on_canvas_side_tapped)
+		_wire_challenge_canvas()
 						
 		if btn_action_done != null:
 				if not btn_action_done.pressed.is_connected(_on_action_done_pressed):
 						btn_action_done.pressed.connect(_on_action_done_pressed)
 				btn_action_done.visible = false
+
+func _wire_challenge_canvas() -> void:
+		if challenge_canvas == null:
+				return
+		if not challenge_canvas.item_tapped.is_connected(_on_canvas_item_tapped):
+				challenge_canvas.item_tapped.connect(_on_canvas_item_tapped)
+		if not challenge_canvas.side_tapped.is_connected(_on_canvas_side_tapped):
+				challenge_canvas.side_tapped.connect(_on_canvas_side_tapped)
 
 func _polish_challenge_surfaces() -> void:
 		var instruction_card := get_node_or_null("VBoxContent/InstructionCard") as PanelContainer
@@ -95,7 +97,11 @@ func _ensure_nodes() -> void:
 
 func load_challenge(challenge: ChallengeDefinition, animate: bool = true) -> void:
 		_ensure_nodes()
+		_wire_challenge_canvas()
 		current_challenge = challenge
+		if auto_confirm_tween != null and auto_confirm_tween.is_valid():
+			auto_confirm_tween.kill()
+		auto_confirm_tween = null
 		tapped_indices.clear()
 		is_input_locked = false
 		
@@ -105,6 +111,8 @@ func load_challenge(challenge: ChallengeDefinition, animate: bool = true) -> voi
 				badge_label.text = _get_friendly_category_name(challenge.type)
 				
 		if challenge_canvas != null:
+				# Every token-picking family uses the same canvas hit-test and tap_targets path.
+				challenge_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 				challenge_canvas.set_challenge(challenge, animate)
 		
 		_setup_options()
@@ -199,10 +207,17 @@ func _setup_options() -> void:
 						
 		elif current_challenge.input_mode == "tap_targets":
 				if btn_action_done != null:
-						btn_action_done.visible = true
+						# Size Order completes automatically after the final shape, just
+						# like the existing target-selection families. It must not depend
+						# on a separate confirmation control.
+						var uses_auto_completion := current_challenge.type == GameConfig.TYPE_SIZE_ORDER
+						btn_action_done.visible = not uses_auto_completion
 						btn_action_done.disabled = false
-						_update_action_done_label()
-						
+						if not btn_action_done.pressed.is_connected(_on_action_done_pressed):
+							btn_action_done.pressed.connect(_on_action_done_pressed)
+						if not uses_auto_completion:
+							_update_action_done_label()
+
 		elif current_challenge.input_mode == "withhold_response":
 				if btn_action_done != null:
 						btn_action_done.visible = true
@@ -281,20 +296,31 @@ func _make_option_button(opt: Variant) -> Button:
 		label.bind_style(style)
 		return btn
 
+func _get_tap_target_count() -> int:
+		if current_challenge == null:
+			return 0
+		var target_count: int = int(current_challenge.visual_data.get("target_count", 0))
+		if target_count <= 0 and current_challenge.input_mode == "tap_targets":
+			target_count = maxi(0, int(current_challenge.correct_answer))
+			if target_count <= 0:
+				var items: Array = current_challenge.visual_data.get("items", [])
+				target_count = items.size()
+		return target_count
+
 func _update_action_done_label() -> void:
 		if btn_action_done == null or current_challenge == null:
-				return
-		var target_count = current_challenge.visual_data.get("target_count", 0)
+			return
+		var target_count: int = _get_tap_target_count()
 		if target_count > 0:
-				if tapped_indices.size() >= target_count:
-						btn_action_done.text = "CONFIRM ALL %d TARGETS" % target_count
-						_set_action_look("complete")
-				else:
-						btn_action_done.text = "CONFIRM SELECTIONS (%d / %d TARGETS)" % [tapped_indices.size(), target_count]
-						_set_action_look("pending")
-		else:
-				btn_action_done.text = "CONFIRM SELECTIONS"
+			if tapped_indices.size() >= target_count:
+				btn_action_done.text = "CONFIRM ALL %d TARGETS" % target_count
+				_set_action_look("complete")
+			else:
+				btn_action_done.text = "CONFIRM SELECTIONS (%d / %d TARGETS)" % [tapped_indices.size(), target_count]
 				_set_action_look("pending")
+		else:
+			btn_action_done.text = "CONFIRM SELECTIONS"
+			_set_action_look("pending")
 
 func _on_option_button_pressed(val: Variant, btn: Button = null) -> void:
 		if is_input_locked:
@@ -311,47 +337,60 @@ func _on_option_button_pressed(val: Variant, btn: Button = null) -> void:
 		option_selected.emit(val)
 
 func _on_action_done_pressed() -> void:
-		if is_input_locked:
-				return
-		lock_input()
-		
+		if is_input_locked or current_challenge == null:
+			return
+
 		if current_challenge.input_mode == "tap_targets":
-				option_selected.emit(tapped_indices)
+			lock_input()
+			if OS.is_debug_build() and current_challenge.type == GameConfig.TYPE_SIZE_ORDER:
+				print("[SIZE ORDER] completed tap order=%s" % [tapped_indices])
+			option_selected.emit(tapped_indices.duplicate())
 		elif current_challenge.input_mode == "withhold_response":
-				option_selected.emit("TAP")
+			lock_input()
+			option_selected.emit("TAP")
 
 func _on_canvas_item_tapped(index: int, _item: Dictionary) -> void:
 		if is_input_locked or current_challenge == null:
-				return
-				
-		if not index in tapped_indices:
-				tapped_indices.append(index)
-				tap_item_clicked.emit(index)
-				_update_action_done_label()
-				
-				# Auto-confirm when all expected targets have been discovered
-				var target_count = current_challenge.visual_data.get("target_count", 0)
-				if target_count > 0 and tapped_indices.size() >= target_count:
-						if auto_confirm_tween != null and auto_confirm_tween.is_valid():
-								auto_confirm_tween.kill()
-						auto_confirm_tween = create_tween()
-						auto_confirm_tween.tween_interval(0.15)
-						auto_confirm_tween.tween_callback(func():
-								if not is_input_locked:
-										_on_action_done_pressed()
-						)
+			return
+		if current_challenge.input_mode != "tap_targets":
+			return
 
-## Unselect: the player tapped a selected target again. Drop it from the answer,
-## refresh the confirm key, and cancel any queued auto-confirm so a shrunken
-## selection is never submitted by accident.
-func _on_canvas_item_untapped(index: int, _item: Dictionary) -> void:
-		if is_input_locked or current_challenge == null:
-				return
-		tapped_indices.erase(index)
-		if auto_confirm_tween != null and auto_confirm_tween.is_valid():
+		var items: Array = current_challenge.visual_data.get("items", [])
+		if index < 0 or index >= items.size():
+			return
+
+		# Selection and deselection are shared by all token families. Size Order
+		# records the order in which shapes were tapped; the shared completion
+		# quota commits the selection once every shape has been chosen.
+		if index in tapped_indices:
+			tapped_indices.erase(index)
+			challenge_canvas.set_item_selected(index, false)
+			if auto_confirm_tween != null and auto_confirm_tween.is_valid():
 				auto_confirm_tween.kill()
-				auto_confirm_tween = null
+			auto_confirm_tween = null
+			_update_action_done_label()
+			return
+
+		tapped_indices.append(index)
+		challenge_canvas.set_item_selected(index, true)
+		if OS.is_debug_build() and current_challenge.type == GameConfig.TYPE_SIZE_ORDER:
+			print("[SIZE ORDER] selected index=%d progress=%d/%d" % [index, tapped_indices.size(), _get_tap_target_count()])
+		tap_item_clicked.emit(index)
 		_update_action_done_label()
+
+		# Every tap-target family completes through the same selection quota.
+		# Size Order differs only in the rule that validates tap order, not in
+		# how its input is committed. No confirmation button is required.
+		var target_count: int = _get_tap_target_count()
+		if target_count > 0 and tapped_indices.size() >= target_count:
+			if auto_confirm_tween != null and auto_confirm_tween.is_valid():
+				auto_confirm_tween.kill()
+			auto_confirm_tween = create_tween()
+			auto_confirm_tween.tween_interval(0.15)
+			auto_confirm_tween.tween_callback(func():
+				if not is_input_locked:
+					_on_action_done_pressed()
+			)
 
 func _on_canvas_side_tapped(side_name: String) -> void:
 		if is_input_locked or current_challenge == null:
@@ -370,4 +409,5 @@ func _get_friendly_category_name(type: String) -> String:
 				GameConfig.TYPE_SHAPE_TARGET: return "SHAPE HUNTER • GEOMETRY"
 				GameConfig.TYPE_DONT_TAP: return "DON'T TAP • INHIBITION"
 				GameConfig.TYPE_COMBINED_CONDITIONAL: return "BRAIN TWIST • CONDITIONAL"
+				GameConfig.TYPE_SIZE_ORDER: return "SIZE RUSH • ORDER"
 				_: return type.replace("_", " ").to_upper()

@@ -75,12 +75,21 @@ func is_valid() -> bool:
         if time_limit <= 0.0:
                 return false
         
+        # Family-specific rules stay inside the shared input models.
+        # Size Order is ordinary tap_targets input; the validator checks the
+        # selection order only when the shared action key is pressed.
+        if type == GameConfig.TYPE_SIZE_ORDER and input_mode != "tap_targets":
+                return false
+        if type == GameConfig.TYPE_DONT_TAP and input_mode != "withhold_response":
+                return false
+        if input_mode == "withhold_response" and type != GameConfig.TYPE_DONT_TAP:
+                return false
+
         match input_mode:
                 "choice":
                         if options.is_empty():
                                 return false
-                        # Correct answer must be one of the options
-                        var found = false
+                        var found := false
                         for opt in options:
                                 if str(opt) == str(correct_answer):
                                         found = true
@@ -88,16 +97,23 @@ func is_valid() -> bool:
                         if not found:
                                 return false
                 "tap_targets":
-                        # Needs visual items and expected target count >= 0
                         if not visual_data.has("items") or not (visual_data["items"] is Array):
                                 return false
                         if not (correct_answer is int) or correct_answer < 0:
                                 return false
+                        if type == GameConfig.TYPE_SIZE_ORDER:
+                                var size_items: Array = visual_data["items"]
+                                if size_items.is_empty() or int(correct_answer) != size_items.size():
+                                        return false
+                                if not visual_data.has("ascending") or typeof(visual_data["ascending"]) != TYPE_BOOL:
+                                        return false
+                                for size_item in size_items:
+                                        if not (size_item is Dictionary) or not size_item.has("size"):
+                                                return false
                 "withhold_response":
-                        # Boolean whether action should be withheld or tapped
                         if typeof(correct_answer) != TYPE_BOOL:
                                 return false
                 _:
                         return false
-                        
+
         return true

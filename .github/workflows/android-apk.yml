@@ -55,6 +55,9 @@ jobs:
           curl --fail --location --retry 3 --retry-delay 2 "$url" --output "$archive"
           echo "$expected_sha256  $archive" | sha256sum --check -
 
+          # Remove the old 4.1 binaries so they can never be selected accidentally.
+          rm -f addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-4.1-debug.aar
+          rm -f addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-4.1-release.aar
           mkdir -p addons/NotificationSchedulerPlugin/bin/debug
           mkdir -p addons/NotificationSchedulerPlugin/bin/release
 
@@ -69,7 +72,25 @@ jobs:
           test -s addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar
           test -s addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar
 
-          echo "Godot Notification Scheduler 6.0 AARs installed and checksum-verified."
+          # Verify the downloaded native binaries are the v6 package namespace,
+          # not the stale org.godotengine.plugin.android.notification namespace.
+          mkdir -p /tmp/spotrush-notification-v6
+          unzip -p addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar classes.jar \
+            > /tmp/spotrush-notification-v6/classes.jar
+          jar tf /tmp/spotrush-notification-v6/classes.jar > /tmp/spotrush-notification-v6/classes.txt
+          grep -Fxq 'org/godotengine/plugin/notification/NotificationSchedulerPlugin.class' /tmp/spotrush-notification-v6/classes.txt
+          grep -Fxq 'org/godotengine/plugin/notification/BootReceiver.class' /tmp/spotrush-notification-v6/classes.txt
+          grep -Fxq 'org/godotengine/plugin/notification/model/ChannelData.class' /tmp/spotrush-notification-v6/classes.txt
+
+          # Confirm the release AAR is also a v6 binary, not only the debug build.
+          unzip -p addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar classes.jar \
+            > /tmp/spotrush-notification-v6/release-classes.jar
+          jar tf /tmp/spotrush-notification-v6/release-classes.jar \
+            > /tmp/spotrush-notification-v6/release-classes.txt
+          grep -Fxq 'org/godotengine/plugin/notification/NotificationSchedulerPlugin.class' /tmp/spotrush-notification-v6/release-classes.txt
+          grep -Fxq 'org/godotengine/plugin/notification/BootReceiver.class' /tmp/spotrush-notification-v6/release-classes.txt
+
+          echo "Godot Notification Scheduler 6.0 debug/release AARs installed and checksum-verified."
 
       - name: Verify project configuration
         shell: bash
@@ -84,26 +105,34 @@ jobs:
           java -version
           sdkmanager --version
 
-          echo "Checking Godot Android template version..."
-          grep -qx "4.7.2.stable" android/.build_version
-
-          echo "Checking Android Gradle project..."
-          test -f android/build/build.gradle
-          test -f android/build/gradlew
-          test -f android/build/gradle/wrapper/gradle-wrapper.properties
-          test -f android/build/src/main/AndroidManifest.xml
-
+          # The custom Android Gradle template is installed by the export
+          # command below. It is intentionally not expected in the source ZIP.
           echo "Checking notification plugin..."
           test -s addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar
           test -s addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar
           grep -Fq 'version="6.0"' addons/NotificationSchedulerPlugin/plugin.cfg
           test -f addons/NotificationSchedulerPlugin/model/CustomData.gd
           test -f addons/GMPShared/GmpLogger.gd
+          grep -Fq 'const PLUGIN_NAME: String = "NotificationSchedulerPlugin"' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
+          grep -Fq '"%s/bin/debug/%s-debug.aar"' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
+          grep -Fq '"%s/bin/release/%s-release.aar"' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
+          grep -Fq 'org.godotengine.plugin.notification.NotificationReceiver' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
+          grep -Fq 'org.godotengine.plugin.notification.BootReceiver' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
+          grep -Fq 'DATA_KEY_ID := &"channel_id"' addons/NotificationSchedulerPlugin/model/NotificationChannel.gd
+          grep -Fq 'DATA_KEY_NAME := &"channel_name"' addons/NotificationSchedulerPlugin/model/NotificationChannel.gd
+          grep -Fq 'DATA_KEY_DESCRIPTION := &"channel_description"' addons/NotificationSchedulerPlugin/model/NotificationChannel.gd
+          grep -Fq 'DATA_KEY_IMPORTANCE := &"channel_importance"' addons/NotificationSchedulerPlugin/model/NotificationChannel.gd
+          grep -Fq 'func request_test_notification()' scripts/core/DailyReminder.gd
+          grep -Fq 'DailyReminder.request_test_notification()' scripts/ui/SettingsScreen.gd
+          ! grep -R -Fq 'debug_fire_test_notification' scripts
+          ! grep -Fq '4.1-debug.aar' addons/NotificationSchedulerPlugin/NotificationSchedulerPlugin.gd
+          ! grep -Fq 'DATA_KEY_ID := &"id"' addons/NotificationSchedulerPlugin/model/NotificationChannel.gd
 
           echo "Checking Android export preset..."
           test -f export_presets.cfg
           grep -Fq 'name="Android"' export_presets.cfg
           grep -Fq 'gradle_build/use_gradle_build=true' export_presets.cfg
+          grep -Fq 'gradle_build/min_sdk="24"' export_presets.cfg
 
           echo "All required project files are present."
 
@@ -185,8 +214,6 @@ jobs:
             cp "android_extras/res/drawable-$density/ic_notification.png" \
               "$asset_root/drawable-$density/ic_default_notification.png"
           done
-
-          chmod +x android/build/gradlew
 
           test -s "$asset_root/drawable-mdpi/ic_default_notification.png"
           test -s "$asset_root/drawable-xxxhdpi/ic_default_notification.png"

@@ -4,8 +4,9 @@
 
 class_name NotificationChannel extends RefCounted
 
-enum Importance { NONE = 0, MIN = 1, LOW = 2, DEFAULT = 3, HIGH = 4, MAX = 5 }  # MAX not used as of SDK 34
+enum Importance { NONE = 0, MIN = 1, LOW = 2, DEFAULT = 3, HIGH = 4, MAX = 5 } # MAX not used as of SDK 34
 
+# These keys must match Notification Scheduler Android v6.0 ChannelData.java.
 const DATA_KEY_ID := &"channel_id"
 const DATA_KEY_NAME := &"channel_name"
 const DATA_KEY_DESCRIPTION := &"channel_description"

@@ -19,190 +19,146 @@ signal notification_opened(notification_data: NotificationData)
 signal notification_dismissed(notification_data: NotificationData)
 
 const PLUGIN_SINGLETON_NAME: String = "NotificationSchedulerPlugin"
-
-const INITIALIZATION_COMPLETED_SIGNAL_NAME = "initialization_completed"
-const POST_NOTIFICATIONS_PERMISSION_GRANTED_SIGNAL_NAME = "post_notifications_permission_granted"
-const POST_NOTIFICATIONS_PERMISSION_DENIED_SIGNAL_NAME = "post_notifications_permission_denied"
-const BATTERY_OPTIMIZATIONS_PERMISSION_GRANTED_SIGNAL_NAME = "battery_optimizations_permission_granted"
-const BATTERY_OPTIMIZATIONS_PERMISSION_DENIED_SIGNAL_NAME = "battery_optimizations_permission_denied"
-const SCHEDULE_EXACT_ALARM_PERMISSION_GRANTED_SIGNAL_NAME = "schedule_exact_alarm_permission_granted"
-const SCHEDULE_EXACT_ALARM_PERMISSION_DENIED_SIGNAL_NAME = "schedule_exact_alarm_permission_denied"
-
-const NOTIFICATION_OPENED_SIGNAL_NAME = "notification_opened"
-const NOTIFICATION_DISMISSED_SIGNAL_NAME = "notification_dismissed"
-
 const DEFAULT_NOTIFICATION_ID: int = -1
 const DEFAULT_ICON_NAME: String = "ic_default_notification"
 
-var _plugin_singleton: Object
+var _plugin_singleton: Object = null
+
+
+func _connect_signal_if_present(a_signal_name: String, a_callable: Callable) -> void:
+	if _plugin_singleton.has_signal(a_signal_name):
+		if not _plugin_singleton.is_connected(a_signal_name, a_callable):
+			_plugin_singleton.connect(a_signal_name, a_callable)
 
 
 func _connect_signals() -> void:
-	_plugin_singleton.connect(INITIALIZATION_COMPLETED_SIGNAL_NAME, _on_initialization_completed)
-	_plugin_singleton.connect(NOTIFICATION_OPENED_SIGNAL_NAME, _on_notification_opened)
-	_plugin_singleton.connect(NOTIFICATION_DISMISSED_SIGNAL_NAME, _on_notification_dismissed)
-	_plugin_singleton.connect(
-		POST_NOTIFICATIONS_PERMISSION_GRANTED_SIGNAL_NAME, _on_post_notifications_permission_granted
-	)
-	_plugin_singleton.connect(
-		POST_NOTIFICATIONS_PERMISSION_DENIED_SIGNAL_NAME, _on_post_notifications_permission_denied
-	)
-	_plugin_singleton.connect(
-		BATTERY_OPTIMIZATIONS_PERMISSION_GRANTED_SIGNAL_NAME, _on_battery_optimizations_permission_granted
-	)
-	_plugin_singleton.connect(
-		BATTERY_OPTIMIZATIONS_PERMISSION_DENIED_SIGNAL_NAME, _on_battery_optimizations_permission_denied
-	)
-	_plugin_singleton.connect(
-		SCHEDULE_EXACT_ALARM_PERMISSION_GRANTED_SIGNAL_NAME, _on_schedule_exact_alarm_permission_granted
-	)
-	_plugin_singleton.connect(
-		SCHEDULE_EXACT_ALARM_PERMISSION_DENIED_SIGNAL_NAME, _on_schedule_exact_alarm_permission_denied
-	)
+	_connect_signal_if_present("initialization_completed", _on_initialization_completed)
+	_connect_signal_if_present("notification_opened", _on_notification_opened)
+	_connect_signal_if_present("notification_dismissed", _on_notification_dismissed)
+	_connect_signal_if_present(
+		"post_notifications_permission_granted", _on_post_notifications_permission_granted)
+	_connect_signal_if_present(
+		"post_notifications_permission_denied", _on_post_notifications_permission_denied)
+	_connect_signal_if_present(
+		"battery_optimizations_permission_granted", _on_battery_optimizations_permission_granted)
+	_connect_signal_if_present(
+		"battery_optimizations_permission_denied", _on_battery_optimizations_permission_denied)
+	_connect_signal_if_present(
+		"schedule_exact_alarm_permission_granted", _on_schedule_exact_alarm_permission_granted)
+	_connect_signal_if_present(
+		"schedule_exact_alarm_permission_denied", _on_schedule_exact_alarm_permission_denied)
 
 
 func initialize() -> void:
-	if _plugin_singleton == null:
-		if Engine.has_singleton(PLUGIN_SINGLETON_NAME):
-			_plugin_singleton = Engine.get_singleton(PLUGIN_SINGLETON_NAME)
-			_connect_signals()
-			_plugin_singleton.initialize()
-		elif not OS.has_feature("editor_hint"):
-			GmpLogger.log_error("%s singleton not found!" % PLUGIN_SINGLETON_NAME)
+	if _plugin_singleton != null:
+		return
+
+	if Engine.has_singleton(PLUGIN_SINGLETON_NAME):
+		_plugin_singleton = Engine.get_singleton(PLUGIN_SINGLETON_NAME)
+		_connect_signals()
+		_plugin_singleton.initialize()
+	elif not OS.has_feature("editor_hint"):
+		GmpLogger.log_error("%s singleton not found. The Android v6.0 AAR may be missing." % PLUGIN_SINGLETON_NAME)
 
 
 func create_notification_channel(a_notification_channel: NotificationChannel) -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.create_notification_channel(a_notification_channel.get_raw_data())
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.create_notification_channel(a_notification_channel.get_raw_data())
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func schedule(a_notification_data: NotificationData) -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.schedule(a_notification_data.get_raw_data())
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.schedule(a_notification_data.get_raw_data())
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func cancel(a_notification_id: int) -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.cancel(a_notification_id)
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.cancel(a_notification_id)
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func set_badge_count(a_count: int) -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.set_badge_count(a_count)
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.set_badge_count(a_count)
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func get_notification_id(a_default_value: int = DEFAULT_NOTIFICATION_ID) -> int:
-	var __result: int = a_default_value
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.get_notification_id(a_default_value)
-	else:
+	if _plugin_singleton == null:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-
-	return __result
+		return a_default_value
+	return _plugin_singleton.get_notification_id(a_default_value)
 
 
 func has_post_notifications_permission() -> bool:
-	var __result: bool = false
-	if _plugin_singleton:
-		__result = _plugin_singleton.has_post_notifications_permission()
-	else:
+	if _plugin_singleton == null:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-	return __result
+		return false
+	return _plugin_singleton.has_post_notifications_permission()
 
 
 func request_post_notifications_permission() -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.request_post_notifications_permission()
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.request_post_notifications_permission()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func has_battery_optimizations_permission() -> bool:
-	var __result: bool = false
-	if _plugin_singleton:
-		__result = _plugin_singleton.has_battery_optimizations_permission()
-	else:
+	if _plugin_singleton == null:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-	return __result
+		return false
+	return _plugin_singleton.has_battery_optimizations_permission()
 
 
 func request_battery_optimizations_permission() -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.request_battery_optimizations_permission()
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.request_battery_optimizations_permission()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func has_schedule_exact_alarm_permission() -> bool:
-	var __result: bool = false
-	if _plugin_singleton:
-		__result = _plugin_singleton.has_schedule_exact_alarm_permission()
-	else:
+	if _plugin_singleton == null:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-	return __result
+		return false
+	return _plugin_singleton.has_schedule_exact_alarm_permission()
 
 
 func request_schedule_exact_alarm_permission() -> Error:
-	var __result: Error = ERR_UNCONFIGURED
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.request_schedule_exact_alarm_permission()
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.request_schedule_exact_alarm_permission()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func open_app_info_settings() -> Error:
-	var __result: Error
-
-	if _plugin_singleton:
-		__result = _plugin_singleton.open_app_info_settings()
+	var result: Error = ERR_UNCONFIGURED
+	if _plugin_singleton != null:
+		result = _plugin_singleton.open_app_info_settings()
 	else:
 		GmpLogger.log_error("%s singleton not initialized!" % PLUGIN_SINGLETON_NAME)
-		__result = ERR_UNCONFIGURED
-
-	return __result
+	return result
 
 
 func _on_initialization_completed() -> void:

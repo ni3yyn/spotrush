@@ -1,66 +1,50 @@
-# Daily Streak Reminders - Android Wiring (one-time, ~2 minutes)
+# SpotRush Daily Spot reminders (Android)
 
-The game side is complete and shipping: `scripts/core/DailyReminder.gd`
-(autoload), the opt-in "Daily Streak Reminder" toggle on the settings sheet,
-and the `POST_NOTIFICATIONS` manifest permission (export preset).
+The Daily Spot reminder uses Notification Scheduler v6.0 for local Android alarm scheduling. The native AAR is installed from the official release by the included checksum-verifying build workflow or local installer; the source ZIP intentionally does not include a stale v4.1 native binary. Permission requests are made through the bundled plugin's native Android
+permission request API. Its native result callback emits explicit granted/denied
+signals back to the `DailyReminder` autoload.
 
-Godot 4 has no built-in local notifications, so posting is done by the
-**NotificationScheduler** Android plugin - which now SHIPS IN THIS PROJECT:
+## Included wiring
 
-- `addons/NotificationSchedulerPlugin/` - prebuilt AAR (v4.1, release +
-  debug), GDScript wrapper and model classes. The plugin is already enabled
-  in project.godot (`[editor_plugins]`), so the export step bundles the AAR,
-  its manifest entries (receivers + the tap-open activity) and its
-  appcompat dependency automatically. Source:
-  github.com/cengiz-pz/godot-android-notification-scheduler-plugin (MIT).
-- `android_extras/res/drawable-*/ic_notification.png` - the ready-made
-  monochrome status-bar icon (the streak flame) at all densities. Android
-  crashes a notification whose small icon is missing, so do not skip the
-  copy below. Icon: Google Material Icons "whatshot" (Apache License 2.0).
+- `scripts/core/DailyReminder.gd` is the autoload service.
+- Settings stores the opt-in flag and a selectable local reminder hour (00:00–23:00; default 19:00).
+- Android 13+ receives the runtime `POST_NOTIFICATIONS` permission prompt when
+the player enables reminders or taps **SEND TEST NOTIFICATION**.
+- The plugin creates the `daily_spot_reminders_v2` notification channel and
+  schedules one repeating Daily Spot reminder (notification ID `1001`, every
+  24 hours). Returning to SpotRush cancels the repeat; leaving again recalculates it.
+- The test button is available in release and debug builds. It sends a separate
+  notification (ID `1002`) after five seconds, without enabling the daily
+  reminder or replacing/cancelling its pending notification.
+- Daily reminders repeat every 24 hours while the app remains in the
+  background. Returning to SpotRush cancels the repeat; the next background
+  transition schedules it again only if today's Daily Spot is unfinished. A
+  player with no existing streak can still receive a reminder and start one.
+- Returning to the app cancels the pending daily reminder; backgrounding the
+  app re-evaluates eligibility and schedules the next reminder.
 
-Until the plugin is active on a device, desktop/editor/device logs say
-`[DailyReminder] (no native bridge) would notify in ...` instead - every
-other behaviour is identical.
+## Android export requirements
 
-## Step 1 - Copy the notification icon into the gradle build template (once)
+- `project.godot` keeps `NotificationSchedulerPlugin` enabled as an editor
+  export plugin.
+- The Android export preset must keep `permissions/post_notifications=true`.
+- The plugin export hook copies `assets/NotificationSchedulerPlugin/android/drawable-*/ic_default_notification.png` into the generated Gradle build's `res` directory. The included workflow stages these resources automatically; local builds use the installer script.
+- Export with Gradle build enabled. The Android AAR is Notification Scheduler v6.0, built for Godot 4.7 and Android API 24+. The Android export preset sets minSdk 24 to match it. The included Android build workflow downloads the official v6.0 package and verifies its SHA-256 before export. For a local Windows/Godot export, run `scripts/dev/install_notification_plugin_v6.cmd` (or `scripts/dev/install_notification_plugin_v6.ps1`) first. This downloads the release, verifies its SHA-256, installs the debug/release AARs and stages the notification icons.
 
-After installing the Android build template in the Godot editor
-(Project -> Install Android Build Template - see store/RELEASE_CHECKLIST.md),
-copy the bundled icon set in:
+## Device test
 
-    # Linux / macOS
-    cp -r android_extras/res/. android/build/res/
+1. Install the exported APK on Android 13 or newer with notifications not yet
+   allowed for SpotRush.
+2. Open Settings and tap **SEND TEST NOTIFICATION**. Android should show its
+   notification permission prompt.
+3. Grant permission. The test notification should appear in about five seconds.
+4. Tap the reminder toggle, choose a time, and leave the app before that time.
+   If Daily Spot is unfinished, a repeating daily reminder should be scheduled.
+5. Complete Daily Spot and background the app again. No daily reminder should
+   be pending for that day. If the app stays in the background without being
+   opened, the reminder repeats every 24 hours.
+6. Deny permission during the first step and tap **OPEN ANDROID NOTIFICATION
+   SETTINGS** to enable it manually. Return to SpotRush and retry the test.
 
-    # Windows (cmd)
-    xcopy /E /I android_extras\res android\build\res
-
-Result: `android/build/res/drawable-<density>/ic_notification.png`, exactly
-the name DailyReminder.gd posts with (`REMINDER_ICON = "ic_notification"`).
-
-## Step 2 - Export
-
-Export with Gradle build (already the preset default). Nothing else to
-configure: the runtime permission is requested from the settings toggle the
-moment the player turns the reminder on (the polite moment), and Android 13+
-shows the system dialog. If the player declines, the toggle stays on but no
-notification can appear - the plugin's permission query makes re-prompts
-possible from the app's system settings.
-
-## Behaviour contract (what ships in code)
-
-- OFF by default; nothing is scheduled unless the player opts in.
-- One notification pending at most, fixed id 1001 - re-scheduling overwrites.
-- Fires at 19:00 local time (today if the hour has not passed, otherwise
-  tomorrow), only when the daily is unplayed AND the streak is alive.
-- Content: "A quick run keeps your N-day streak alive."
-- Opening the app cancels the pending nudge; leaving re-evaluates.
-- All decision logic is pure/static and covered by the self-test (section 11).
-
-## On-device verification (2 minutes)
-
-1. Play the Daily Spot at least once so a streak exists; leave the app with
-   the daily unplayed the NEXT day, or just lower the device clock past
-   19:00 with the app backgrounded after toggling the reminder on.
-2. Expect one notification: "SpotRush daily is waiting / A quick run keeps
-   your N-day streak alive."
-3. Open the app - the notification clears; toggle off - nothing schedules.
+Desktop/editor runs cannot post Android notifications; the test button reports
+that the feature requires an installed Android build.

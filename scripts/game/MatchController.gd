@@ -28,6 +28,7 @@ var current_challenge: ChallengeDefinition = null
 var round_timer: float = 0.0
 var round_duration: float = 0.0
 var countdown_timer: float = 0.0
+var countdown_paused: bool = false
 var feedback_timer: float = 0.0
 var _ui_tick_accumulator: float = 0.0
 const UI_TICK_INTERVAL: float = 0.05 # 20 Hz is ample for a tenth-second display.
@@ -75,6 +76,7 @@ func initialize_match(mode: GameConfig.GameMode, rounds: int = GameConfig.DEFAUL
 		current_challenge = null
 		round_timer = 0.0
 		countdown_timer = 0.0
+		countdown_paused = false
 		feedback_timer = 0.0
 		_ui_tick_accumulator = 0.0
 		
@@ -98,6 +100,7 @@ func _begin_round_countdown() -> void:
 				_generate_current_challenge()
 		current_state = MatchState.COUNTDOWN
 		countdown_timer = GameConfig.COUNTDOWN_DURATION
+		countdown_paused = false
 		round_countdown_started.emit(current_round_index + 1, total_rounds)
 
 ## Roll the current round's challenge (host / single-player only).
@@ -141,6 +144,8 @@ func prepare_first_challenge() -> void:
 func update_process(delta: float) -> void:
 		match current_state:
 				MatchState.COUNTDOWN:
+						if countdown_paused:
+								return
 						countdown_timer -= delta
 						if countdown_timer <= 0.0:
 								_start_active_round()
@@ -160,8 +165,18 @@ func update_process(delta: float) -> void:
 						if feedback_timer <= 0.0:
 								_advance_after_feedback()
 
+## Hold the pre-round countdown while a local practice sheet or instruction preview is visible.
+func pause_countdown() -> void:
+		if current_state == MatchState.COUNTDOWN:
+				countdown_paused = true
+
+func resume_countdown() -> void:
+		if current_state == MatchState.COUNTDOWN:
+				countdown_paused = false
+
 func _start_active_round() -> void:
 		current_state = MatchState.ACTIVE_ROUND
+		countdown_paused = false
 		round_timer = 0.0
 		_ui_tick_accumulator = 0.0
 		round_submissions.clear()
@@ -343,6 +358,7 @@ func abort_match() -> void:
 		current_challenge = null
 		round_timer = 0.0
 		countdown_timer = 0.0
+		countdown_paused = false
 		feedback_timer = 0.0
 		round_submissions.clear()
 

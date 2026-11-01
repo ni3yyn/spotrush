@@ -58,11 +58,11 @@ class AndroidExportPlugin extends EditorExportPlugin:
 
 	func _export_begin(_features: PackedStringArray, _is_debug: bool, path: String, _flags: int) -> void:
 		if _supports_platform(get_export_platform()):
+			# v6.0 resolves notification icons from this plugin-owned asset folder.
 			if not DirAccess.dir_exists_absolute(PLUGIN_ASSETS_DIRECTORY):
-				GmpLogger.log_error("Error: %s's assets directory not found! \"%s\""
+				GmpLogger.log_error("Error: %s v6.0 Android assets are missing at \"%s\". Run the plugin installer before exporting."
 						% [PLUGIN_NAME, PLUGIN_ASSETS_DIRECTORY])
 			else:
-				# copy notification assets
 				_copy(PLUGIN_ASSETS_DIRECTORY, ANDROID_RES_DIRECTORY)
 
 
