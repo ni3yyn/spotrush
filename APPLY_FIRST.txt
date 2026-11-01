@@ -1,20 +1,30 @@
-SpotRush v46.2 — Android GitHub Actions manifest path fix
+SpotRush EOS Windows platform diagnostics patch
 
-Apply this small overlay at the SpotRush project root, replacing the matching files.
-Do NOT delete or replace addons/ or any EOSG binaries.
+Overlay these files on your project root, keeping your existing 94 MB addons directory:
+- scripts/networking/EOSOnline.gd
+- addons/epic-online-services-godot/heos/hplatform.gd
+- tools/fix_eos_autoload_comment.py
 
-What changed:
-- tools/patch_android_template.py auto-detects Godot 4.7's
-  android/build/src/main/AndroidManifest.xml and retains fallback support for
-  android/build/AndroidManifest.xml and app/src/main/AndroidManifest.xml.
-- .github/workflows/android-apk.yml verifies the generated template paths on
-  the GitHub Actions runner before applying patches, and passes --android-build
-  explicitly to both patchers.
-- ONLINE_MULTIPLAYER_SETUP.md now explains that the configured workflow performs
-  template installation and patching on the runner. Local patching is optional.
+Then:
+1. Close Godot.
+2. Run from the SpotRush project root:
+   python tools/fix_eos_autoload_comment.py
+3. Reopen Godot, run the game, and click Create Room once.
+4. Copy Output lines beginning with [EOS SDK], [HPlatform], or "EOS setup failed".
 
-For the normal SpotRush workflow:
-1. Copy these files into your repository, preserving paths.
-2. Commit and push to main, or manually dispatch the Android workflow.
-3. Do not run the Android template patch scripts locally unless you are also
-   doing a local Android export.
+This patch does not print Product/Sandbox/Deployment IDs, Client ID, Client Secret,
+or Encryption Key. Do not paste EOSLocalConfig.gd or any secret into chat.
+
+The patch:
+- exposes the exact EOS SDK Initialize result / stage;
+- enables verbose EOS SDK logs before Platform Create;
+- surfaces native EOS log messages through EOSOnline;
+- fixes EOSG HPlatform's handling of EOS.Result.AlreadyConfigured;
+- stops trying to format PlatformInterface.create()'s bool as an EOS.Result;
+- provides a small helper to change accidental '#' pseudo-comment lines in the
+  [autoload] section into valid ';' comments.
+
+Godot 4.7.2 compile/export and actual EOS initialization still need to be tested
+in the user's Windows editor. The Windows platform Create result is a bool in
+EOSG 2.3.1; the verbose EOS SDK log is needed to identify the native reason if it
+returns false.

@@ -74,6 +74,10 @@ func _initialize_async() -> bool:
                 return false
 
         _h_platform = get_node_or_null("/root/HPlatform")
+        if _h_platform != null and _h_platform.has_signal("log_msg"):
+                var sdk_log_callback: Callable = Callable(self, "_on_eos_sdk_log")
+                if not _h_platform.is_connected("log_msg", sdk_log_callback):
+                        _h_platform.connect("log_msg", sdk_log_callback)
         _h_auth = get_node_or_null("/root/HAuth")
         _h_lobbies = get_node_or_null("/root/HLobbies")
         _h_p2p = get_node_or_null("/root/HP2P")
@@ -137,7 +141,12 @@ func _initialize_async() -> bool:
                         # hit EOS Result.AlreadyConfigured and cannot recover safely
                         # in the same process. Require an app restart instead.
                         _platform_setup_failed = true
-                        last_error = "EOS platform initialization failed. Check Product, Sandbox, Deployment, and Client Policy settings, then restart SpotRush."
+                        var setup_stage: String = str(_h_platform.get("last_setup_stage"))
+                        var setup_detail: String = str(_h_platform.get("last_setup_error"))
+                        if setup_detail.is_empty():
+                                setup_detail = "HPlatform.setup_eos_async() returned false without a diagnostic detail."
+                        last_error = "EOS setup failed at '%s': %s" % [setup_stage, setup_detail]
+                        push_error(last_error)
                         return false
                 _platform_ready = true
 
@@ -193,6 +202,11 @@ func _initialize_async() -> bool:
 
         _h_lobbies.set("max_search_results", MAX_ROOM_RESULTS)
         return true
+
+func _on_eos_sdk_log(message: Variant) -> void:
+        # EOSG LogMessage implements _to_string() with category, level, and text.
+        # Never print credentials or EOSLocalConfig contents.
+        print("[EOS SDK] %s" % str(message))
 
 func _make_device_login_options() -> EOS.Connect.LoginOptions:
         var options: EOS.Connect.LoginOptions = EOS.Connect.LoginOptions.new()
