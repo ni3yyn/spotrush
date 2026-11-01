@@ -338,11 +338,10 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 								var countdown_round: int = maxi(0, rnum - 1)
 								if countdown_round < match_controller.current_round_index:
 										return
+								# The first countdown starts from IDLE. Any same-round packet
+								# after that point is stale and must not reopen the popup.
 								if countdown_round == match_controller.current_round_index \
-										and match_controller.current_state == MatchController.MatchState.COUNTDOWN:
-										return
-								if countdown_round == match_controller.current_round_index \
-										and match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
+										and match_controller.current_state != MatchController.MatchState.IDLE:
 										return
 								match_controller.set_client_countdown(countdown_round)
 								# Instructions remain visible on the challenge. Don't replay
