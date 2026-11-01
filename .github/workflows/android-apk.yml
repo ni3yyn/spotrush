@@ -57,7 +57,7 @@ jobs:
           # any local Windows binaries already in the checkout are preserved.
           if [ ! -s "$addon/bin/android/eossdk-StaticSTDC-release.aar" ] || \
              [ ! -s "$addon/bin/android/libeosg.android.template_release.arm64.so" ] || \
-             ! grep -Fq 'version="2.3.1"' "$addon/plugin.cfg" 2>/dev/null; then
+             ! grep -Eq '^[[:space:]]*version[[:space:]]*=[[:space:]]*"2\.3\.1"[[:space:]]*$' "$addon/plugin.cfg" 2>/dev/null; then
             echo "Downloading EOSG 2.3.1 Android package..."
             curl --fail --location --retry 3 --retry-delay 2 "$url" --output "$archive"
             echo "$expected_sha256  $archive" | sha256sum --check -
@@ -74,7 +74,7 @@ jobs:
             echo "EOSG 2.3.1 Android package already present in checkout."
           fi
 
-          grep -Fq 'version="2.3.1"' "$addon/plugin.cfg"
+          grep -Eq '^[[:space:]]*version[[:space:]]*=[[:space:]]*"2\.3\.1"[[:space:]]*$' "$addon/plugin.cfg"
           test -s "$addon/eosg.gdextension"
           test -s "$addon/bin/android/eossdk-StaticSTDC-release.aar"
           test -s "$addon/bin/android/libeosg.android.template_release.arm64.so"
