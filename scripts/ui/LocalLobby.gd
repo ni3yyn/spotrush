@@ -4,6 +4,7 @@ const SpotRushSkin = preload("res://scripts/ui/SpotRushSkin.gd")
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
 const Feel = preload("res://scripts/core/Feel.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
+const LanDiscoveryScript = preload("res://scripts/networking/LanDiscovery.gd")
 const Records = preload("res://scripts/core/Records.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 const CommunityQRCodeRect = preload("res://addons/kenyoni/qr_code/qr_code_rect.gd")
@@ -166,6 +167,7 @@ func _set_active_tab(tab: LobbyTab, animate: bool = true) -> void:
 
 func _set_create_room_idle() -> void:
 	lbl_room_code.text = "--------"
+	qr_placeholder.text = "YOUR ROOM QR\\nAPPEARS HERE"
 	qr_placeholder.visible = true
 	_qr_rect.visible = false
 	btn_create_room.visible = true
@@ -194,6 +196,7 @@ func _set_room_invitation(code: String) -> void:
 	if link.is_empty():
 		_qr_rect.visible = false
 		qr_placeholder.text = "QR INVITATION COULDN'T BE GENERATED"
+		qr_placeholder.visible = true
 	else:
 		_qr_rect.set("data", link)
 		_qr_rect.visible = true
@@ -486,6 +489,10 @@ func _start_rival_run(code: String) -> void:
 		Feel.sfx("wrong")
 		Feel.haptic("error")
 		return
+	# Rival Codes are standalone offline runs. If the player switches to this
+	# tab while an EOS room is still open, close that session before launching.
+	if EOSOnline.has_current_lobby() or NetworkSession.is_connected_to_network() or NetworkSession.is_connecting():
+		await _close_current_room()
 	is_navigating = true
 	SceneRouter.goto_game()
 
