@@ -79,6 +79,9 @@ var _countdown_sub_base_color: Color = Color.WHITE
 var _feedback_correct_depth: float = 1.0
 var _feedback_wrong_depth: float = 1.0
 var _practice_coach: PracticeCoach
+var _inter_round_layer: CenterContainer
+var _inter_round_label: NeuText
+var _inter_round_tween: Tween = null
 var _tutorial_practice_active: bool = false
 var _tutorial_has_result: bool = false
 var _tutorial_result: Dictionary = {}
@@ -86,7 +89,9 @@ var _tutorial_attempt_id: int = 0
 var _tutorial_challenge: ChallengeDefinition = null
 var _tutorial_skipped_families: Dictionary = {}
 var _tutorial_interrupted: bool = false
-const INTER_ROUND_INSTRUCTION_SECONDS: float = 2.5
+const INTER_ROUND_INSTRUCTION_SECONDS: float = 1.5
+const INTER_ROUND_INSTRUCTION_IN_SECONDS: float = 0.18
+const INTER_ROUND_INSTRUCTION_OUT_SECONDS: float = 0.14
 
 func _ready() -> void:
 		SpotRushSkin.apply_screen(self, "game")
@@ -103,6 +108,7 @@ func _ready() -> void:
 		_practice_coach = PracticeCoachScript.new()
 		_practice_coach.name = "PracticeCoach"
 		add_child(_practice_coach)
+		_create_inter_round_instruction_layer()
 
 		# Allocate result surfaces once rather than on every answer.
 		_feedback_correct_style = _make_feedback_card(_feedback_color(true))
@@ -485,7 +491,7 @@ func _run_first_time_practice(live_challenge: ChallengeDefinition) -> void:
 		countdown_scrim.visible = false
 		feedback_panel.visible = false
 		var title: String = _tutorial_family_title(_tutorial_challenge)
-		var message: String = "FIRST-TIME PRACTICE\n\n%s\n\nTry one unscored example. The real round starts after you finish." % [
+		var message: String = "FIRST-TIME PRACTICE\n\n%s\n\n%s" % [
 				_tutorial_challenge.instruction, _tutorial_explanation(_tutorial_challenge)]
 		var begin_practice: bool = await _practice_coach.present(title, message, "PRACTICE NOW", "SKIP FOR NOW")
 		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
@@ -580,57 +586,88 @@ func _record_tutorial_submission(answer: Variant, is_timeout: bool) -> void:
 		_tutorial_practice_active = false
 		challenge_view.lock_input()
 
+func _create_inter_round_instruction_layer() -> void:
+	_inter_round_layer = CenterContainer.new()
+	_inter_round_layer.name = "InterRoundInstruction"
+	_inter_round_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_inter_round_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inter_round_layer.visible = false
+	add_child(_inter_round_layer)
+
+	_inter_round_label = NeuText.new()
+	_inter_round_label.name = "InstructionText"
+	_inter_round_label.font_size = 56
+	_inter_round_label.bold = true
+	_inter_round_label.color = NeuKit.INK
+	_inter_round_label.look = NeuText.Look.EMBOSS
+	_inter_round_label.align = HORIZONTAL_ALIGNMENT_CENTER
+	_inter_round_label.autowrap = true
+	_inter_round_label.line_spacing = 10.0
+	_inter_round_label.custom_minimum_size = Vector2(260.0, 220.0)
+	_inter_round_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_inter_round_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_inter_round_layer.add_child(_inter_round_label)
+
 func _show_inter_round_instruction(instruction: String) -> void:
-		if instruction.strip_edges().is_empty():
-				return
-		var safe_was_visible: bool = safe_area.visible if safe_area != null else true
-		if safe_area != null:
-				safe_area.visible = false
-		countdown_overlay.visible = true
-		countdown_scrim.visible = true
-		countdown_scrim.modulate.a = 0.0
-		lbl_countdown_sub.visible = false
-		lbl_countdown.text = instruction.strip_edges()
-		lbl_countdown.font_size = 28
-		lbl_countdown.autowrap = true
-		lbl_countdown.custom_minimum_size = Vector2(0.0, 132.0)
-		lbl_countdown.color = Color.WHITE
-		countdown_overlay.offset_top = _countdown_base_ot
-		countdown_overlay.offset_bottom = _countdown_base_ob
-		countdown_overlay.scale = Vector2(0.96, 0.96)
-		countdown_overlay.modulate.a = 0.0
-		_countdown_style.depth = -0.18
-		countdown_overlay.pivot_offset = countdown_overlay.size * 0.5
-		var enter := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		enter.tween_property(countdown_scrim, "modulate:a", 1.0, 0.20)
-		enter.tween_property(countdown_overlay, "modulate:a", 1.0, 0.22)
-		enter.tween_property(countdown_overlay, "scale", Vector2.ONE, 0.24)
-		enter.tween_property(_countdown_style, "depth", 0.85, 0.24)
-		await enter.finished
-		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
-				return
-		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_SECONDS).timeout
-		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
-				return
-		var exit := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		exit.tween_property(countdown_overlay, "modulate:a", 0.0, 0.16)
-		exit.tween_property(countdown_overlay, "scale", Vector2(0.975, 0.975), 0.16)
-		exit.tween_property(countdown_scrim, "modulate:a", 0.0, 0.18)
-		exit.tween_property(_countdown_style, "depth", -0.18, 0.16)
-		await exit.finished
-		countdown_overlay.visible = false
-		countdown_scrim.visible = false
-		lbl_countdown_sub.visible = true
-		lbl_countdown.autowrap = false
-		lbl_countdown.custom_minimum_size = Vector2(0.0, 92.0)
-		lbl_countdown.font_size = 62
-		lbl_countdown.text = "GET READY!"
-		_countdown_style.depth = 1.0
-		countdown_overlay.scale = Vector2.ONE
-		countdown_overlay.modulate.a = 1.0
-		countdown_scrim.modulate.a = 1.0
-		if safe_area != null:
-				safe_area.visible = safe_was_visible
+	if instruction.strip_edges().is_empty():
+		return
+
+	var phase_started_usec: int = Time.get_ticks_usec()
+	var safe_was_visible: bool = safe_area.visible if safe_area != null else true
+	if safe_area != null:
+		safe_area.visible = false
+
+	countdown_overlay.visible = false
+	countdown_scrim.visible = false
+	feedback_panel.visible = false
+	if _inter_round_tween != null and _inter_round_tween.is_valid():
+		_inter_round_tween.kill()
+
+	var viewport_width: float = get_viewport_rect().size.x
+	_inter_round_label.custom_minimum_size = Vector2(maxf(250.0, viewport_width - 72.0), 220.0)
+	_inter_round_label.text = instruction.strip_edges()
+	_inter_round_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_inter_round_label.scale = Vector2(0.94, 0.94)
+	_inter_round_layer.visible = true
+	await get_tree().process_frame
+	if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+		return
+	_inter_round_label.pivot_offset = _inter_round_label.size * 0.5
+
+	var exit_seconds: float = 0.0
+	if Feel.reduced():
+		_inter_round_label.modulate = Color.WHITE
+		_inter_round_label.scale = Vector2.ONE
+	else:
+		_inter_round_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_inter_round_tween.tween_property(_inter_round_label, "modulate:a", 1.0, INTER_ROUND_INSTRUCTION_IN_SECONDS)
+		_inter_round_tween.tween_property(_inter_round_label, "scale", Vector2.ONE, INTER_ROUND_INSTRUCTION_IN_SECONDS)
+		exit_seconds = INTER_ROUND_INSTRUCTION_OUT_SECONDS
+		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_IN_SECONDS).timeout
+
+	if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+		return
+
+	# The full instruction phase, including reveal and fade, is capped at 1.5 seconds.
+	var elapsed_seconds: float = float(Time.get_ticks_usec() - phase_started_usec) / 1000000.0
+	var hold_seconds: float = maxf(0.0, INTER_ROUND_INSTRUCTION_SECONDS - elapsed_seconds - exit_seconds)
+	if hold_seconds > 0.0:
+		await get_tree().create_timer(hold_seconds).timeout
+	if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+		return
+
+	if not Feel.reduced():
+		_inter_round_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		_inter_round_tween.tween_property(_inter_round_label, "modulate:a", 0.0, INTER_ROUND_INSTRUCTION_OUT_SECONDS)
+		_inter_round_tween.tween_property(_inter_round_label, "scale", Vector2(0.98, 0.98), INTER_ROUND_INSTRUCTION_OUT_SECONDS)
+		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_OUT_SECONDS).timeout
+
+	_inter_round_layer.visible = false
+	_inter_round_label.modulate = Color.WHITE
+	_inter_round_label.scale = Vector2.ONE
+	_inter_round_tween = null
+	if safe_area != null:
+		safe_area.visible = safe_was_visible
 
 func _press_countdown_card() -> void:
 		if _countdown_press_tween != null and _countdown_press_tween.is_valid():
@@ -647,6 +684,8 @@ func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration:
 		_last_tick_second = -1
 
 		countdown_overlay.visible = false
+		if _inter_round_layer != null:
+			_inter_round_layer.visible = false
 		# Restore the overlay's resting offsets/alpha/scale so the next countdown
 		# starts from a clean state even if the previous tween was interrupted.
 		countdown_overlay.offset_top = _countdown_base_ot
@@ -1031,6 +1070,8 @@ func _kill_tweens() -> void:
 				_countdown_press_tween.kill()
 		if _entrance_tween != null and _entrance_tween.is_valid():
 				_entrance_tween.kill()
+		if _inter_round_tween != null and _inter_round_tween.is_valid():
+				_inter_round_tween.kill()
 
 func _on_round_ended(_round_num: int, _scores: Dictionary) -> void:
 		challenge_view.lock_input()
@@ -1047,6 +1088,8 @@ func _on_scene_transition_started() -> void:
 				_tutorial_result = {"is_correct": false, "details": "Practice was interrupted."}
 		# Clear every transient layer before the first visible wipe frame.
 		_kill_tweens()
+		if _inter_round_layer != null:
+			_inter_round_layer.visible = false
 		countdown_overlay.visible = false
 		countdown_overlay.offset_top = _countdown_base_ot
 		countdown_overlay.offset_bottom = _countdown_base_ob
