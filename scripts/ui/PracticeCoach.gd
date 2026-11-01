@@ -2,8 +2,7 @@ class_name PracticeCoach
 extends Control
 
 ## Full-screen, text-first practice guidance. The game backdrop remains visible;
-## there is no scrim or modal card. Lesson content has distinct editorial roles:
-## title -> context eyebrow -> live challenge instruction -> explanation -> actions.
+## there is no scrim, modal card, or cramped button row.
 
 signal choice_made(primary: bool)
 
@@ -14,8 +13,6 @@ const SpotRushButton = preload("res://scripts/ui/SpotRushButton.gd")
 
 var _content: VBoxContainer
 var _title: NeuText
-var _eyebrow: NeuText
-var _instruction: NeuText
 var _message: NeuText
 var _primary_button: Button
 var _secondary_button: Button
@@ -27,75 +24,64 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
-	if not resized.is_connected(_reflow):
-		resized.connect(_reflow)
-	if not get_viewport().size_changed.is_connected(_reflow):
-		get_viewport().size_changed.connect(_reflow)
 	visible = false
 
 func _build() -> void:
 	_content = VBoxContainer.new()
 	_content.name = "TutorialContent"
 	_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_content.offset_left = 34.0
-	_content.offset_top = 30.0
-	_content.offset_right = -34.0
-	_content.offset_bottom = -30.0
-	_content.add_theme_constant_override("separation", 16)
+	_content.offset_left = 28.0
+	_content.offset_top = 36.0
+	_content.offset_right = -28.0
+	_content.offset_bottom = -36.0
+	_content.add_theme_constant_override("separation", 22)
 	_content.alignment = BoxContainer.ALIGNMENT_CENTER
 	_content.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_content)
 
-	_title = _new_text("TutorialTitle", 52, NeuKit.INK, true, NeuText.Look.EMBOSS)
-	_title.custom_minimum_size = Vector2(0.0, 88.0)
+	_title = NeuText.new()
+	_title.name = "TutorialTitle"
+	_title.custom_minimum_size = Vector2(0.0, 78.0)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title.font_size = 56
+	_title.bold = true
+	_title.color = NeuKit.INK
+	_title.look = NeuText.Look.EMBOSS
+	_title.align = HORIZONTAL_ALIGNMENT_CENTER
+	_title.autowrap = true
 	_content.add_child(_title)
 
-	_eyebrow = _new_text("TutorialEyebrow", 24, NeuKit.COBALT, true, NeuText.Look.DEBOSS)
-	_eyebrow.custom_minimum_size = Vector2(0.0, 34.0)
-	_eyebrow.tracking = 2.0
-	_eyebrow.visible = false
-	_content.add_child(_eyebrow)
-
-	_instruction = _new_text("TutorialInstruction", 38, NeuKit.INK, true, NeuText.Look.EMBOSS)
-	_instruction.custom_minimum_size = Vector2(0.0, 88.0)
-	_instruction.visible = false
-	_content.add_child(_instruction)
-
-	_message = _new_text("TutorialExplanation", 28, NeuKit.SLATE, false, NeuText.Look.EMBOSS)
-	_message.custom_minimum_size = Vector2(0.0, 108.0)
-	_message.line_spacing = 7.0
+	_message = NeuText.new()
+	_message.name = "TutorialInstructions"
+	_message.custom_minimum_size = Vector2(0.0, 250.0)
+	_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_message.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_message.font_size = 34
+	_message.bold = false
+	_message.color = NeuKit.SLATE
+	_message.look = NeuText.Look.EMBOSS
+	_message.align = HORIZONTAL_ALIGNMENT_CENTER
+	_message.autowrap = true
+	_message.line_spacing = 9.0
 	_content.add_child(_message)
 
 	var button_stack := VBoxContainer.new()
 	button_stack.name = "TutorialActions"
 	button_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button_stack.add_theme_constant_override("separation", 12)
+	button_stack.add_theme_constant_override("separation", 16)
 	_content.add_child(button_stack)
 
-	_primary_button = _make_button("PRACTICE NOW", 88.0)
+	_primary_button = _make_button("PRACTICE NOW", true, 92.0)
 	_primary_button.pressed.connect(_on_primary_pressed)
 	button_stack.add_child(_primary_button)
 
-	_secondary_button = _make_button("SKIP FOR NOW", 88.0)
+	_secondary_button = _make_button("SKIP FOR NOW", false, 92.0)
 	_secondary_button.pressed.connect(_on_secondary_pressed)
 	button_stack.add_child(_secondary_button)
 
 	_reflow()
 
-func _new_text(node_name: String, px: int, tint: Color, is_bold: bool, text_look: int) -> NeuText:
-	var label := NeuText.new()
-	label.name = node_name
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.font_size = px
-	label.bold = is_bold
-	label.color = tint
-	label.look = text_look
-	label.align = HORIZONTAL_ALIGNMENT_CENTER
-	label.autowrap = true
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
-
-func _make_button(caption: String, height: float) -> Button:
+func _make_button(caption: String, _primary: bool, height: float) -> Button:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(0.0, height)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -111,54 +97,21 @@ func _reflow() -> void:
 		return
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var compact: bool = viewport_size.y < 760.0
-	var side_margin: float = clampf(viewport_size.x * 0.055, 22.0, 48.0)
-	_content.offset_left = side_margin
-	_content.offset_right = -side_margin
-	_content.offset_top = 22.0 if compact else 34.0
-	_content.offset_bottom = -22.0 if compact else -34.0
-	_content.add_theme_constant_override("separation", 12 if compact else 18)
-	_title.font_size = 42 if compact else 48
-	_eyebrow.font_size = 22 if compact else 24
-	_instruction.font_size = 34 if compact else 40
-	_message.font_size = 26 if compact else 28
-	_title.custom_minimum_size.y = 78.0 if compact else 88.0
-	_instruction.custom_minimum_size.y = 82.0 if compact else 96.0
-	_message.custom_minimum_size.y = 96.0 if compact else 108.0
-	_primary_button.custom_minimum_size.y = 82.0 if compact else 90.0
-	_secondary_button.custom_minimum_size.y = 82.0 if compact else 90.0
+	_content.offset_left = 24.0
+	_content.offset_right = -24.0
+	_content.offset_top = 22.0 if compact else 36.0
+	_content.offset_bottom = -22.0 if compact else -36.0
+	_content.add_theme_constant_override("separation", 16 if compact else 22)
+	_title.font_size = 52 if compact else 56
+	_message.font_size = 30 if _message.text.length() > 175 or compact else 34
+	_message.custom_minimum_size.y = 220.0 if compact else 250.0
+	_primary_button.custom_minimum_size.y = 84.0 if compact else 92.0
+	_secondary_button.custom_minimum_size.y = 84.0 if compact else 92.0
 
 func present(title_text: String, message_text: String, primary_text: String,
 		secondary_text: String = "SKIP FOR NOW") -> bool:
-	_eyebrow.visible = false
-	_instruction.visible = false
-	_message.visible = true
-	_message.text = message_text
-	return await _present_common(title_text, primary_text, secondary_text)
-
-## First-time lessons keep the actual instruction visually separate from the
-## supporting explanation. This also prevents format placeholders from leaking
-## into the screen when a family-specific challenge rule changes.
-func _contains_unresolved_token(value: String) -> bool:
-	return value.contains("%s") or value.contains("%d") or value.contains("%f") or value.contains("%02d")
-
-func present_lesson(title_text: String, instruction_text: String, explanation_text: String,
-		primary_text: String, secondary_text: String = "SKIP FOR NOW") -> bool:
-	_eyebrow.text = "FIRST-TIME PRACTICE"
-	_eyebrow.visible = true
-	var safe_instruction := instruction_text.strip_edges()
-	if _contains_unresolved_token(safe_instruction):
-		safe_instruction = "READ THE RULE, THEN MAKE YOUR CHOICE."
-	_instruction.text = safe_instruction
-	_instruction.visible = not safe_instruction.is_empty()
-	var safe_explanation := explanation_text
-	if _contains_unresolved_token(safe_explanation):
-		safe_explanation = "Try one unscored example. The real round starts after you finish."
-	_message.text = safe_explanation
-	_message.visible = not safe_explanation.is_empty()
-	return await _present_common(title_text, primary_text, secondary_text)
-
-func _present_common(title_text: String, primary_text: String, secondary_text: String) -> bool:
 	_title.text = title_text
+	_message.text = message_text
 	_primary_button.text = primary_text
 	_secondary_button.visible = not secondary_text.is_empty()
 	if _secondary_button.visible:

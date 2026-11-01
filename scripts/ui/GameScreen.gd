@@ -382,10 +382,7 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 		lbl_countdown.custom_minimum_size = Vector2(0.0, 92.0)
 		lbl_countdown.color = Color.WHITE
 		_countdown_style.depth = 1.0
-		# Explicit scale + alpha entrance. The prior countdown only faded/slid, and
-		# its scale stayed at 1, so the intended pop-in was never visible.
-		countdown_overlay.pivot_offset = countdown_overlay.size * 0.5
-		countdown_overlay.scale = Vector2(0.82, 0.82)
+		countdown_overlay.scale = Vector2.ONE
 		countdown_overlay.offset_top = _countdown_base_ot + 28.0
 		countdown_overlay.offset_bottom = _countdown_base_ob + 28.0
 		countdown_overlay.modulate.a = 0.0
@@ -399,8 +396,6 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		countdown_tween.tween_property(countdown_overlay, "modulate:a", 1.0, 0.22) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		countdown_tween.tween_property(countdown_overlay, "scale", Vector2.ONE, 0.30) \
-				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		countdown_tween.chain().tween_interval(maxf(0.14, (GameConfig.COUNTDOWN_DURATION * 0.5) - 0.26))
 		countdown_tween.tween_callback(func():
 				lbl_countdown.text = "SPOT!"
@@ -444,39 +439,6 @@ func _make_practice_challenge(family_type: String) -> ChallengeDefinition:
 				return practice
 		push_warning("Could not generate a valid practice challenge for %s" % family_type)
 		return null
-
-func _has_unresolved_tutorial_token(value: String) -> bool:
-	return value.contains("%s") or value.contains("%d") or value.contains("%f") or value.contains("%02d")
-
-func _tutorial_prompt(challenge: ChallengeDefinition) -> String:
-	if challenge == null:
-		return "READ THE RULE, THEN MAKE YOUR CHOICE."
-	var prompt := challenge.instruction.strip_edges()
-	# Challenge factories normally substitute every template token. This guard
-	# prevents a malformed or legacy challenge from exposing raw format tokens.
-	if not prompt.is_empty() and not _has_unresolved_tutorial_token(prompt):
-		return prompt
-	match challenge.type:
-		GameConfig.TYPE_ESTIMATION_COUNT:
-			return "HOW MANY DOTS ARE THERE?"
-		GameConfig.TYPE_COMPARISON_SIDES:
-			return "WHICH SIDE HAS MORE DOTS?" if challenge.rule == "more" else "WHICH SIDE HAS FEWER DOTS?"
-		GameConfig.TYPE_COLOR_TARGET:
-			return "TAP EVERY %s CIRCLE." % str(challenge.visual_data.get("target_color", "TARGET COLOUR"))
-		GameConfig.TYPE_SHAPE_TARGET:
-			return "TAP EVERY %s." % str(challenge.visual_data.get("target_shape", "TARGET SHAPE")).to_upper()
-		GameConfig.TYPE_DONT_TAP:
-			return "IF YOU SEE RED, DO NOT TAP." if bool(challenge.visual_data.get("should_withhold", false)) else "TAP ONLY WHEN THERE IS NO RED CIRCLE."
-		GameConfig.TYPE_SIZE_ORDER:
-			return "TAP THE SHAPES IN %s SIZE ORDER." % ("ASCENDING" if bool(challenge.visual_data.get("ascending", true)) else "DESCENDING")
-		GameConfig.TYPE_COMBINED_CONDITIONAL:
-			if challenge.rule == "majority":
-				return "WHICH SHAPE APPEARS MORE OFTEN?"
-			if challenge.rule == "threshold":
-				return "DOES THE NAMED COLOUR MEET THE NUMBER RULE?"
-			return "FOLLOW THE COLOUR AND SHAPE RULE."
-		_:
-			return "READ THE RULE, INSPECT THE FIELD, AND MAKE YOUR CHOICE."
 
 func _tutorial_explanation(challenge: ChallengeDefinition) -> String:
 		match challenge.type:
@@ -527,15 +489,9 @@ func _run_first_time_practice(live_challenge: ChallengeDefinition) -> void:
 		countdown_scrim.visible = false
 		feedback_panel.visible = false
 		var title: String = _tutorial_family_title(_tutorial_challenge)
-		var prompt: String = _tutorial_prompt(_tutorial_challenge)
-		var explanation: String = "%s\n\nTry one unscored example. The real round starts after you finish." % _tutorial_explanation(_tutorial_challenge)
-		var begin_practice: bool = await _practice_coach.present_lesson(
-				title,
-				prompt,
-				explanation,
-				"PRACTICE NOW",
-				"SKIP FOR NOW"
-		)
+		var message: String = "FIRST-TIME PRACTICE\n\n%s\n\nTry one unscored example. The real round starts after you finish." % [
+				_tutorial_challenge.instruction, _tutorial_explanation(_tutorial_challenge)]
+		var begin_practice: bool = await _practice_coach.present(title, message, "PRACTICE NOW", "SKIP FOR NOW")
 		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
 				return
 		if begin_practice:
@@ -575,7 +531,7 @@ func _run_first_time_practice(live_challenge: ChallengeDefinition) -> void:
 										safe_area.visible = false
 								var retry: bool = await _practice_coach.present(
 										"NOT QUITE — TRY AGAIN",
-										"%s\n\n%s" % [_tutorial_prompt(_tutorial_challenge), str(result.get("details", "Try the rule once more."))],
+										"%s\n\n%s" % [_tutorial_challenge.instruction, str(result.get("details", "Try the rule once more."))],
 										"TRY AGAIN",
 										"SKIP"
 								)

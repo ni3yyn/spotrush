@@ -12,7 +12,6 @@ const Feel = preload("res://scripts/core/Feel.gd")
 const SpotRushGlyph = preload("res://scripts/ui/SpotRushGlyph.gd")
 const MainMenuIcon = preload("res://scripts/ui/MainMenuIcon.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
-const SpotRushModal = preload("res://scripts/ui/SpotRushModal.gd")
 
 @onready var main_canvas: Control = %MainMenuCanvas
 @onready var btn_solo: Button = %BtnSolo
@@ -100,16 +99,6 @@ func _ready() -> void:
 		_style_personal_best_modal()
 		_style_daily_modal()
 		_style_challenge_modal()
-		# Convert every menu sheet into the same explicit header / scrollable body /
-		# full-width footer anatomy before sizing the panels for the viewport.
-		var compact_modals := get_viewport_rect().size.y < 1120.0
-		SpotRushModal.apply(modal_how_to_play, ["Header"], ["BtnCloseHowTo"], compact_modals)
-		SpotRushModal.apply(modal_friends, ["TitleRow", "Subtitle"], ["BtnCloseFriends"], compact_modals)
-		SpotRushModal.apply(modal_profile, ["Header", "Title", "Subtitle"], ["BtnCloseProfile"], compact_modals)
-		SpotRushModal.apply(modal_streak, ["Caption"], ["BtnPlayDaily", "BtnShareDaily", "BtnCloseStreak"], compact_modals)
-		SpotRushModal.apply(modal_challenge, ["TitleRow", "Subtitle"], ["BtnPlayMine", "BtnPlayFriend", "BtnCloseChallenge"], compact_modals)
-		_arrange_challenge_footer()
-		_tune_daily_modal_content()
 		_refresh_personal_best()
 		_apply_responsive_layout()
 		call_deferred("_center_button_pivots")
@@ -119,6 +108,7 @@ func _ready() -> void:
 		selected_rounds = Settings.match_rounds()
 		play_mode_badge.text = "%d ROUND SPRINT" % selected_rounds
 		_close_all_modals()
+		
 		if main_canvas != null:
 				main_canvas.token_clicked.connect(_on_token_clicked)
 				main_canvas.emblem_clicked.connect(_on_emblem_clicked)
@@ -301,21 +291,39 @@ func _apply_responsive_layout() -> void:
 		btn_streak.anchor_bottom = 0.915 if compact_height else 0.93
 		btn_streak.custom_minimum_size = Vector2(0, 48 if compact_height else 50)
 
-		# A consistent modal frame: generous width, nearly full available height,
-		# and a scrollable body that never steals space from footer actions.
-		var panel_width := minf(view_size.x - 20.0, 656.0)
-		var available_height := maxf(320.0, view_size.y - 10.0)
-		var modal_heights: Array[float] = [760.0, 780.0, 680.0, 920.0, 1000.0]
+		# The remaining menu sheets keep generous dimensions; settings now has
+		# its own full-screen scene and is intentionally not part of this layout.
+		var panel_width := minf(view_size.x - 24.0, 624.0)
+		var available_height := maxf(360.0, view_size.y - 48.0)
+		var modal_sizes: Array[Vector2] = [
+				Vector2(panel_width, minf(600.0, available_height)),
+				Vector2(panel_width, minf(640.0, available_height)),
+				Vector2(panel_width, minf(660.0, available_height)),
+				Vector2(panel_width, minf(660.0, available_height)),
+				Vector2(panel_width, minf(660.0, available_height))
+		]
 		var modals: Array[Control] = [modal_how_to_play, modal_friends, modal_profile, modal_streak, modal_challenge]
-		var compact_modals := view_size.y < 1120.0
 		for i in range(modals.size()):
-			var modal := modals[i]
-			var modal_height := minf(modal_heights[i], available_height)
-			modal.offset_left = -panel_width * 0.5
-			modal.offset_right = panel_width * 0.5
-			modal.offset_top = -modal_height * 0.5
-			modal.offset_bottom = modal_height * 0.5
-			SpotRushModal.set_compact(modal, compact_modals)
+				var modal := modals[i]
+				modal.offset_left = -modal_sizes[i].x * 0.5
+				modal.offset_right = modal_sizes[i].x * 0.5
+				modal.offset_top = -modal_sizes[i].y * 0.5
+				modal.offset_bottom = modal_sizes[i].y * 0.5
+		var friends_compact := view_size.y < 640.0
+		for friend_button in [btn_wifi_lobby, btn_pass_play, btn_challenge_code]:
+			if friend_button != null:
+				friend_button.custom_minimum_size.y = 78.0 if friends_compact else 92.0
+		var friends_vbox := modal_friends.get_node_or_null("Margin/VBox") as VBoxContainer
+		if friends_vbox != null:
+			friends_vbox.add_theme_constant_override("separation", 8 if friends_compact else 12)
+		var friends_margin := modal_friends.get_node_or_null("Margin") as MarginContainer
+		if friends_margin != null:
+			var margin_value := 14 if friends_compact else 22
+			for side in ["margin_top", "margin_bottom"]:
+				friends_margin.add_theme_constant_override(side, margin_value)
+		var friends_title := modal_friends.get_node_or_null("Margin/VBox/TitleRow/Title") as Label
+		if friends_title != null:
+			friends_title.add_theme_font_size_override("font_size", 26 if view_size.x < 360.0 else 32)
 
 func _center_button_pivots() -> void:
 		for button in [btn_solo, btn_multiplayer, btn_how_to_play, btn_streak]:
@@ -549,7 +557,12 @@ func _style_friends_modal() -> void:
 			card_style.blur = 28.0
 			card_style.rim = 0.82
 			card_style.emit_changed()
-		var title := SpotRushModal.find(modal_friends, "Title") as Label
+		var vbox := card.get_node_or_null("Margin/VBox") as VBoxContainer
+		if vbox == null:
+			return
+		vbox.add_theme_constant_override("separation", 12)
+
+		var title := vbox.get_node_or_null("TitleRow/Title") as Label
 		if title != null:
 			var base: Font = title.get_theme_default_font()
 			if base == null:
@@ -558,11 +571,11 @@ func _style_friends_modal() -> void:
 			title.add_theme_font_size_override("font_size", 32)
 			title.add_theme_color_override("font_color", NeuKit.INK)
 			NeuKit.etch(title)
-		var subtitle := SpotRushModal.find(modal_friends, "Subtitle") as Label
+		var subtitle := vbox.get_node_or_null("Subtitle") as Label
 		if subtitle != null:
 			subtitle.add_theme_font_size_override("font_size", 18)
 			subtitle.add_theme_color_override("font_color", NeuKit.SLATE)
-		var people_glyph := SpotRushModal.find(modal_friends, "GlyphPeople") as Control
+		var people_glyph := vbox.get_node_or_null("TitleRow/GlyphPeople") as Control
 		if people_glyph != null and people_glyph.has_method("set"):
 			people_glyph.set("icon_color", NeuKit.COBALT)
 
@@ -570,21 +583,21 @@ func _style_friends_modal() -> void:
 		# a one-line explanation, and a quiet directional cue. The actual Buttons,
 		# signals, and navigation targets remain the original ones.
 		_build_friends_option(
-			SpotRushModal.find(modal_friends, "BtnWifiLobby") as Button,
+			vbox.get_node_or_null("BtnWifiLobby") as Button,
 			"wifi", "WI-FI DUEL", "Two phones · same Wi-Fi network",
 			NeuKit.COBALT, true
 		)
 		_build_friends_option(
-			SpotRushModal.find(modal_friends, "BtnPassPlay") as Button,
+			vbox.get_node_or_null("BtnPassPlay") as Button,
 			"quick", "QUICK MINI-GAME", "One phone · 5-second spot sprint",
 			NeuKit.MINT, false
 		)
 		_build_friends_option(
-			SpotRushModal.find(modal_friends, "BtnChallengeCode") as Button,
+			vbox.get_node_or_null("BtnChallengeCode") as Button,
 			"code", "RIVAL CODE", "Share a code · same seeded run",
 			NeuKit.LAVENDER, false
 		)
-		_caption_button(SpotRushModal.find(modal_friends, "BtnCloseFriends") as Button,
+		_caption_button(vbox.get_node_or_null("BtnCloseFriends") as Button,
 			"CLOSE", "", 18, 0, NeuKit.SLATE, NeuKit.COBALT, NeuKit.MUTED)
 
 func _build_friends_option(btn: Button, icon_key: String, option_title_text: String,
@@ -691,7 +704,7 @@ func _caption_button(btn: Button, button_title_text: String, caption_text: Strin
 		label.tracking = 2.0
 		label.set_anchors_preset(Control.PRESET_FULL_RECT)
 		if not caption_text.is_empty():
-				label.offset_bottom = -54.0 # reserve space for a readable title + wrapping caption
+				label.offset_bottom = -24.0 # re-centres the title above the guidance line
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		btn.add_child(label)
 		if btn.has_meta("neu_style"):
@@ -699,15 +712,13 @@ func _caption_button(btn: Button, button_title_text: String, caption_text: Strin
 		if caption_text.is_empty():
 				return
 		var caption := Label.new()
-		caption.name = "ButtonCaption"
 		caption.text = caption_text
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		SpotRushTypography.apply_as(caption, SpotRushTypography.Role.CAPTION)
 		caption.add_theme_color_override("font_color", caption_color)
 		caption.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		caption.offset_top = -54.0
-		caption.offset_bottom = -4.0
+		caption.offset_top = -26.0
+		caption.offset_bottom = -6.0
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		btn.add_child(caption)
 
@@ -718,31 +729,34 @@ func _style_how_to_modal() -> void:
 		var card: PanelContainer = modal_how_to_play as PanelContainer
 		if card == null:
 				return
-		var title := SpotRushModal.find(modal_how_to_play, "Title") as Label
+		var vbox: Control = card.get_node_or_null("Margin/VBox")
+		if vbox == null:
+				return
+		var title: Label = vbox.get_node_or_null("Header/Title") as Label
 		if title != null:
 				var base: Font = title.get_theme_default_font()
 				if base == null:
-					base = ThemeDB.fallback_font
+						base = ThemeDB.fallback_font
 				title.add_theme_font_override("font", NeuKit.weighted_font(base, 800.0, 0.40))
 				title.add_theme_color_override("font_color", NeuKit.INK)
 				NeuKit.etch(title)
-		var subtitle := SpotRushModal.find(modal_how_to_play, "Subtitle") as Label
+		var subtitle: Label = vbox.get_node_or_null("Header/Subtitle") as Label
 		if subtitle != null:
-			subtitle.add_theme_color_override("font_color", NeuKit.SLATE)
-		var grid := SpotRushModal.find(modal_how_to_play, "ModeGrid") as GridContainer
+				subtitle.add_theme_color_override("font_color", NeuKit.SLATE)
+		var grid: GridContainer = vbox.get_node_or_null("ModeGrid") as GridContainer
 		if grid != null:
-			for cell in grid.get_children():
-					var name_label: Label = cell.get_node_or_null("Margin/Col/Name") as Label
-					if name_label != null:
-							name_label.add_theme_font_override("font", NeuKit.bold_font(name_label, 0.45))
-							name_label.add_theme_color_override("font_color", NeuKit.INK)
-							NeuKit.etch(name_label)
-					var desc_label: Label = cell.get_node_or_null("Margin/Col/Desc") as Label
-					if desc_label != null:
-							desc_label.add_theme_color_override("font_color", NeuKit.SLATE)
-		var tip := SpotRushModal.find(modal_how_to_play, "Tip") as Label
+				for cell in grid.get_children():
+						var name_label: Label = cell.get_node_or_null("Margin/Col/Name") as Label
+						if name_label != null:
+								name_label.add_theme_font_override("font", NeuKit.bold_font(name_label, 0.45))
+								name_label.add_theme_color_override("font_color", NeuKit.INK)
+								NeuKit.etch(name_label)
+						var desc_label: Label = cell.get_node_or_null("Margin/Col/Desc") as Label
+						if desc_label != null:
+								desc_label.add_theme_color_override("font_color", NeuKit.SLATE)
+		var tip: Label = vbox.get_node_or_null("Tip") as Label
 		if tip != null:
-			tip.add_theme_color_override("font_color", NeuKit.SLATE)
+				tip.add_theme_color_override("font_color", NeuKit.SLATE)
 
 ## The personal-best sheet: a letterpressed caption over one sunken score well.
 ## Quiet, monochrome, and driven entirely by the saved Records value.
@@ -750,28 +764,24 @@ func _style_personal_best_modal() -> void:
 		var card: PanelContainer = modal_streak as PanelContainer
 		if card == null:
 				return
-		var caption := SpotRushModal.find(modal_streak, "Caption") as Label
+		var vbox: Control = card.get_node_or_null("Margin/VBox")
+		if vbox == null:
+				return
+		var caption: Label = vbox.get_node_or_null("Caption") as Label
 		if caption != null:
 				caption.add_theme_font_override("font", NeuKit.bold_font(caption, 0.35))
 				caption.add_theme_color_override("font_color", NeuKit.MUTED)
-		var value := SpotRushModal.find(modal_streak, "BestModalValue") as Label
+		var value: Label = vbox.get_node_or_null("ScoreWell/WellMargin/WellVBox/BestModalValue") as Label
 		if value != null:
 				var base: Font = value.get_theme_default_font()
 				if base == null:
-					base = ThemeDB.fallback_font
+						base = ThemeDB.fallback_font
 				value.add_theme_font_override("font", NeuKit.weighted_font(base, 800.0, 0.30))
 				value.add_theme_color_override("font_color", NeuKit.COBALT)
 				NeuKit.etch(value)
-		var hint := SpotRushModal.find(modal_streak, "BestModalHint") as Label
+		var hint: Label = vbox.get_node_or_null("ScoreWell/WellMargin/WellVBox/BestModalHint") as Label
 		if hint != null:
-			hint.add_theme_color_override("font_color", NeuKit.SLATE)
-			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var well_margin := SpotRushModal.find(modal_streak, "WellMargin") as MarginContainer
-		if well_margin != null:
-			well_margin.add_theme_constant_override("margin_top", 8)
-			well_margin.add_theme_constant_override("margin_bottom", 8)
-			well_margin.add_theme_constant_override("margin_left", 16)
-			well_margin.add_theme_constant_override("margin_right", 16)
+				hint.add_theme_color_override("font_color", NeuKit.SLATE)
 
 ## Writes the REAL saved best score everywhere it is shown (footer pill + modal).
 func _refresh_personal_best() -> void:
@@ -781,9 +791,9 @@ func _refresh_personal_best() -> void:
 				best_modal_value.text = Records.format(best)
 		if best_modal_hint != null:
 				if best <= 0:
-						best_modal_hint.text = "PLAY A SOLO SPRINT TO SET YOUR RECORD."
+						best_modal_hint.text = "No record yet - play a solo sprint to set one!"
 				else:
-						best_modal_hint.text = "YOUR TARGET  ·  %d ROUNDS" % selected_rounds
+						best_modal_hint.text = "Your record to beat. Can you top it in a %d-round sprint?" % selected_rounds
 
 ## Results-screen style keys for the daily hub, same anatomy as the friends sheet.
 func _style_daily_modal() -> void:
@@ -802,37 +812,6 @@ func _style_daily_modal() -> void:
 						cs.distance = 12.0
 						cs.blur = 26.0
 						cs.emit_changed()
-		var daily_panel := SpotRushModal.find(modal_streak, "DailyCard") as PanelContainer
-		var daily_style: NeuStyle = null
-		if daily_panel != null:
-			daily_style = daily_panel.get_theme_stylebox("panel") as NeuStyle
-		if daily_style != null:
-			daily_style.content_margin_top = 6.0
-			daily_style.content_margin_bottom = 6.0
-			daily_style.content_margin_left = 14.0
-			daily_style.content_margin_right = 14.0
-			daily_style.emit_changed()
-		var daily_margin := SpotRushModal.find(modal_streak, "CardMargin") as MarginContainer
-		if daily_margin != null:
-			daily_margin.add_theme_constant_override("margin_top", 6)
-			daily_margin.add_theme_constant_override("margin_bottom", 6)
-			daily_margin.add_theme_constant_override("margin_left", 12)
-			daily_margin.add_theme_constant_override("margin_right", 12)
-		var daily_vbox := SpotRushModal.find(modal_streak, "CardVBox") as VBoxContainer
-		if daily_vbox != null:
-			daily_vbox.add_theme_constant_override("separation", 3)
-		var score_well := SpotRushModal.find(modal_streak, "ScoreWell") as PanelContainer
-		if score_well != null:
-			score_well.custom_minimum_size.y = 104.0
-		var score_margin := SpotRushModal.find(modal_streak, "WellMargin") as MarginContainer
-		if score_margin != null:
-			score_margin.add_theme_constant_override("margin_top", 6)
-			score_margin.add_theme_constant_override("margin_bottom", 6)
-			score_margin.add_theme_constant_override("margin_left", 14)
-			score_margin.add_theme_constant_override("margin_right", 14)
-		var score_vbox := SpotRushModal.find(modal_streak, "WellVBox") as VBoxContainer
-		if score_vbox != null:
-			score_vbox.add_theme_constant_override("separation", 2)
 
 ## Refresh the daily hub every time it opens: issue number, streak line, and
 ## either the play key (not done yet) or today's result + share key (done).
@@ -854,9 +833,9 @@ func _refresh_daily_modal() -> void:
 		if lbl_daily_streak != null:
 				var st := Records.daily_streak()
 				if st <= 0:
-						lbl_daily_streak.text = "PLAY TODAY TO START YOUR STREAK"
+						lbl_daily_streak.text = "Play today's spot to start your streak!"
 				else:
-						lbl_daily_streak.text = "STREAK %d  ·  WEEKLY SHIELD" % st
+						lbl_daily_streak.text = "Day streak: %d  -  1 shield a week guards it" % st
 		_update_daily_countdown()
 
 func _update_daily_countdown() -> void:
@@ -907,138 +886,48 @@ func _style_challenge_modal() -> void:
 				card_style.distance = 12.0
 				card_style.blur = 26.0
 				card_style.emit_changed()
-		var title := SpotRushModal.find(modal_challenge, "Title") as Label
+		var vbox: Control = card.get_node_or_null("Margin/VBox")
+		if vbox == null:
+				return
+		var title: Label = vbox.get_node_or_null("TitleRow/Title") as Label
 		if title != null:
 				var tbase: Font = title.get_theme_default_font()
 				if tbase == null:
-					tbase = ThemeDB.fallback_font
+						tbase = ThemeDB.fallback_font
 				title.add_theme_font_override("font", NeuKit.weighted_font(tbase, 800.0, 0.40))
 				title.add_theme_color_override("font_color", NeuKit.INK)
 				NeuKit.etch(title)
-		var subtitle := SpotRushModal.find(modal_challenge, "Subtitle") as Label
+		var subtitle: Label = vbox.get_node_or_null("Subtitle") as Label
 		if subtitle != null:
-			subtitle.add_theme_color_override("font_color", NeuKit.SLATE)
-		var glyph := SpotRushModal.find(modal_challenge, "GlyphTarget") as Control
+				subtitle.add_theme_color_override("font_color", NeuKit.SLATE)
+		var glyph: Control = vbox.get_node_or_null("TitleRow/GlyphTarget") as Control
 		if glyph != null:
 				glyph.set("glyph_color", NeuKit.SLATE)
-		var code_well := SpotRushModal.find(modal_challenge, "CodeWell") as PanelContainer
-		if code_well != null:
-			code_well.custom_minimum_size.y = 68.0
-		var code_margin := SpotRushModal.find(modal_challenge, "WellMargin") as MarginContainer
-		if code_margin != null:
-			code_margin.add_theme_constant_override("margin_top", 5)
-			code_margin.add_theme_constant_override("margin_bottom", 5)
-		var code_label := SpotRushModal.find(modal_challenge, "LblMyCode") as Label
+		var code_label: Label = vbox.get_node_or_null("CodeRow/CodeWell/WellMargin/LblMyCode") as Label
 		if code_label != null:
 				var cbase: Font = code_label.get_theme_default_font()
 				if cbase == null:
-					cbase = ThemeDB.fallback_font
+						cbase = ThemeDB.fallback_font
 				code_label.add_theme_font_override("font", NeuKit.weighted_font(cbase, 800.0, 0.24))
 				code_label.add_theme_color_override("font_color", NeuKit.COBALT)
 				NeuKit.etch(code_label)
-		var edt := SpotRushModal.find(modal_challenge, "EdtCode") as LineEdit
+		var edt := vbox.get_node_or_null("EdtCode") as LineEdit
 		if edt != null:
-				edt.custom_minimum_size.y = 56.0
 				edt.add_theme_font_override("font", NeuKit.bold_font(edt, 0.55))
 				NeuKit.style_line_edit(edt, 20.0)
-		for cap_name in ["CapMine", "CapFriend"]:
-			var cap := SpotRushModal.find(modal_challenge, cap_name) as Control
-			if cap != null:
-				cap.custom_minimum_size.y = 20.0
-		var challenge_body := modal_challenge.get_node_or_null("Margin/VBox/ModalBodyScroll/ModalBody") as VBoxContainer
-		if challenge_body != null:
-			challenge_body.add_theme_constant_override("separation", 7)
-		var challenge_scroll := modal_challenge.get_node_or_null("Margin/VBox/ModalBodyScroll") as ScrollContainer
-		if challenge_scroll != null:
-			challenge_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-		var play_mine := SpotRushModal.find(modal_challenge, "BtnPlayMine") as Button
-		var play_friend := SpotRushModal.find(modal_challenge, "BtnPlayFriend") as Button
-		if play_mine != null:
-			play_mine.text = "MY CHALLENGE"
-		if play_friend != null:
-			play_friend.text = "FRIEND'S RUN"
+		_caption_button(vbox.get_node_or_null("BtnPlayMine") as Button,
+						"PLAY MY CHALLENGE", "Your seeded run - your score to share", 26,
+						3, Color.WHITE, NeuKit.COBALT, Color(1, 1, 1, 0.78))
+		_caption_button(vbox.get_node_or_null("BtnPlayFriend") as Button,
+						"PLAY FRIEND'S RUN", "Same rounds, same clock - may the best spotter win", 26,
+						3, Color.WHITE, NeuKit.COBALT, Color(1, 1, 1, 0.78))
 		for key_name in ["BtnCopyCode", "BtnNewCode"]:
-				var key := SpotRushModal.find(modal_challenge, key_name) as Button
+				var key := vbox.get_node_or_null("CodeRow/" + key_name) as Button
 				if key != null:
 						SpotRushTypography.apply_as(key, SpotRushTypography.Role.BUTTON)
-
-## Rival Code has two equally important routes. Keep them paired in one footer
-## row so neither action dominates the content area or pushes the friend input away.
-func _arrange_challenge_footer() -> void:
-	var footer := modal_challenge.get_node_or_null("Margin/VBox/ModalFooter") as VBoxContainer
-	var mine := SpotRushModal.find(modal_challenge, "BtnPlayMine") as Button
-	var friend := SpotRushModal.find(modal_challenge, "BtnPlayFriend") as Button
-	if footer == null or mine == null or friend == null:
-		return
-	var action_row := footer.get_node_or_null("ChallengeActionRow") as HBoxContainer
-	if action_row == null:
-		action_row = HBoxContainer.new()
-		action_row.name = "ChallengeActionRow"
-		action_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		action_row.add_theme_constant_override("separation", 10)
-		footer.add_child(action_row)
-		footer.move_child(action_row, 0)
-	mine.text = "MY CHALLENGE"
-	friend.text = "FRIEND'S RUN"
-	for button in [mine, friend]:
-		for child in button.get_children():
-			button.remove_child(child)
-			child.queue_free()
-		button.reparent(action_row, false)
-		button.custom_minimum_size = Vector2(0.0, 72.0)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.size_flags_stretch_ratio = 1.0
-		SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON_COMPACT)
-
-## Fit the full daily record card into the visible body instead of letting the
-## score well become a second scrollable page inside a modal.
-func _tune_daily_modal_content() -> void:
-	var daily_card := SpotRushModal.find(modal_streak, "DailyCard") as PanelContainer
-	if daily_card != null:
-		daily_card.custom_minimum_size.y = 120.0
-	var daily_number := SpotRushModal.find(modal_streak, "LblDailyNumber") as Control
-	if daily_number != null:
-		daily_number.custom_minimum_size.y = 40.0
-		SpotRushTypography.apply_as(daily_number, SpotRushTypography.Role.CARD_TITLE)
-	var streak := SpotRushModal.find(modal_streak, "LblDailyStreak") as Control
-	if streak != null:
-		streak.custom_minimum_size.y = 26.0
-		SpotRushTypography.apply_as(streak, SpotRushTypography.Role.MICRO)
-	var countdown := SpotRushModal.find(modal_streak, "LblDailyCountdown") as Control
-	if countdown != null:
-		countdown.custom_minimum_size.y = 22.0
-		SpotRushTypography.apply_as(countdown, SpotRushTypography.Role.MICRO)
-	var score_well := SpotRushModal.find(modal_streak, "ScoreWell") as PanelContainer
-	if score_well != null:
-		score_well.custom_minimum_size.y = 106.0
-		var well_style := score_well.get_theme_stylebox("panel") as NeuStyle
-		if well_style != null:
-			well_style.content_margin_top = 4.0
-			well_style.content_margin_bottom = 4.0
-			well_style.content_margin_left = 10.0
-			well_style.content_margin_right = 10.0
-			well_style.emit_changed()
-	var score_margin := SpotRushModal.find(modal_streak, "WellMargin") as MarginContainer
-	if score_margin != null:
-		score_margin.add_theme_constant_override("margin_top", 5)
-		score_margin.add_theme_constant_override("margin_bottom", 5)
-	var best_value := SpotRushModal.find(modal_streak, "BestModalValue") as Control
-	if best_value != null:
-		best_value.custom_minimum_size.y = 52.0
-		SpotRushTypography.apply_as(best_value, SpotRushTypography.Role.DISPLAY_COMPACT)
-	var best_hint := SpotRushModal.find(modal_streak, "BestModalHint") as Control
-	if best_hint != null:
-		best_hint.custom_minimum_size.y = 22.0
-		SpotRushTypography.apply_as(best_hint, SpotRushTypography.Role.MICRO)
-	var body := modal_streak.get_node_or_null("Margin/VBox/ModalBodyScroll/ModalBody") as VBoxContainer
-	if body != null:
-		body.add_theme_constant_override("separation", 6)
-	var daily_vbox := SpotRushModal.find(modal_streak, "CardVBox") as VBoxContainer
-	if daily_vbox != null:
-		daily_vbox.add_theme_constant_override("separation", 2)
-	var body_scroll := modal_streak.get_node_or_null("Margin/VBox/ModalBodyScroll") as ScrollContainer
-	if body_scroll != null:
-		body_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		var close_btn := vbox.get_node_or_null("BtnCloseChallenge") as Button
+		if close_btn != null:
+				SpotRushTypography.apply_as(close_btn, SpotRushTypography.Role.BUTTON)
 
 func _open_challenge_modal() -> void:
 		_refresh_challenge_modal()
@@ -1059,7 +948,7 @@ func _on_copy_code_pressed() -> void:
 				btn_copy_code.text = "COPIED!"
 				get_tree().create_timer(1.2).timeout.connect(func():
 						if is_instance_valid(btn_copy_code) and btn_copy_code.is_inside_tree():
-								btn_copy_code.text = "COPY CODE")
+								btn_copy_code.text = "COPY")
 
 ## A new seed under the same tap. The previous code keeps working for anyone
 ## who already typed it in - the code IS the match, nothing server-side moves.
@@ -1120,8 +1009,7 @@ func _format_code_input(raw: String) -> String:
 func _set_challenge_status(message: String, color: Color) -> void:
 		if lbl_challenge_status == null:
 				return
-		lbl_challenge_status.text = message.strip_edges()
-		lbl_challenge_status.visible = not lbl_challenge_status.text.is_empty()
+		lbl_challenge_status.text = message
 		lbl_challenge_status.add_theme_color_override("font_color", color)
 
 func _style_toast() -> void:

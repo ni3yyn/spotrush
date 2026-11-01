@@ -10,7 +10,6 @@ signal emblem_clicked()
 
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
 const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
-const Feel = preload("res://scripts/core/Feel.gd")
 
 var anim_time: float = 0.0
 var tilt_offset: Vector2 = Vector2.ZERO
@@ -32,11 +31,6 @@ var _plaque: NeuStyle
 var _sphere_eye: NeuStyle
 var _sphere_watch: NeuStyle
 
-# Two cached, surface-toned edge orbs. Their shadow meshes stay identical from
-# frame to frame; only their positions and tiny travelling highlights move.
-var _edge_orbs: Array[Dictionary] = []
-var _edge_orb_styles: Array[NeuStyle] = []
-
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	_plate = NeuKit.raised(100.0, 11.0, 26.0)
@@ -46,23 +40,7 @@ func _ready() -> void:
 	_plaque.gradient = 0.6
 	_sphere_eye = NeuKit.accent(NeuKit.CANARY, 20.0, 5.0, 11.0)
 	_sphere_watch = NeuKit.accent(NeuKit.MINT, 20.0, 5.0, 11.0)
-	_setup_edge_orbs()
 	set_process(true)
-
-func _setup_edge_orbs() -> void:
-	# Small, low-shadow-step NeuStyle surfaces keep these ornaments inexpensive
-	# on mobile. Fixed geometry also lets NeuStyle reuse its cached sheen meshes.
-	var raised_a := NeuKit.raised(18.0, 3.2, 8.5)
-	raised_a.gradient = 0.42
-	raised_a.rim = 0.42
-	raised_a.shadow_steps_override = 3
-	var inset_b := NeuKit.inset(15.0, 2.8, 7.5)
-	inset_b.gradient = 0.38
-	inset_b.shadow_steps_override = 3
-	_edge_orb_styles.append(raised_a)
-	_edge_orb_styles.append(inset_b)
-	_edge_orbs.append({"side": -1.0, "base_y": 0.37, "phase": 0.45, "speed": 0.145, "travel": 22.0, "radius": 18.0})
-	_edge_orbs.append({"side": 1.0, "base_y": 0.70, "phase": 2.65, "speed": 0.115, "travel": 25.0, "radius": 15.0})
 
 func _process(delta: float) -> void:
 	anim_time += delta
@@ -128,39 +106,11 @@ func _draw() -> void:
 	var h := size.y
 	if w <= 0.0 or h <= 0.0:
 		return
-	_draw_edge_orbs(w, h)
 	_draw_emblem(w, h)
 	for particle in particles:
 		var color: Color = particle["color"]
 		color.a = clampf(float(particle["alpha"]), 0.0, 1.0)
 		draw_circle(particle["pos"], float(particle["radius"]), color)
-
-func _draw_edge_orbs(w: float, h: float) -> void:
-	if _edge_orbs.is_empty():
-		return
-	var motion_time := 0.0 if Feel.reduced() else anim_time
-	for i in _edge_orbs.size():
-		var orb: Dictionary = _edge_orbs[i]
-		var radius: float = float(orb["radius"])
-		var phase: float = float(orb["phase"])
-		var t := motion_time * float(orb["speed"]) + phase
-		var side: float = float(orb["side"])
-		var edge_x := radius * 0.46 + 9.0
-		var slide_x := sin(t * 0.58) * 5.5
-		var x := edge_x + slide_x if side < 0.0 else w - edge_x - slide_x
-		var y := h * float(orb["base_y"]) + sin(t) * float(orb["travel"])
-		y = clampf(y, radius + 12.0, h - radius - 12.0)
-		var center := Vector2(x, y)
-
-		# The raised/inset disc supplies the soft physical depth; the moving arcs
-		# create the impression of a polished object slowly sliding under the light.
-		NeuKit.disc(self, _edge_orb_styles[i], center, radius)
-		var glint_angle := t * 0.72 + phase * 0.4
-		var arc_color := Color(1.0, 1.0, 1.0, 0.34 if i != 1 else 0.22)
-		draw_arc(center, radius * 0.72, glint_angle, glint_angle + 0.82, 14, arc_color, 1.35, true)
-		draw_arc(center, radius + 1.2, glint_angle + PI, glint_angle + PI + 0.42, 12, Color(NeuKit.SLATE.r, NeuKit.SLATE.g, NeuKit.SLATE.b, 0.13), 1.0, true)
-		var glint_pos := center + Vector2(cos(glint_angle), sin(glint_angle)) * radius * 0.70
-		draw_circle(glint_pos, maxf(1.15, radius * 0.065), Color(1.0, 1.0, 1.0, 0.52))
 
 func _draw_emblem(w: float, h: float) -> void:
 	var center_y := h * 0.222
