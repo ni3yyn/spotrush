@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Idempotently register SpotRush's custom invitation URI in Godot's Android template.
 
-Run after `godot --install-android-build-template` and before Android export.
+Run after extracting the matching Godot `android_source.zip` into `android/build` and before Android export.
 Godot 4.7 Gradle templates place the app manifest under
 `android/build/src/main/AndroidManifest.xml`; older/custom templates may place
 it at the build root. The script locates the generated manifest without
@@ -119,7 +119,7 @@ def locate_manifest(android_build: Path) -> Path:
         "Could not locate one generated Godot Android launcher manifest. Checked: "
         + ", ".join(str(path) for path in expected)
         + ". This is a CI-generated file: run the workflow's "
-        "`godot --headless --path . --install-android-build-template` step first."
+        "`android_source.zip` extraction step first."
     )
 
 

@@ -190,8 +190,9 @@ jobs:
           java -version
           sdkmanager --version
 
-          # The custom Android Gradle template is installed by the export
-          # command below. It is intentionally not expected in the source ZIP.
+          # The custom Android Gradle template is unpacked from the matching
+          # Godot export-template package in the Prepare Gradle Template step.
+          # It is intentionally not expected in the source ZIP.
           echo "Checking notification plugin..."
           test -s addons/NotificationSchedulerPlugin/bin/debug/NotificationSchedulerPlugin-debug.aar
           test -s addons/NotificationSchedulerPlugin/bin/release/NotificationSchedulerPlugin-release.aar
@@ -326,8 +327,31 @@ jobs:
           export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.console=plain -Dorg.gradle.logging.level=info"
 
           echo ""
-          echo "[1/5] Installing the Godot Android build template..."
-          timeout 10m godot --headless --path . --install-android-build-template
+          echo "[1/5] Preparing the Godot 4.7.2 Android Gradle template..."
+          # --install-android-build-template is an export modifier, not a
+          # standalone installer. Calling it without --export-debug/--export-release
+          # starts the project normally and can run the game until CI times out.
+          # setup-godot has already installed the matching export-template package.
+          godot_full_version="$(godot --version)"
+          template_version="$(printf '%s\n' "$godot_full_version" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)\.stable.*/\1.stable/')"
+          if [ "$template_version" = "$godot_full_version" ]; then
+            echo "::error::Could not derive stable export-template version from: $godot_full_version"
+            exit 1
+          fi
+          template_root="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates"
+          template_zip="$template_root/$template_version/android_source.zip"
+          if [ ! -s "$template_zip" ]; then
+            echo "::error::Matching Android Gradle template not found: $template_zip"
+            echo "Installed template files:"
+            find "$template_root" -maxdepth 3 -type f \( -name android_source.zip -o -name version.txt \) -print 2>/dev/null || true
+            exit 1
+          fi
+          rm -rf android/build
+          mkdir -p android/build
+          unzip -q "$template_zip" -d android/build
+          touch android/build/.gdignore
+          chmod +x android/build/gradlew
+          echo "Installed template archive: $template_zip"
 
           echo "[2/5] Verifying the generated Godot 4.7.2 Gradle template..."
           test -s android/build/build.gradle || { echo "::error::Godot did not generate android/build/build.gradle."; find android -maxdepth 5 -type f -print 2>/dev/null || true; exit 1; }
