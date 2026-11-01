@@ -21,6 +21,8 @@ DEPENDENCIES = (
     "implementation 'androidx.constraintlayout:constraintlayout:2.1.4'",
     "implementation 'androidx.security:security-crypto:1.0.0'",
     "implementation 'androidx.browser:browser:1.4.0'",
+    "implementation 'androidx.webkit:webkit:1.7.0'",
+    "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'",
     "implementation files('../../addons/epic-online-services-godot/bin/android/eossdk-StaticSTDC-release.aar')",
 )
 
@@ -243,6 +245,22 @@ def patch_gradle(build_gradle: Path, client_id: str, aar_path: Path) -> bool:
     if additions:
         text = insert_lines_before_block_close(
             text, default_open, default_close, additions, "defaultConfig"
+        )
+
+    # EOSG's bundled AAR metadata explicitly requires core library desugaring.
+    # Godot 4.7.2's app/build.gradle already contains one compileOptions block;
+    # enable desugaring there so AGP's check<Variant>AarMetadata task can pass.
+    compile_open, compile_close = find_block(
+        text, r"(?m)^\s*compileOptions\s*\{", "compileOptions"
+    )
+    compile_body = text[compile_open + 1 : compile_close]
+    desugar_flag = "coreLibraryDesugaringEnabled true"
+    if not re.search(
+        r"(?m)^\s*coreLibraryDesugaringEnabled\s+(?:true|=\s*true)\s*$",
+        compile_body,
+    ):
+        text = insert_lines_before_block_close(
+            text, compile_open, compile_close, [desugar_flag], "compileOptions"
         )
 
     if text != original:
