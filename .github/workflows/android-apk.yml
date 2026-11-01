@@ -125,6 +125,7 @@ jobs:
           fi
           python3 tools/generate_eos_local_config.py
           python3 tools/patch_eosg_autoload_scope.py
+          python3 -m unittest tools.test_verify_eos_install
           python3 tools/verify_eos_install.py --platform android --require-local-config
 
       - name: Install Godot 4.7 Notification Scheduler 6.0
