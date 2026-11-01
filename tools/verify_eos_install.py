@@ -24,9 +24,15 @@ SHARED_FILES = (
     "heos/hcredentials.gd",
     "heos/hplatform.gd",
     "heos/hauth.gd",
+    "heos/hachievements.gd",
+    "heos/hfriends.gd",
+    "heos/hstats.gd",
+    "heos/hleaderboards.gd",
     "heos/hlobbies.gd",
     "heos/hlobby.gd",
+    "heos/hsessions.gd",
     "heos/hp2p.gd",
+    "heos/hlog.gd",
 )
 
 ANDROID_FILES = (
@@ -70,29 +76,134 @@ def check_version(addon_root: Path) -> bool:
     return True
 
 
+# Autoloads supplied by the EOSG 2.3.1 editor plugin.
+# Godot may serialize these as either res:// paths or UID references.
+EOSG_AUTOLOADS = {
+    "EOSGRuntime": "addons/epic-online-services-godot/runtime.gd",
+    "HPlatform": "addons/epic-online-services-godot/heos/hplatform.gd",
+    "HAuth": "addons/epic-online-services-godot/heos/hauth.gd",
+    "HAchievements": "addons/epic-online-services-godot/heos/hachievements.gd",
+    "HFriends": "addons/epic-online-services-godot/heos/hfriends.gd",
+    "HStats": "addons/epic-online-services-godot/heos/hstats.gd",
+    "HLeaderboards": "addons/epic-online-services-godot/heos/hleaderboards.gd",
+    "HLobbies": "addons/epic-online-services-godot/heos/hlobbies.gd",
+    "HP2P": "addons/epic-online-services-godot/heos/hp2p.gd",
+    "HSessions": "addons/epic-online-services-godot/heos/hsessions.gd",
+}
+
+# SpotRush autoloads required by online play and invitation routing.
+PROJECT_AUTOLOADS = {
+    "NetworkSession": "scripts/networking/NetworkSession.gd",
+    "DeepLinkRouter": "scripts/networking/DeepLinkRouter.gd",
+    "EOSOnline": "scripts/networking/EOSOnline.gd",
+}
+
+
+def _section_body(project_text: str, section_name: str) -> str | None:
+    """Return a Godot project section without consuming the next section."""
+    match = re.search(
+        rf"(?ms)^\\[{re.escape(section_name)}\\]\\s*\\n(.*?)(?=^\\[|\\Z)",
+        project_text,
+    )
+    return match.group(1) if match else None
+
+
+def _section_assignments(section_text: str) -> dict[str, str]:
+    """Read simple key=value assignments while ignoring blank and comment lines."""
+    values: dict[str, str] = {}
+    for line in section_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(";"):
+            continue
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*?)\\s*$", stripped)
+        if match:
+            values[match.group(1)] = match.group(2)
+    return values
+
+
+def _autoload_reference_error(
+    project_root: Path, autoload_name: str, expected_relative_path: str, raw_value: str | None
+) -> str | None:
+    """Validate an enabled autoload against its expected resource path or UID sidecar."""
+    if raw_value is None:
+        return f"{autoload_name}: autoload entry is missing"
+
+    value_match = re.fullmatch(r'"([^"]+)"', raw_value)
+    if value_match is None:
+        return f"{autoload_name}: autoload value is not a quoted resource reference"
+
+    reference = value_match.group(1)
+    if not reference.startswith("*"):
+        return f"{autoload_name}: autoload is present but not enabled (expected a leading '*')"
+    resource = reference[1:]
+    expected_path = Path(expected_relative_path)
+    resource_file = project_root / expected_path
+    if not resource_file.is_file():
+        return f"{autoload_name}: expected script is missing ({expected_relative_path})"
+
+    if resource.startswith("res://"):
+        actual_relative_path = resource.removeprefix("res://").replace("\\\\", "/")
+        if actual_relative_path != expected_path.as_posix():
+            return (
+                f"{autoload_name}: points to {resource!r}, "
+                f"expected res://{expected_path.as_posix()}"
+            )
+        return None
+
+    if resource.startswith("uid://"):
+        uid_file = Path(str(resource_file) + ".uid")
+        if not uid_file.is_file():
+            return f"{autoload_name}: UID reference has no sidecar ({uid_file.relative_to(project_root)})"
+        expected_uid = uid_file.read_text(encoding="utf-8").strip()
+        if resource != expected_uid:
+            return (
+                f"{autoload_name}: UID {resource!r} does not match "
+                f"{uid_file.relative_to(project_root)} ({expected_uid!r})"
+            )
+        return None
+
+    return f"{autoload_name}: unsupported resource reference {resource!r}"
+
+
 def check_project_wiring(project_root: Path) -> list[str]:
     project_file = project_root / "project.godot"
     if not project_file.is_file():
+        print("FAIL project autoload/plugin wiring: project.godot is missing")
         return ["project.godot"]
+
     text = project_file.read_text(encoding="utf-8")
-    required = (
-        'EOSGRuntime="*res://addons/epic-online-services-godot/runtime.gd"',
-        'HPlatform="*res://addons/epic-online-services-godot/heos/hplatform.gd"',
-        'HAuth="*res://addons/epic-online-services-godot/heos/hauth.gd"',
-        'HLobbies="*res://addons/epic-online-services-godot/heos/hlobbies.gd"',
-        'HP2P="*res://addons/epic-online-services-godot/heos/hp2p.gd"',
-        'EOSOnline="*res://scripts/networking/EOSOnline.gd"',
-        'DeepLinkRouter="*res://scripts/networking/DeepLinkRouter.gd"',
-        'res://addons/epic-online-services-godot/plugin.cfg',
-    )
-    missing = [entry for entry in required if entry not in text]
-    if missing:
-        print("FAIL project autoload/plugin wiring: missing entries:")
-        for entry in missing:
-            print(f"  - {entry}")
+    autoload_section = _section_body(text, "autoload")
+    editor_plugins_section = _section_body(text, "editor_plugins")
+    failures: list[str] = []
+
+    if autoload_section is None:
+        failures.append("[autoload] section is missing")
+        autoloads: dict[str, str] = {}
     else:
-        print("PASS project autoload/plugin wiring (autoloads + EOSG editor plugin enabled)")
-    return missing
+        autoloads = _section_assignments(autoload_section)
+
+    required_autoloads = {**EOSG_AUTOLOADS, **PROJECT_AUTOLOADS}
+    for name, expected_path in required_autoloads.items():
+        error = _autoload_reference_error(project_root, name, expected_path, autoloads.get(name))
+        if error:
+            failures.append(error)
+
+    plugin_path = "res://addons/epic-online-services-godot/plugin.cfg"
+    if not (project_root / "addons/epic-online-services-godot/plugin.cfg").is_file():
+        failures.append("EOSG editor plugin file is missing (addons/epic-online-services-godot/plugin.cfg)")
+    elif editor_plugins_section is None or f'"{plugin_path}"' not in editor_plugins_section:
+        failures.append(f"EOSG editor plugin is not enabled in [editor_plugins]: {plugin_path}")
+
+    if failures:
+        print("FAIL project autoload/plugin wiring:")
+        for failure in failures:
+            print(f"  - {failure}")
+    else:
+        print(
+            "PASS project autoload/plugin wiring "
+            f"({len(required_autoloads)} autoloads; res:// and UID references validated)"
+        )
+    return failures
 
 
 def check_local_config(project_root: Path) -> bool:
