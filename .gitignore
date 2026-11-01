@@ -1,26 +1,2 @@
-
-# Godot generated files
-.godot/
-*.translation
-*.import
-
-# IDE
-.vscode/
-.idea/
-
-# Archives
-*.zip
-
-# Exported builds
-/build/
-/dist/
-
-# Generated Android Gradle output
-/android/build/build/
-/android/build/libs/
-/android/build/.gradle/
-/android/build/.cxx/
-/android/build/assetPackInstallTime/build/
-
-# Godot-generated project assets inside the Android template
-/android/build/src/main/assets/
+# EOS client configuration is local to each development machine.
+/scripts/networking/EOSLocalConfig.gd

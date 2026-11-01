@@ -1,0 +1,11 @@
+extends RefCounted
+
+## Copy this file to EOSLocalConfig.gd and enter your EOS Client Secret locally.
+## EOSLocalConfig.gd is ignored by Git. Never commit or share it.
+
+var product_id: String = "71916eca76d641aaaea3afa17dc7c39f"
+var sandbox_id: String = "c3496e42118f4e7e858930401931f758"
+var deployment_id: String = "8b288dbf23654041acf73815a5ab243b"
+var client_id: String = "xyza7891WJNxs1DsZu9MqYnD6ZWRDEU8"
+var client_secret: String = "PASTE_YOUR_ROTATED_CLIENT_SECRET_HERE"
+var encryption_key: String = "PASTE_64_HEX_ENCRYPTION_KEY_HERE"

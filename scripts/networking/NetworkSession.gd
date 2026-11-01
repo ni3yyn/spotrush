@@ -7,9 +7,11 @@ signal peer_disconnected(peer_id: int)
 signal server_disconnected
 signal packet_received(sender_id: int, msg_type: String, payload: Dictionary)
 
-var peer: ENetMultiplayerPeer = null
+## Kept generic so ENet and EOSG can share the same MultiplayerAPI/RPC layer.
+var peer: MultiplayerPeer = null
 var is_active_host: bool = false
 var connected_peers: Array[int] = []
+var transport_kind: StringName = &"none"
 
 func _ready() -> void:
         multiplayer.connected_to_server.connect(_on_connected_to_server)
@@ -30,6 +32,7 @@ func create_host(port: int = GameConfig.DEFAULT_PORT) -> Error:
 
         multiplayer.multiplayer_peer = peer
         is_active_host = true
+        transport_kind = &"enet"
         connected_peers.clear()
         return OK
 
@@ -49,16 +52,94 @@ func join_host(ip: String, port: int = GameConfig.DEFAULT_PORT) -> Error:
 
         multiplayer.multiplayer_peer = peer
         is_active_host = false
+        transport_kind = &"enet"
         connected_peers.clear()
         return OK
+
+## Creates an EOSG P2P host without changing the RPC/gameplay layer.
+## EOSG must be installed and enabled before this method can succeed.
+func create_eos_host(socket_id: String = "SPOTRUSHDUEL") -> Error:
+        disconnect_session()
+        if not ClassDB.class_exists("EOSGMultiplayerPeer"):
+                push_warning("EOSGMultiplayerPeer is unavailable. Install and enable EOSG 2.3.1 first.")
+                return ERR_UNAVAILABLE
+        if not ClassDB.can_instantiate("EOSGMultiplayerPeer"):
+                push_error("EOSGMultiplayerPeer is registered but cannot be instantiated.")
+                return ERR_CANT_CREATE
+
+        var candidate: Object = ClassDB.instantiate("EOSGMultiplayerPeer")
+        if candidate == null or not candidate is MultiplayerPeer:
+                push_error("EOSGMultiplayerPeer did not create a Godot MultiplayerPeer.")
+                return ERR_CANT_CREATE
+        if not candidate.has_method("create_server"):
+                push_error("Installed EOSG peer does not expose create_server().")
+                return ERR_METHOD_NOT_FOUND
+
+        var create_result: Variant = candidate.call("create_server", socket_id)
+        var err: Error = create_result
+        if err != OK:
+                push_error("EOS P2P host creation failed: %d" % err)
+                return err
+
+        peer = candidate as MultiplayerPeer
+        multiplayer.multiplayer_peer = peer
+        is_active_host = true
+        transport_kind = &"eos_p2p"
+        connected_peers.clear()
+        return OK
+
+## Connects to the EOS Product User ID obtained from the joined public lobby.
+## Lobby discovery/authentication must complete before this method is called.
+func join_eos_host(socket_id: String, host_product_user_id: String) -> Error:
+        disconnect_session()
+        var clean_socket_id: String = socket_id.strip_edges()
+        var clean_host_id: String = host_product_user_id.strip_edges()
+        if clean_socket_id.is_empty() or clean_host_id.is_empty():
+                push_warning("EOS P2P join requires a socket ID and host Product User ID.")
+                return ERR_INVALID_PARAMETER
+        if not ClassDB.class_exists("EOSGMultiplayerPeer"):
+                push_warning("EOSGMultiplayerPeer is unavailable. Install and enable EOSG 2.3.1 first.")
+                return ERR_UNAVAILABLE
+        if not ClassDB.can_instantiate("EOSGMultiplayerPeer"):
+                push_error("EOSGMultiplayerPeer is registered but cannot be instantiated.")
+                return ERR_CANT_CREATE
+
+        var candidate: Object = ClassDB.instantiate("EOSGMultiplayerPeer")
+        if candidate == null or not candidate is MultiplayerPeer:
+                push_error("EOSGMultiplayerPeer did not create a Godot MultiplayerPeer.")
+                return ERR_CANT_CREATE
+        if not candidate.has_method("create_client"):
+                push_error("Installed EOSG peer does not expose create_client().")
+                return ERR_METHOD_NOT_FOUND
+
+        var create_result: Variant = candidate.call("create_client", clean_socket_id, clean_host_id)
+        var err: Error = create_result
+        if err != OK:
+                push_error("EOS P2P client creation failed: %d" % err)
+                return err
+
+        peer = candidate as MultiplayerPeer
+        multiplayer.multiplayer_peer = peer
+        is_active_host = false
+        transport_kind = &"eos_p2p"
+        connected_peers.clear()
+        return OK
+
+func has_eos_p2p_support() -> bool:
+        return ClassDB.class_exists("EOSGMultiplayerPeer") and ClassDB.can_instantiate("EOSGMultiplayerPeer")
 
 ## Transport tuning applied right after the ENet host/client is created, before
 ## any peer connects. Range-coder compression shrinks every packet (challenge
 ## payloads, score syncs, round starts) which matters on congested phone
 ## hotspots: faster round starts, snappier answer round-trips, no behaviour
 ## change for the 2-player duel.
-func _tune_transport(new_peer: ENetMultiplayerPeer) -> void:
-        var host_conn: ENetConnection = new_peer.get_host()
+func _tune_transport(new_peer: MultiplayerPeer) -> void:
+        # EOSG owns its packet framing and transport. Keep the existing range-
+        # coder tuning strictly on ENet so no ENet-only API touches an EOS peer.
+        if not new_peer is ENetMultiplayerPeer:
+                return
+        var enet_peer: ENetMultiplayerPeer = new_peer as ENetMultiplayerPeer
+        var host_conn: ENetConnection = enet_peer.get_host()
         if host_conn != null:
                 host_conn.compress(ENetConnection.COMPRESS_RANGE_CODER)
 
@@ -69,6 +150,7 @@ func disconnect_session() -> void:
         if multiplayer.multiplayer_peer != null:
                 multiplayer.multiplayer_peer = null
         is_active_host = false
+        transport_kind = &"none"
         connected_peers.clear()
 
 func is_host() -> bool:

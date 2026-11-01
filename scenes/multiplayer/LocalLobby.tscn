@@ -282,7 +282,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
 theme_override_font_sizes/font_size = 19
-text = "NEARBY GAMES"
+text = "PUBLIC ROOMS + LAN"
 
 [node name="NearbyList" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelJoin/NearbyPanel/NearbyBox"]
 unique_name_in_owner = true
@@ -308,16 +308,16 @@ theme_override_constants/separation = 6
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
 theme_override_font_sizes/font_size = 19
-text = "OR TYPE THE GAME CODE"
+text = "SEARCH BY ROOM NAME OR CODE"
 
 [node name="LineEditIP" type="LineEdit" parent="SafeArea/VBoxLobby/PanelJoin/IpWell/JoinCol"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 62)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-placeholder_text = "e.g. 192.168.1.24"
+placeholder_text = "Room name, code or LAN IP"
 alignment = 1
-max_length = 15
+max_length = 40
 
 [node name="BtnPasteIP" type="Button" parent="SafeArea/VBoxLobby/PanelJoin"]
 unique_name_in_owner = true

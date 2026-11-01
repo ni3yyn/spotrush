@@ -31,6 +31,18 @@ Music="*res://scripts/core/Music.gd"
 DailyReminder="*res://scripts/core/DailyReminder.gd"
 CrashLogger="*res://scripts/core/CrashLogger.gd"
 OtaUpdater="*res://scripts/core/OtaUpdater.gd"
+#EOSG2.3.1runtimeservices.Theseareregisteredexplicitlysoheadless#exportsdonotdependonaneditor-pluginenablecallbackhavingrunfirst.EOSGRuntime="*res://addons/epic-online-services-godot/runtime.gd"
+HPlatform="*res://addons/epic-online-services-godot/heos/hplatform.gd"
+HAuth="*res://addons/epic-online-services-godot/heos/hauth.gd"
+HAchievements="*res://addons/epic-online-services-godot/heos/hachievements.gd"
+HFriends="*res://addons/epic-online-services-godot/heos/hfriends.gd"
+HStats="*res://addons/epic-online-services-godot/heos/hstats.gd"
+HLeaderboards="*res://addons/epic-online-services-godot/heos/hleaderboards.gd"
+HLobbies="*res://addons/epic-online-services-godot/heos/hlobbies.gd"
+HP2P="*res://addons/epic-online-services-godot/heos/hp2p.gd"
+HSessions="*res://addons/epic-online-services-godot/heos/hsessions.gd"
+DeepLinkRouter="*res://scripts/networking/DeepLinkRouter.gd"
+EOSOnline="*res://scripts/networking/EOSOnline.gd"
 
 [display]
 
@@ -44,7 +56,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/NotificationSchedulerPlugin/plugin.cfg")
+enabled=PackedStringArray("res://addons/NotificationSchedulerPlugin/plugin.cfg", "res://addons/epic-online-services-godot/plugin.cfg")
 
 [gui]
 

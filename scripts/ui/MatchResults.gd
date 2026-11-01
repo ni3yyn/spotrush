@@ -411,6 +411,10 @@ func _on_menu_pressed() -> void:
         is_navigating = true
         btn_rematch.disabled = true
         btn_menu.disabled = true
+        # Online lobby membership must be released as well as the P2P peer.
+        # Otherwise the public room can remain occupied after a player exits.
+        if EOSOnline.has_current_lobby():
+                await EOSOnline.leave_current_lobby_async()
         NetworkSession.disconnect_session()
         SceneRouter.goto_main_menu()
 
