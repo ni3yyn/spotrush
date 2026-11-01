@@ -39,8 +39,7 @@
 			<receiver
 				android:name="org.godotengine.plugin.android.notification.NotificationReceiver"
 				android:enabled="true"
-				android:exported="true"
-				android:process=":godot_notification_receiver" />
+				android:exported="true" />
 			
 			<receiver
 				android:name="org.godotengine.plugin.android.notification.CancelNotificationReceiver"

@@ -87,6 +87,15 @@ static func set_reminder_enabled(v: bool) -> void:
         cfg.set_value("reminders", "reminder_enabled", bool(v))
         cfg.save(PATH)
 
+## Local wall-clock hour for the Daily Spot reminder (0..23).
+static func reminder_hour() -> int:
+        return clampi(int(_ensure().get_value("reminders", "reminder_hour", 19)), 0, 23)
+
+static func set_reminder_hour(hour: int) -> void:
+        var cfg := _ensure()
+        cfg.set_value("reminders", "reminder_hour", clampi(hour, 0, 23))
+        cfg.save(PATH)
+
 ## Test helper: drop the cached file so the next read comes from disk.
 static func reload() -> void:
         _cfg = null

@@ -5,6 +5,7 @@ const Records = preload("res://scripts/core/Records.gd")
 var match_controller: MatchController = MatchController.new()
 var current_game_mode: GameConfig.GameMode = GameConfig.GameMode.SINGLE_PLAYER
 var last_match_results: Dictionary = {}
+var next_round_instruction: String = ""
 var _client_ui_tick_accumulator: float = 0.0
 const CLIENT_UI_TICK_INTERVAL: float = 0.05
 var _last_perf_frame_log_usec: int = 0
@@ -112,6 +113,13 @@ func start_prepared_match() -> void:
 		if match_controller.current_state == MatchController.MatchState.IDLE:
 				match_controller.start_match()
 
+## UI-only holds used by the first-time practice and instruction preview.
+func pause_round_countdown() -> void:
+		match_controller.pause_countdown()
+
+func resume_round_countdown() -> void:
+		match_controller.resume_countdown()
+
 # Signals for UI views
 signal ui_countdown_started(round_num: int, total_rounds: int)
 signal ui_round_started(round_num: int, challenge: ChallengeDefinition, duration: float)
@@ -127,7 +135,7 @@ func _ready() -> void:
 		match_controller.answer_feedback_received.connect(_on_controller_answer_feedback)
 		match_controller.round_ended.connect(_on_controller_round_ended)
 		match_controller.match_ended.connect(_on_controller_match_ended)
-		
+
 		NetworkSession.packet_received.connect(_on_network_packet_received)
 		NetworkSession.peer_disconnected.connect(_on_peer_disconnected)
 		NetworkSession.server_disconnected.connect(_on_server_disconnected)
@@ -184,12 +192,12 @@ func start_multiplayer_host_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS)
 		for p in NetworkSession.connected_peers:
 				peers.append(p)
 		match_controller.initialize_match(current_game_mode, rounds, peers)
-		
+
 		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
 				"total_rounds": rounds,
 				"player_ids": peers
 		})
-		
+
 		match_controller.start_match()
 
 ## The queued (lobby -> game) variant: build the match state, tell the friend's
@@ -206,19 +214,19 @@ func prepare_multiplayer_host_match(rounds: int) -> void:
 		for p in NetworkSession.connected_peers:
 				peers.append(p)
 		match_controller.initialize_match(current_game_mode, rounds, peers)
-		
+
 		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
 				"total_rounds": rounds,
 				"player_ids": peers
 		})
-		
+
 		match_controller.prepare_first_challenge()
 
 func submit_answer(answer: Variant) -> void:
 		if has_submitted_current_round:
 				return
 		has_submitted_current_round = true
-		
+
 		if current_game_mode == GameConfig.GameMode.SINGLE_PLAYER or current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 				match_controller.submit_player_answer(1, answer)
 		elif current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
@@ -233,11 +241,13 @@ func skip_feedback() -> void:
 
 func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void:
 		has_submitted_current_round = false
+		next_round_instruction = match_controller.current_challenge.instruction if match_controller.current_challenge != null else ""
 		ui_countdown_started.emit(round_num, total_rounds)
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 				NetworkSession.send_to_all(NetworkProtocol.MSG_COUNTDOWN_START, {
 						"round_num": round_num,
-						"total_rounds": total_rounds
+						"total_rounds": total_rounds,
+						"instruction": next_round_instruction
 				})
 
 func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
@@ -305,8 +315,9 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 						SceneRouter.goto_game()
 
 				NetworkProtocol.MSG_COUNTDOWN_START:
-						var rnum = data.get("round_num", 1)
-						var tot = data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)
+						var rnum = int(data.get("round_num", 1))
+						var tot = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
+						next_round_instruction = str(data.get("instruction", ""))
 						ui_countdown_started.emit(rnum, tot)
 
 				NetworkProtocol.MSG_ROUND_START:

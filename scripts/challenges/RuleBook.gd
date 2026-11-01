@@ -57,6 +57,20 @@ const GONOGO_PHRASES := [
 ## The confirm key label for Go/No-Go rounds - state-agnostic on purpose.
 const GONOGO_KEY_LABEL := "SPOT RED? HOLD BACK! ELSE TAP NOW"
 
+const SIZE_ORDER_ASC_TEMPLATES := [
+	"Tap SMALLEST to LARGEST!",
+	"Smallest first - work your way up to the biggest!",
+	"Size order: tiniest to biggest, go!",
+	"Scan the tray and tap from smallest to largest!",
+]
+
+const SIZE_ORDER_DESC_TEMPLATES := [
+	"Tap LARGEST to SMALLEST!",
+	"Biggest first - work your way down to the tiniest!",
+	"Size order: biggest to tiniest, go!",
+	"Scan the tray and tap from largest to smallest!",
+]
+
 const MAJORITY_TEMPLATE := "Are there MORE %s than %s? YES or NO."
 
 const THRESHOLD_TEMPLATE := "Are there %s %d %s dots? YES or NO."
@@ -131,6 +145,9 @@ static func color_tap_phrase(rng: RandomNumberGenerator, color: String) -> Strin
 static func shape_tap_phrase(rng: RandomNumberGenerator, shape: String) -> String:
 	var template := pick_phrase(rng, SHAPE_TAP_TEMPLATES)
 	return template % shape_plural(shape)
+
+static func size_order_phrase(rng: RandomNumberGenerator, ascending: bool) -> String:
+	return pick_phrase(rng, SIZE_ORDER_ASC_TEMPLATES if ascending else SIZE_ORDER_DESC_TEMPLATES)
 
 static func shape_plural(shape: String) -> String:
 	match shape:

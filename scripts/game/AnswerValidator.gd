@@ -70,6 +70,43 @@ static func validate_submission(
 					target_indices.append(i)
 					
 			var tapped_set: Array = player_submission
+			if challenge.type == GameConfig.TYPE_SIZE_ORDER:
+				var size_items: Array = challenge.visual_data.get("items", [])
+				var expected_order: Array[int] = []
+				for i in range(size_items.size()):
+					expected_order.append(i)
+				expected_order.sort_custom(func(a: int, b: int):
+					return float(size_items[a].get("size", 0.0)) < float(size_items[b].get("size", 0.0))
+				)
+				if not bool(challenge.visual_data.get("ascending", true)):
+					expected_order.reverse()
+
+				var submitted_order: Array[int] = []
+				for raw_index in tapped_set:
+					var token_index := int(raw_index)
+					if token_index < 0 or token_index >= size_items.size() or token_index in submitted_order:
+						return {
+							"is_valid_format": false,
+							"is_correct": false,
+							"accuracy": 0.0,
+							"details": "Selection contains an invalid or duplicate token"
+						}
+					submitted_order.append(token_index)
+
+				var right_in_place := 0
+				var compared := mini(submitted_order.size(), expected_order.size())
+				for i in range(compared):
+					if submitted_order[i] == expected_order[i]:
+						right_in_place += 1
+				var size_order_is_correct: bool = submitted_order.size() == expected_order.size() and right_in_place == expected_order.size()
+				var size_order_accuracy: float = float(right_in_place) / float(maxi(1, expected_order.size()))
+				return {
+					"is_valid_format": true,
+					"is_correct": size_order_is_correct,
+					"accuracy": size_order_accuracy,
+					"details": "Perfect size order" if size_order_is_correct else "Select every shape in the correct size order"
+				}
+
 			var false_positives: int = 0
 			var true_positives: int = 0
 			
@@ -101,7 +138,7 @@ static func validate_submission(
 				"accuracy": 1.0 if is_correct else 0.0,
 				"details": "Tapped when instructed" if is_correct else "Tapped on a Don't Tap challenge!"
 			}
-			
+
 		_:
 			return {
 				"is_valid_format": false,

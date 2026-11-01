@@ -16,7 +16,7 @@ extends Node
 const Sfx = preload("res://scripts/core/Sfx.gd")
 const Settings = preload("res://scripts/core/Settings.gd")
 
-const RATE := 22050
+const RATE := 44100
 const LOOP_LEN := 32.0
 const FADE_IN := 0.95
 const FADE_OUT := 2.4

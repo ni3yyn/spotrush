@@ -2,7 +2,6 @@ class_name ChallengeCanvas
 extends Control
 
 signal item_tapped(index: int, item_data: Dictionary)
-signal item_untapped(index: int, item_data: Dictionary)
 signal side_tapped(side_name: String)
 
 var current_challenge: ChallengeDefinition = null
@@ -226,45 +225,56 @@ func set_challenge(challenge: ChallengeDefinition, animate: bool = true) -> void
         entrance_tween.tween_property(self, "scale", Vector2.ONE, 0.28)
         entrance_tween.tween_property(self, "modulate:a", 1.0, 0.18)
 
-func set_item_tapped(index: int) -> void:
-        if not index in tapped_indices:
+## Update the shared token selection visual. ChallengeView owns the rule and
+## answer state; this canvas only paints the selected/released token.
+func set_item_selected(index: int, selected: bool) -> void:
+        if selected:
+                if index in tapped_indices:
+                        return
                 tapped_indices.append(index)
-                _press_anim[index] = 1.0
-                queue_redraw()
+                if not Feel.reduced():
+                        _press_anim[index] = float(_press_anim.get(index, 0.0))
+                        _sink[index] = 0.0
+                        set_process(true)
+        else:
+                if not index in tapped_indices:
+                        return
+                tapped_indices.erase(index)
+                if not Feel.reduced():
+                        _press_anim[index] = float(_press_anim.get(index, 1.0))
+                        set_process(true)
+                else:
+                        _press_anim.erase(index)
+        queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
         if not is_interactive or current_challenge == null:
+                if OS.is_debug_build() and current_challenge != null \
+                        and current_challenge.input_mode == "tap_targets":
+                        print("[TOKEN INPUT] blocked interactive=%s mode=%s" % [is_interactive, current_challenge.input_mode])
                 return
-                
-        var is_press = false
-        var click_pos = Vector2.ZERO
 
+        var is_press: bool = false
+        var click_pos: Vector2 = Vector2.ZERO
         if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
                 is_press = true
                 click_pos = event.position
         elif event is InputEventScreenTouch and event.pressed:
                 is_press = true
                 click_pos = event.position
-
         if not is_press:
                 return
 
-        # Project Settings has both touch<->mouse emulation flags on (desktop testing
-        # needs emulate_touch_from_mouse; real phones ship with emulate_mouse_from_touch
-        # on by default), so every physical tap arrives here TWICE: once as the real
-        # event and once as its synthetic echo of the other type, both landing on the
-        # same position in the same input flush. Godot tags the synthetic one with
-        # DEVICE_ID_EMULATION - drop it here, or a single tap double-fires the hit test
-        # below (select then immediately unselect), which reads as "nothing happened"
-        # even though the tap sound/haptic still played for both passes.
+        # Keep the same emulated-event filter for every family. The real pointer
+        # event is handled once; its synthetic echo must not select/release a token.
         if event.device == InputEvent.DEVICE_ID_EMULATION:
                 return
 
         accept_event()
-        
-        # 1. Split view side-by-side touch dispatch
+
+        # Split-field challenges share this canvas input surface as before.
         if current_challenge.visual_data.get("split_view", false):
-                var mid_x = size.x * 0.5
+                var mid_x: float = size.x * 0.5
                 Feel.sfx("pop", 0.85)
                 Feel.haptic("light")
                 if click_pos.x < mid_x:
@@ -276,50 +286,49 @@ func _gui_input(event: InputEvent) -> void:
                         queue_redraw()
                         side_tapped.emit("RIGHT")
                 return
-                
-        # 2. Tap targets selection mode - tap a token to select it, tap it again to
-        # release it (unselect) before confirming.
+
+        # One hit-test engine for every freeform token challenge. Selected tokens
+        # remain hittable so the shared tap-target flow can toggle them off.
         if current_challenge.input_mode == "tap_targets":
                 var items: Array = current_challenge.visual_data.get("items", [])
-                var pad = 24.0
-                var play_w = size.x - (pad * 2.0)
-                var play_h = size.y - (pad * 2.0)
-                
-                # Check from last to first (topmost drawn item)
-                for i in range(items.size() - 1, -1, -1):
-                        var it = items[i]
-                        var center = Vector2(pad + (float(it["x"]) * play_w), pad + (float(it["y"]) * play_h))
-                        var base_sz = float(it.get("size", 28.0))
-                        var touch_radius = maxf(base_sz * 0.9, 28.0)
-                        
-                        if click_pos.distance_to(center) <= touch_radius:
-                                if i in tapped_indices:
-                                        # UNSELECT: release the token back to its raised seat.
-                                        tapped_indices.erase(i)
-                                        if not Feel.reduced():
-                                                _press_anim[i] = float(_press_anim.get(i, 1.0))
-                                                set_process(true)
-                                        Feel.sfx("pop", 0.68)
-                                        Feel.haptic("light")
-                                        item_untapped.emit(i, it)
-                                else:
-                                        tapped_indices.append(i)
-                                        if not Feel.reduced():
-                                                _press_anim[i] = float(_press_anim.get(i, 0.0))
-                                                _sink[i] = 0.0
-                                                set_process(true)
-                                        # Each collected target rings a little higher, so progress is audible.
-                                        Feel.sfx("pop", 1.0 + 0.08 * float(mini(tapped_indices.size() - 1, 8)))
-                                        Feel.haptic("light")
-                                        item_tapped.emit(i, it)
-                                queue_redraw()
-                                return
+                var hit_index: int = _find_token_at_position(click_pos, items)
+                if hit_index >= 0:
+                        var item: Dictionary = items[hit_index]
+                        if OS.is_debug_build():
+                                print("[TOKEN INPUT] mode=%s index=%d pos=%s" % [current_challenge.input_mode, hit_index, click_pos])
+                        item_tapped.emit(hit_index, item)
+                elif OS.is_debug_build():
+                        print("[TOKEN INPUT] mode=%s no hit pos=%s canvas=%s" % [current_challenge.input_mode, click_pos, size])
                 return
-                
-        # 3. Withhold response tap dispatch
+
         if current_challenge.input_mode == "withhold_response":
                 side_tapped.emit("TAP")
-                return
+
+
+## Shared token hit-testing for ordinary tap_targets challenges.
+## Selection policy is deliberately not family-specific; the view owns rules.
+func _find_token_at_position(click_pos: Vector2, items: Array) -> int:
+        var pad: float = 24.0
+        var play_w: float = maxf(size.x - pad * 2.0, 1.0)
+        var play_h: float = maxf(size.y - pad * 2.0, 1.0)
+        var best_index: int = -1
+        var best_distance_squared: float = INF
+
+        for i in range(items.size()):
+                if not (items[i] is Dictionary):
+                        continue
+                var item: Dictionary = items[i]
+                var center: Vector2 = Vector2(
+                        pad + float(item.get("x", 0.5)) * play_w,
+                        pad + float(item.get("y", 0.5)) * play_h
+                )
+                var base_size: float = float(item.get("size", 28.0))
+                var touch_radius: float = maxf(base_size * 0.9, 28.0)
+                var distance_squared: float = click_pos.distance_squared_to(center)
+                if distance_squared <= touch_radius * touch_radius and distance_squared < best_distance_squared:
+                        best_distance_squared = distance_squared
+                        best_index = i
+        return best_index
 
 func _draw() -> void:
         if current_challenge == null or size.x <= 0 or size.y <= 0 or _tray == null:

@@ -6,6 +6,11 @@ const Feel = preload("res://scripts/core/Feel.gd")
 const NeuText = preload("res://scripts/ui/NeuText.gd")
 const NeuStyle = preload("res://scripts/ui/NeuStyle.gd")
 const Records = preload("res://scripts/core/Records.gd")
+const ChallengeFactoryScript = preload("res://scripts/challenges/ChallengeFactory.gd")
+const RuleBookScript = preload("res://scripts/challenges/RuleBook.gd")
+const AnswerValidatorScript = preload("res://scripts/game/AnswerValidator.gd")
+const TutorialProgressScript = preload("res://scripts/tutorial/TutorialProgress.gd")
+const PracticeCoachScript = preload("res://scripts/ui/PracticeCoach.gd")
 
 # --- PATCH A ---
 const NeuFocusFX = preload("res://scripts/ui/NeuFocusFX.gd")
@@ -35,6 +40,7 @@ const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 @onready var lbl_points: NeuText = %LblPoints
 @onready var feedback_badge: Control = %FeedbackBadge
 @onready var countdown_scrim: ColorRect = %CountdownScrim
+@onready var safe_area: Control = get_node_or_null("SafeArea") as Control
 
 var is_multiplayer: bool = false
 var displayed_score: float = 0.0
@@ -70,6 +76,17 @@ var _prev_combo_mult: int = 1
 # rounds can be announced (the engine's moves made audible + visible).
 var _prev_round_difficulty: int = -1
 var _countdown_sub_base_color: Color = Color.WHITE
+var _feedback_correct_depth: float = 1.0
+var _feedback_wrong_depth: float = 1.0
+var _practice_coach: PracticeCoach
+var _tutorial_practice_active: bool = false
+var _tutorial_has_result: bool = false
+var _tutorial_result: Dictionary = {}
+var _tutorial_attempt_id: int = 0
+var _tutorial_challenge: ChallengeDefinition = null
+var _tutorial_skipped_families: Dictionary = {}
+var _tutorial_interrupted: bool = false
+const INTER_ROUND_INSTRUCTION_SECONDS: float = 2.5
 
 func _ready() -> void:
 		SpotRushSkin.apply_screen(self, "game")
@@ -83,9 +100,15 @@ func _ready() -> void:
 		add_child(fx)
 		# ---------------
 
+		_practice_coach = PracticeCoachScript.new()
+		_practice_coach.name = "PracticeCoach"
+		add_child(_practice_coach)
+
 		# Allocate result surfaces once rather than on every answer.
 		_feedback_correct_style = _make_feedback_card(_feedback_color(true))
 		_feedback_wrong_style = _make_feedback_card(_feedback_color(false))
+		_feedback_correct_depth = (_feedback_correct_style as NeuStyle).depth
+		_feedback_wrong_depth = (_feedback_wrong_style as NeuStyle).depth
 		_countdown_style = NeuKit.accent(NeuKit.COBALT, 40.0, 12.0, 28.0)
 		_countdown_style.content_margin_left = 36.0
 		_countdown_style.content_margin_right = 36.0
@@ -100,19 +123,19 @@ func _ready() -> void:
 		GameManager.ui_round_ended.connect(_on_round_ended)
 		GameManager.ui_match_ended.connect(_on_match_ended)
 		SceneRouter.transition_started.connect(_on_scene_transition_started)
-		
+
 		challenge_view.option_selected.connect(_on_player_choice)
-		
+
 		is_multiplayer = (GameManager.current_game_mode != GameConfig.GameMode.SINGLE_PLAYER)
 		lbl_score_p2.visible = is_multiplayer
 		cap_score.text = "YOU" if is_multiplayer else "SCORE"
 		round_pips.start(GameManager.match_controller.total_rounds)
-		
+
 		if lbl_streak != null:
 				lbl_streak.visible = true
 				if lbl_streak.get_parent() is Control:
 						(lbl_streak.get_parent() as Control).visible = false
-		
+
 		feedback_panel.visible = false
 		countdown_overlay.visible = false
 		countdown_scrim.visible = false
@@ -128,7 +151,7 @@ func _ready() -> void:
 				NeuSafe.fit(safe_ref) # real OS insets first, so the animation base includes them
 				_safe_base_ot = safe_ref.offset_top
 				_safe_base_ob = safe_ref.offset_bottom
-		
+
 		# Start a queued Solo Play match only after the GameScreen is ready and all
 		# UI signals are connected. This preserves the opening countdown and keeps the
 		# first challenge's staggered token entrance visible instead of skipping it.
@@ -280,45 +303,65 @@ func _input(event: InputEvent) -> void:
 						GameManager.skip_feedback()
 
 func _on_countdown_started(round_num: int, total_rounds: int) -> void:
+		var live_challenge: ChallengeDefinition = GameManager.match_controller.current_challenge
+		var needs_practice: bool = _should_show_first_time_practice(live_challenge)
+		var needs_instruction_preview: bool = round_num > 1
+		if needs_practice or needs_instruction_preview:
+				GameManager.pause_round_countdown()
+
 		# Network/host flows can also arrive during a scene reveal. Hold their first
 		# popup too, rather than letting the wipe rim cut through the card.
 		await SceneRouter.wait_until_idle()
 		if not is_inside_tree():
 				return
+
+		# Feedback leaves with the reverse of its entrance before the next screen state.
+		await _animate_feedback_exit()
+		if not is_inside_tree() or SceneRouter.is_transitioning:
+				return
+		if needs_practice and live_challenge != null:
+				await _run_first_time_practice(live_challenge)
+		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				return
+
+		if needs_instruction_preview:
+				var preview_line: String = GameManager.next_round_instruction
+				if preview_line.is_empty() and live_challenge != null:
+						preview_line = live_challenge.instruction
+				await _show_inter_round_instruction(preview_line)
+				if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+						return
+
+		GameManager.resume_round_countdown()
 		_kill_tweens()
-		
 		lbl_round.text = "%d / %d" % [round_num, total_rounds]
 		round_pips.set_current(round_num - 1, total_rounds)
 		countdown_overlay.visible = true
 		countdown_scrim.visible = true
 		countdown_scrim.modulate.a = 0.0
 		feedback_panel.visible = false
-		challenge_view.lock_input()
+		challenge_view.visible = true
 
 		# Solo/host challenges are prepared before countdown. Render the first level
 		# behind GET READY instead of showing an empty playfield; keep it locked and
 		# suppress its entrance until the countdown ends.
 		if GameManager.current_game_mode in [GameConfig.GameMode.SINGLE_PLAYER, GameConfig.GameMode.MULTIPLAYER_HOST] \
 				and GameManager.match_controller.current_challenge != null:
-				# The opening round was already dealt behind the wipe; only later
-				# rounds need a (static) reload here.
 				if _prepared_round_index != GameManager.match_controller.current_round_index:
 						challenge_view.load_challenge(GameManager.match_controller.current_challenge, false)
 				challenge_view.lock_input()
-		
+
 		if lbl_timer != null:
 				lbl_timer.text = "--"
 				lbl_timer.modulate = Color.WHITE
 		timer_dial.set_time(1.0, 1.0)
 		_set_timer_visual("calm")
-				
-		# GET READY! floats on a raised cobalt card; SPOT! presses the card in and lights up.
+
 		Feel.sfx("whoosh")
-		# Scoring 2.0: name the upcoming difficulty band; when the adaptive engine
-		# moves it between rounds, let the player hear (and see) the shift.
 		var upcoming_difficulty: int = -1
 		if GameManager.match_controller.current_challenge != null:
 				upcoming_difficulty = clampi(GameManager.match_controller.current_challenge.difficulty, 1, 4)
+		lbl_countdown_sub.visible = true
 		lbl_countdown_sub.color = _countdown_sub_base_color
 		if upcoming_difficulty > 0:
 				lbl_countdown_sub.text = "ROUND %d OF %d  -  %s" % [round_num, total_rounds, GameConfig.band_name(upcoming_difficulty)]
@@ -331,15 +374,15 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				lbl_countdown_sub.text = "ROUND %d OF %d" % [round_num, total_rounds]
 		lbl_countdown.text = "GET READY!"
 		lbl_countdown.font_size = 62
+		lbl_countdown.autowrap = false
+		lbl_countdown.custom_minimum_size = Vector2(0.0, 92.0)
 		lbl_countdown.color = Color.WHITE
 		_countdown_style.depth = 1.0
-		# Slide+crossfade entrance: the card starts just below its resting position
-		# and fades in smoothly, then holds for the remainder of the GET READY beat.
 		countdown_overlay.scale = Vector2.ONE
 		countdown_overlay.offset_top = _countdown_base_ot + 28.0
 		countdown_overlay.offset_bottom = _countdown_base_ob + 28.0
 		countdown_overlay.modulate.a = 0.0
-		
+
 		countdown_tween = create_tween()
 		countdown_tween.set_parallel(true)
 		countdown_tween.tween_property(countdown_scrim, "modulate:a", 1.0, 0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -359,16 +402,235 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				_press_countdown_card()
 		)
 
-		# --- PATCH D ---
-		# A spotlight closes in on the card while GET READY runs.
-		# Use the card's final resting rect (not the slid-down start position).
-		# The opening round skips the halo ring: the wipe's spot-mark already gave
-		# the reveal its spotlight moment, and a second ring read as a duplicate orb.
 		if fx != null and _prepared_round_index < 0:
 				var halo_rect := countdown_overlay.get_global_rect()
 				halo_rect.position.y -= 28.0
 				fx.halo(halo_rect, GameConfig.COUNTDOWN_DURATION * 0.5)
-		# ---------------
+
+## First encounter of a family gets one unscored, low-pressure practice round.
+## Deliberately limited to solo modes: duel timing remains fully authoritative.
+func _should_show_first_time_practice(challenge: ChallengeDefinition) -> bool:
+		if challenge == null or GameManager.current_game_mode != GameConfig.GameMode.SINGLE_PLAYER:
+				return false
+		if _tutorial_skipped_families.has(challenge.type):
+				return false
+		return not TutorialProgressScript.has_completed(challenge.type)
+
+func _make_practice_challenge(family_type: String) -> ChallengeDefinition:
+		var rng := RandomNumberGenerator.new()
+		var run_seed: int = int(Time.get_ticks_usec() & 0x7FFFFFFF)
+		rng.seed = run_seed
+		var book: RuleBook = RuleBookScript.new(run_seed ^ 0x5A5A)
+		var practice: ChallengeDefinition = null
+		var attempts: int = 1
+		if family_type == GameConfig.TYPE_DONT_TAP:
+				attempts = 8 # Prefer a red-present example so restraint is physically practised.
+		for _attempt in range(attempts):
+				practice = ChallengeFactoryScript.build(rng, family_type, -1, 0.0, book, run_seed)
+				if practice != null and (family_type != GameConfig.TYPE_DONT_TAP or bool(practice.correct_answer)):
+						break
+		if practice != null and practice.is_valid():
+				if practice.input_mode == "withhold_response":
+						practice.time_limit = 2.6
+				return practice
+		push_warning("Could not generate a valid practice challenge for %s" % family_type)
+		return null
+
+func _tutorial_explanation(challenge: ChallengeDefinition) -> String:
+		match challenge.type:
+				GameConfig.TYPE_ESTIMATION_COUNT:
+						return "Look at the whole group, estimate its size, then choose the closest number. You do not need to count every dot."
+				GameConfig.TYPE_COMPARISON_SIDES:
+						return "Compare both trays and choose the side that matches the instruction: more or fewer dots."
+				GameConfig.TYPE_COLOR_TARGET:
+						return "Tap every circle in the requested colour, then press CONFIRM SELECTIONS. Leave every other colour untouched."
+				GameConfig.TYPE_SHAPE_TARGET:
+						return "Tap every requested shape, wherever it appears, then press CONFIRM SELECTIONS. Ignore all the other shapes."
+				GameConfig.TYPE_DONT_TAP:
+						return "Scan the whole field. If you see a red circle, do not tap. Only tap when the field has no red circle."
+				GameConfig.TYPE_SIZE_ORDER:
+						return "Tap every shape in the exact size order shown. The order of your taps is the answer."
+				GameConfig.TYPE_COMBINED_CONDITIONAL:
+						match challenge.rule:
+								"conjunction_search":
+										return "Tap only items matching BOTH attributes (colour AND shape), then press CONFIRM SELECTIONS. Ignore near-misses matching just one."
+								"majority":
+										return "Compare the quantities of the two named shapes, then choose YES or NO."
+								"threshold":
+										return "Estimate the number of dots in the named colour. Decide whether it meets the AT LEAST or AT MOST limit."
+								_:
+										return "Read the condition carefully, inspect the field, then choose the answer that satisfies it."
+		return "Read the instruction, inspect the field, and make the required selection."
+
+func _tutorial_family_title(challenge: ChallengeDefinition) -> String:
+		match challenge.type:
+				GameConfig.TYPE_ESTIMATION_COUNT: return "ALMOST RIGHT • ESTIMATION"
+				GameConfig.TYPE_COMPARISON_SIDES: return "WHICH SIDE • COMPARISON"
+				GameConfig.TYPE_COLOR_TARGET: return "TARGET RUSH • COLOR"
+				GameConfig.TYPE_SHAPE_TARGET: return "SHAPE HUNTER • GEOMETRY"
+				GameConfig.TYPE_DONT_TAP: return "DON'T TAP • INHIBITION"
+				GameConfig.TYPE_COMBINED_CONDITIONAL: return "BRAIN TWIST • CONDITIONAL"
+				GameConfig.TYPE_SIZE_ORDER: return "SIZE RUSH • ORDER"
+				_: return challenge.type.to_upper()
+
+func _run_first_time_practice(live_challenge: ChallengeDefinition) -> void:
+		_tutorial_interrupted = false
+		_tutorial_challenge = _make_practice_challenge(live_challenge.type)
+		if _tutorial_challenge == null or _practice_coach == null:
+				return
+		var safe_was_visible: bool = safe_area.visible if safe_area != null else true
+		if safe_area != null:
+				safe_area.visible = false
+		countdown_overlay.visible = false
+		countdown_scrim.visible = false
+		feedback_panel.visible = false
+		var title: String = _tutorial_family_title(_tutorial_challenge)
+		var message: String = "FIRST-TIME PRACTICE\n\n%s\n\nTry one unscored example. The real round starts after you finish." % [
+				_tutorial_challenge.instruction, _tutorial_explanation(_tutorial_challenge)]
+		var begin_practice: bool = await _practice_coach.present(title, message, "PRACTICE NOW", "SKIP FOR NOW")
+		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				return
+		if begin_practice:
+				if safe_area != null:
+						safe_area.visible = safe_was_visible
+				while is_inside_tree():
+						_tutorial_result = {}
+						_tutorial_has_result = false
+						_tutorial_practice_active = true
+						_tutorial_attempt_id += 1
+						var attempt_id: int = _tutorial_attempt_id
+						challenge_view.load_challenge(_tutorial_challenge)
+						challenge_view.unlock_input()
+						var result: Dictionary = await _run_tutorial_attempt(attempt_id)
+						_tutorial_practice_active = false
+						if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+								return
+						challenge_view.lock_input()
+						if bool(result.get("is_correct", false)):
+								if safe_area != null:
+										safe_area.visible = false
+								var continue_to_round: bool = await _practice_coach.present(
+										"YOU'VE GOT IT!",
+										"That was a practice round, so no score or streak was changed. You're ready for the real challenge.",
+										"CONTINUE",
+										""
+								)
+								if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+										return
+								if continue_to_round:
+										TutorialProgressScript.mark_completed(live_challenge.type)
+								else:
+										_tutorial_skipped_families[live_challenge.type] = true
+								break
+						else:
+								if safe_area != null:
+										safe_area.visible = false
+								var retry: bool = await _practice_coach.present(
+										"NOT QUITE — TRY AGAIN",
+										"%s\n\n%s" % [_tutorial_challenge.instruction, str(result.get("details", "Try the rule once more."))],
+										"TRY AGAIN",
+										"SKIP"
+								)
+								if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+										return
+								if retry:
+										if safe_area != null:
+												safe_area.visible = safe_was_visible
+										continue
+								_tutorial_skipped_families[live_challenge.type] = true
+								break
+		else:
+				_tutorial_skipped_families[live_challenge.type] = true
+		_tutorial_practice_active = false
+		_tutorial_has_result = false
+		if safe_area != null:
+				safe_area.visible = safe_was_visible
+		if lbl_timer != null:
+				lbl_timer.text = "--"
+				lbl_timer.modulate = Color.WHITE
+		timer_dial.set_time(1.0, 1.0)
+		challenge_view.load_challenge(live_challenge, false)
+		challenge_view.lock_input()
+		_tutorial_challenge = null
+
+func _run_tutorial_attempt(attempt_id: int) -> Dictionary:
+		var total: float = _tutorial_challenge.time_limit
+		var start_usec: int = Time.get_ticks_usec()
+		while is_inside_tree() and _tutorial_practice_active and not _tutorial_has_result \
+				and attempt_id == _tutorial_attempt_id:
+				var elapsed: float = float(Time.get_ticks_usec() - start_usec) / 1000000.0
+				var remaining: float = maxf(0.0, total - elapsed)
+				timer_dial.set_time(remaining, total)
+				if lbl_timer != null:
+						lbl_timer.text = "%.1f" % remaining
+				if remaining <= 0.0:
+						_record_tutorial_submission(null, true)
+						break
+				await get_tree().process_frame
+		return _tutorial_result
+
+func _record_tutorial_submission(answer: Variant, is_timeout: bool) -> void:
+		if not _tutorial_practice_active or _tutorial_has_result or _tutorial_challenge == null:
+				return
+		var elapsed: float = _tutorial_challenge.time_limit if is_timeout else 0.35
+		_tutorial_result = AnswerValidatorScript.validate_submission(
+				_tutorial_challenge, answer, elapsed, is_timeout
+		)
+		_tutorial_has_result = true
+		_tutorial_practice_active = false
+		challenge_view.lock_input()
+
+func _show_inter_round_instruction(instruction: String) -> void:
+		if instruction.strip_edges().is_empty():
+				return
+		var safe_was_visible: bool = safe_area.visible if safe_area != null else true
+		if safe_area != null:
+				safe_area.visible = false
+		countdown_overlay.visible = true
+		countdown_scrim.visible = true
+		countdown_scrim.modulate.a = 0.0
+		lbl_countdown_sub.visible = false
+		lbl_countdown.text = instruction.strip_edges()
+		lbl_countdown.font_size = 28
+		lbl_countdown.autowrap = true
+		lbl_countdown.custom_minimum_size = Vector2(0.0, 132.0)
+		lbl_countdown.color = Color.WHITE
+		countdown_overlay.offset_top = _countdown_base_ot
+		countdown_overlay.offset_bottom = _countdown_base_ob
+		countdown_overlay.scale = Vector2(0.96, 0.96)
+		countdown_overlay.modulate.a = 0.0
+		_countdown_style.depth = -0.18
+		countdown_overlay.pivot_offset = countdown_overlay.size * 0.5
+		var enter := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		enter.tween_property(countdown_scrim, "modulate:a", 1.0, 0.20)
+		enter.tween_property(countdown_overlay, "modulate:a", 1.0, 0.22)
+		enter.tween_property(countdown_overlay, "scale", Vector2.ONE, 0.24)
+		enter.tween_property(_countdown_style, "depth", 0.85, 0.24)
+		await enter.finished
+		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				return
+		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_SECONDS).timeout
+		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				return
+		var exit := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		exit.tween_property(countdown_overlay, "modulate:a", 0.0, 0.16)
+		exit.tween_property(countdown_overlay, "scale", Vector2(0.975, 0.975), 0.16)
+		exit.tween_property(countdown_scrim, "modulate:a", 0.0, 0.18)
+		exit.tween_property(_countdown_style, "depth", -0.18, 0.16)
+		await exit.finished
+		countdown_overlay.visible = false
+		countdown_scrim.visible = false
+		lbl_countdown_sub.visible = true
+		lbl_countdown.autowrap = false
+		lbl_countdown.custom_minimum_size = Vector2(0.0, 92.0)
+		lbl_countdown.font_size = 62
+		lbl_countdown.text = "GET READY!"
+		_countdown_style.depth = 1.0
+		countdown_overlay.scale = Vector2.ONE
+		countdown_overlay.modulate.a = 1.0
+		countdown_scrim.modulate.a = 1.0
+		if safe_area != null:
+				safe_area.visible = safe_was_visible
 
 func _press_countdown_card() -> void:
 		if _countdown_press_tween != null and _countdown_press_tween.is_valid():
@@ -383,7 +645,7 @@ func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration:
 		Music.play_game()
 		_kill_tweens()
 		_last_tick_second = -1
-		
+
 		countdown_overlay.visible = false
 		# Restore the overlay's resting offsets/alpha/scale so the next countdown
 		# starts from a clean state even if the previous tween was interrupted.
@@ -394,17 +656,19 @@ func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration:
 		countdown_scrim.visible = false
 		countdown_scrim.modulate.a = 1.0
 		feedback_panel.visible = false
+		feedback_panel.scale = Vector2.ONE
+		feedback_panel.modulate = Color.WHITE
 		lbl_round.text = "%d / %d" % [round_num, GameManager.match_controller.total_rounds]
 		round_pips.set_current(round_num - 1, GameManager.match_controller.total_rounds)
-		
+
 		timer_dial.set_time(duration, duration)
 		_timer_visual_state = ""
 		_set_timer_visual("calm")
-		
+
 		if lbl_timer != null:
 				lbl_timer.text = "%.1f" % duration
 				lbl_timer.modulate = Color.WHITE
-				
+
 		if _prepared_round_index == round_num - 1:
 				# This round was already dealt behind the wipe and rose in with the screen
 				# entrance - hand control back without reloading, re-rising or re-sweeping.
@@ -421,7 +685,7 @@ func _on_time_tick(remaining: float, total: float) -> void:
 		timer_dial.set_time(remaining, total)
 		if lbl_timer != null:
 				lbl_timer.text = "%.1f" % remaining
-				
+
 		# Last three seconds: a clock-like tick each second that rises in pitch, plus a knob bump.
 		if remaining > 0.0 and remaining <= 3.0:
 				var whole_second := int(ceil(remaining))
@@ -430,7 +694,7 @@ func _on_time_tick(remaining: float, total: float) -> void:
 						Feel.sfx("tick", 1.0 + float(3 - whole_second) * 0.14)
 						Feel.haptic("light")
 						timer_dial.bump()
-		
+
 		var ratio = remaining / maxf(total, 0.001)
 		if ratio > 0.5:
 				_set_timer_visual("calm")
@@ -556,11 +820,20 @@ func _score_math_line(breakdown: Dictionary, details: String) -> String:
 		return line
 
 func _on_player_choice(choice: Variant) -> void:
+		# Practice submissions are validated locally and never enter scoring, streak,
+		# network, or match progression. The live challenge is restored afterwards.
+		if _tutorial_practice_active:
+				_record_tutorial_submission(choice, false)
+				return
+		if OS.is_debug_build() and GameManager.match_controller != null \
+				and GameManager.match_controller.current_challenge != null \
+				and GameManager.match_controller.current_challenge.type == GameConfig.TYPE_SIZE_ORDER:
+				print("[SIZE ORDER] GameScreen forwarding selection=%s" % [choice])
 		GameManager.submit_answer(choice)
 
 func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
 		feedback_panel.visible = true
-		
+
 		var local_id = NetworkSession.get_local_id() if is_multiplayer else 1
 		var stats = GameManager.match_controller.score_manager.get_player_stats(local_id)
 		var streak = stats.get("current_streak", 0)
@@ -572,7 +845,7 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 		var event_mult: int = ScoreManager.combo_multiplier(event_streak)
 		var breakdown: Dictionary = GameManager.match_controller.score_manager.get_last_breakdown(player_id)
 		var grade: String = str(breakdown.get("grade", "")) if is_correct else ""
-		
+
 		# Update HUD combo meter (tier multiplier, not the raw streak count)
 		var mult := ScoreManager.combo_multiplier(streak)
 		if lbl_streak != null:
@@ -607,7 +880,7 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 						_prev_combo_mult = mult
 				else:
 						_prev_combo_mult = 1
-		
+
 		var title := ""
 		var detail := details
 		var accent: Color = _feedback_color(is_correct)
@@ -636,7 +909,7 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 						var gap: int = ScoreManager.tier_gap(broke)
 						if gap == 1 or gap == 2:
 								detail = "%s  SO CLOSE - %d away from x%d!" % [details, gap, ScoreManager.combo_multiplier(broke) + 1]
-		
+
 		lbl_feedback.text = title
 		lbl_feedback.accent_base = accent
 		lbl_feedback_detail.text = detail
@@ -649,23 +922,39 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 		feedback_badge.set("glyph_color", Color.WHITE)
 		feedback_badge.set("socket_surface", NeuKit.CANARY if s_rank else accent)
 		feedback_badge.queue_redraw()
-		
+
 		if player_id == local_id:
 				round_pips.mark(GameManager.match_controller.current_round_index, is_correct)
 				if challenge_view.challenge_canvas != null:
 						challenge_view.challenge_canvas.show_result(is_correct)
 				_play_answer_feel(is_correct, score_delta, streak, grade)
-		
-		# Tactile bounce entrance animation
+
+		# Soft neumorphic entrance: the card settles into its raised surface instead
+		# of snapping or bouncing. Its exit uses the exact reverse motion.
+		if feedback_tween != null and feedback_tween.is_valid():
+				feedback_tween.kill()
 		feedback_panel.pivot_offset = feedback_panel.size * 0.5
-		feedback_panel.scale = Vector2(0.9, 0.9)
-		feedback_tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		feedback_tween.tween_property(feedback_panel, "scale", Vector2.ONE, 0.18)
-		
+		feedback_panel.scale = Vector2(0.955, 0.955)
+		feedback_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		var active_feedback_style: NeuStyle = feedback_panel.get_theme_stylebox("panel") as NeuStyle
+		if active_feedback_style != null:
+				active_feedback_style.depth = -0.16
+		if Feel.reduced():
+				feedback_panel.scale = Vector2.ONE
+				feedback_panel.modulate = Color.WHITE
+				if active_feedback_style != null:
+						active_feedback_style.depth = _feedback_correct_depth if is_correct else _feedback_wrong_depth
+		else:
+				feedback_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				feedback_tween.tween_property(feedback_panel, "scale", Vector2.ONE, 0.26)
+				feedback_tween.tween_property(feedback_panel, "modulate:a", 1.0, 0.23)
+				if active_feedback_style != null:
+						feedback_tween.tween_property(active_feedback_style, "depth", _feedback_correct_depth if is_correct else _feedback_wrong_depth, 0.26)
+
 		# Authoritative score update with smooth count-up animation
 		var my_score = GameManager.match_controller.score_manager.get_player_score(local_id)
 		_animate_score_to(my_score)
-		
+
 		if is_multiplayer:
 				var opp_id = -1
 				for pid in GameManager.match_controller.player_ids:
@@ -674,7 +963,7 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 								break
 				var opp_score = GameManager.match_controller.score_manager.get_player_score(opp_id) if opp_id != -1 else 0
 				lbl_score_p2.text = "OPPONENT: %d" % opp_score
-				
+
 				# --- PATCH H ---
 				if fx != null:
 						fx.pop(lbl_score_p2, 1.1)
@@ -683,7 +972,7 @@ func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, det
 func _animate_score_to(target_score: int) -> void:
 		if score_tween != null and score_tween.is_valid():
 				score_tween.kill()
-				
+
 		var start_val = displayed_score
 		score_tween = create_tween()
 		score_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -695,7 +984,7 @@ func _animate_score_to(target_score: int) -> void:
 				float(target_score),
 				0.25
 		)
-		
+
 		# --- PATCH G ---
 		score_tween.tween_callback(func():
 				displayed_score = float(target_score)
@@ -704,6 +993,34 @@ func _animate_score_to(target_score: int) -> void:
 						fx.pop(lbl_score_p1, 1.16)
 		)
 		# ---------------
+
+func _animate_feedback_exit() -> void:
+		if feedback_panel == null or not feedback_panel.visible:
+				return
+		if feedback_tween != null and feedback_tween.is_valid():
+				feedback_tween.kill()
+		var active_feedback_style: NeuStyle = feedback_panel.get_theme_stylebox("panel") as NeuStyle
+		if Feel.reduced():
+				feedback_panel.visible = false
+				feedback_panel.scale = Vector2.ONE
+				feedback_panel.modulate = Color.WHITE
+				if active_feedback_style != null:
+						active_feedback_style.depth = _feedback_correct_depth if active_feedback_style == _feedback_correct_style else _feedback_wrong_depth
+				return
+		feedback_panel.pivot_offset = feedback_panel.size * 0.5
+		feedback_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		feedback_tween.tween_property(feedback_panel, "scale", Vector2(0.955, 0.955), 0.20)
+		feedback_tween.tween_property(feedback_panel, "modulate:a", 0.0, 0.19)
+		if active_feedback_style != null:
+				feedback_tween.tween_property(active_feedback_style, "depth", -0.16, 0.20)
+		await feedback_tween.finished
+		if not is_inside_tree():
+				return
+		feedback_panel.visible = false
+		feedback_panel.scale = Vector2.ONE
+		feedback_panel.modulate = Color.WHITE
+		if active_feedback_style != null:
+				active_feedback_style.depth = _feedback_correct_depth if active_feedback_style == _feedback_correct_style else _feedback_wrong_depth
 
 func _kill_tweens() -> void:
 		if countdown_tween != null and countdown_tween.is_valid():
@@ -719,6 +1036,15 @@ func _on_round_ended(_round_num: int, _scores: Dictionary) -> void:
 		challenge_view.lock_input()
 
 func _on_scene_transition_started() -> void:
+		_tutorial_interrupted = true
+		# Resolve any open practice sheet so an awaited tutorial cannot hold a
+		# countdown or keep the scene coroutine alive during navigation.
+		if _practice_coach != null and _practice_coach.visible:
+				_practice_coach.cancel()
+		if _tutorial_practice_active:
+				_tutorial_practice_active = false
+				_tutorial_has_result = true
+				_tutorial_result = {"is_correct": false, "details": "Practice was interrupted."}
 		# Clear every transient layer before the first visible wipe frame.
 		_kill_tweens()
 		countdown_overlay.visible = false
@@ -731,6 +1057,9 @@ func _on_scene_transition_started() -> void:
 		feedback_panel.visible = false
 
 func _on_match_ended(_results: Dictionary) -> void:
+		await _animate_feedback_exit()
+		if not is_inside_tree():
+				return
 		_kill_tweens()
 		if score_tween != null and score_tween.is_valid():
 				score_tween.kill()
@@ -739,11 +1068,18 @@ func _on_match_ended(_results: Dictionary) -> void:
 # --- HARDWARE BACK (v19) ------------------------------------------------------------
 
 func _exit_tree() -> void:
+		_tutorial_interrupted = true
+		if _practice_coach != null and _practice_coach.visible:
+				_practice_coach.cancel()
+		GameManager.resume_round_countdown()
 		BackNav.unregister(self)
 
 ## Android back / desktop Escape. Leaving a live run costs its points (and a
 ## live duel), so the question is asked before anything is thrown away.
 func handle_back() -> bool:
+		if _practice_coach != null and _practice_coach.visible:
+				_practice_coach.cancel()
+				return true
 		var mc := GameManager.match_controller
 		if mc.current_state == MatchController.MatchState.IDLE:
 				# Match not dealt yet (or already over): nothing to protect.

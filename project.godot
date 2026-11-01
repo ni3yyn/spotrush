@@ -21,7 +21,6 @@ boot_splash/minimum_display_time=200
 
 [autoload]
 
-OtaUpdater="*res://scripts/core/OtaUpdater.gd"
 NetworkSession="*res://scripts/networking/NetworkSession.gd"
 SceneRouter="*res://scripts/core/SceneRouter.gd"
 GameManager="*res://scripts/core/GameManager.gd"
@@ -31,6 +30,7 @@ AppLifecycle="*res://scripts/core/AppLifecycle.gd"
 Music="*res://scripts/core/Music.gd"
 DailyReminder="*res://scripts/core/DailyReminder.gd"
 CrashLogger="*res://scripts/core/CrashLogger.gd"
+OtaUpdater="*res://scripts/core/OtaUpdater.gd"
 
 [display]
 

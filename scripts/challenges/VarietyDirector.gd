@@ -27,6 +27,7 @@ const _MODE := {
         GameConfig.TYPE_SHAPE_TARGET: "tap",
         GameConfig.TYPE_DONT_TAP: "withhold",
         GameConfig.TYPE_COMBINED_CONDITIONAL: "twist",
+        GameConfig.TYPE_SIZE_ORDER: "tap",
 }
 
 ## Base spin weight per type.
@@ -37,6 +38,7 @@ const _WEIGHT := {
         GameConfig.TYPE_SHAPE_TARGET: 1.0,
         GameConfig.TYPE_DONT_TAP: 0.85,
         GameConfig.TYPE_COMBINED_CONDITIONAL: 1.15,
+        GameConfig.TYPE_SIZE_ORDER: 0.95,
 }
 
 var _rng := RandomNumberGenerator.new()
@@ -104,6 +106,7 @@ func _hand_built_prefix(all_types: Array) -> Array:
                 GameConfig.TYPE_ESTIMATION_COUNT,
                 GameConfig.TYPE_SHAPE_TARGET,
                 GameConfig.TYPE_COMBINED_CONDITIONAL,
+                GameConfig.TYPE_SIZE_ORDER,
                 GameConfig.TYPE_DONT_TAP,
                 GameConfig.TYPE_COMPARISON_SIDES,
         ]
