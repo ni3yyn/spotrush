@@ -1,9 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://c3m7lobby002"]
+[gd_scene load_steps=4 format=3 uid="uid://c3m7lobby002"]
 
 [ext_resource type="Script" path="res://scripts/ui/LocalLobby.gd" id="1_lobby"]
 [ext_resource type="Script" path="res://scripts/ui/NeuMenuBackdrop.gd" id="2_backdrop"]
-[ext_resource type="Script" path="res://scripts/ui/SpotRushGlyph.gd" id="3_glyph"]
-[ext_resource type="Theme" path="res://assets/ui/SpotRushTypography.tres" id="4_typography"]
+[ext_resource type="Theme" path="res://assets/ui/SpotRushTypography.tres" id="3_typography"]
 
 [node name="LocalLobby" type="Control"]
 layout_mode = 3
@@ -13,7 +12,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_lobby")
-theme = ExtResource("4_typography")
+theme = ExtResource("3_typography")
 
 [node name="Background" type="Panel" parent="."]
 layout_mode = 1
@@ -40,14 +39,14 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 30
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 30
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 24
 
 [node name="VBoxLobby" type="VBoxContainer" parent="SafeArea"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="HeaderBar" type="HBoxContainer" parent="SafeArea/VBoxLobby"]
 layout_mode = 2
@@ -55,21 +54,34 @@ theme_override_constants/separation = 12
 
 [node name="BtnBack" type="Button" parent="SafeArea/VBoxLobby/HeaderBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 56)
+custom_minimum_size = Vector2(92, 58)
 layout_mode = 2
 focus_mode = 0
 text = "BACK"
 
-[node name="LobbyTitle" type="Label" parent="SafeArea/VBoxLobby/HeaderBar"]
+[node name="HeaderTitle" type="VBoxContainer" parent="SafeArea/VBoxLobby/HeaderBar"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 32
-text = "DUEL LOBBY"
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="LobbyTitle" type="Label" parent="SafeArea/VBoxLobby/HeaderBar/HeaderTitle"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "PLAY WITH FRIENDS"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LobbySubtitle" type="Label" parent="SafeArea/VBoxLobby/HeaderBar/HeaderTitle"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 15
+text = "CHOOSE YOUR WAY TO PLAY"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="HeaderPad" type="Control" parent="SafeArea/VBoxLobby/HeaderBar"]
-custom_minimum_size = Vector2(100, 0)
+custom_minimum_size = Vector2(92, 0)
 layout_mode = 2
 mouse_filter = 2
 
@@ -78,301 +90,376 @@ layout_mode = 2
 
 [node name="TabRow" type="HBoxContainer" parent="SafeArea/VBoxLobby/ModeTabs"]
 layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 18
+theme_override_constants/separation = 8
 
-[node name="BtnTabHost" type="Button" parent="SafeArea/VBoxLobby/ModeTabs/TabRow"]
+[node name="BtnTabCreate" type="Button" parent="SafeArea/VBoxLobby/ModeTabs/TabRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
+custom_minimum_size = Vector2(0, 64)
+size_flags_horizontal = 3
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 21
-text = "HOST A GAME"
+theme_override_font_sizes/font_size = 20
+text = "CREATE"
 
 [node name="BtnTabJoin" type="Button" parent="SafeArea/VBoxLobby/ModeTabs/TabRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 21
-text = "JOIN A FRIEND"
-
-[node name="PanelHost" type="VBoxContainer" parent="SafeArea/VBoxLobby"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 12
-
-[node name="IpWell" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelHost"]
-layout_mode = 2
-
-[node name="CodeRow" type="HBoxContainer" parent="SafeArea/VBoxLobby/PanelHost/IpWell"]
-layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="CodeGlyph" type="Control" parent="SafeArea/VBoxLobby/PanelHost/IpWell/CodeRow"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 2
-size_flags_vertical = 4
-mouse_filter = 2
-script = ExtResource("3_glyph")
-glyph = "wave"
-glyph_color = Color(0.356863, 0.423529, 0.54902, 1)
-
-[node name="CodeCol" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelHost/IpWell/CodeRow"]
-layout_mode = 2
+custom_minimum_size = Vector2(0, 64)
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
-
-[node name="LblCaption" type="Label" parent="SafeArea/VBoxLobby/PanelHost/IpWell/CodeRow/CodeCol"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
-theme_override_font_sizes/font_size = 19
-text = "YOUR GAME CODE"
-
-[node name="LblHostIP" type="Label" parent="SafeArea/VBoxLobby/PanelHost/IpWell/CodeRow/CodeCol"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-text = "..."
-vertical_alignment = 1
-text_overrun_behavior = 3
-
-[node name="BtnCopyIP" type="Button" parent="SafeArea/VBoxLobby/PanelHost/IpWell/CodeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 54)
-layout_mode = 2
-size_flags_vertical = 4
 focus_mode = 0
 theme_override_font_sizes/font_size = 20
-text = "COPY"
+text = "JOIN"
 
-[node name="StatusPill" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelHost"]
-layout_mode = 2
-
-[node name="StatusRow" type="HBoxContainer" parent="SafeArea/VBoxLobby/PanelHost/StatusPill"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="WaitDot" type="Control" parent="SafeArea/VBoxLobby/PanelHost/StatusPill/StatusRow"]
+[node name="BtnTabRival" type="Button" parent="SafeArea/VBoxLobby/ModeTabs/TabRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(26, 26)
+custom_minimum_size = Vector2(0, 64)
+size_flags_horizontal = 3
 layout_mode = 2
-size_flags_vertical = 4
-mouse_filter = 2
-script = ExtResource("3_glyph")
-glyph = "dot"
-glyph_color = Color(0.247059, 0.792157, 0.576471, 1)
-socket = true
+focus_mode = 0
+theme_override_font_sizes/font_size = 20
+text = "RIVAL CODE"
 
-[node name="LblHostStatus" type="Label" parent="SafeArea/VBoxLobby/PanelHost/StatusPill/StatusRow"]
+[node name="PageScroll" type="ScrollContainer" parent="SafeArea/VBoxLobby"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 1
+follow_focus = true
+
+[node name="PageStack" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 16
+
+[node name="PanelCreate" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="CreateIntro" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="CreateTitle" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/CreateIntro"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "OPEN AN ONLINE ROOM"
+horizontal_alignment = 1
+
+[node name="CreateDescription" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/CreateIntro"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 18
+text = "Create a room. Your friend can scan the QR or enter your code."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="QrFrame" type="PanelContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="QrMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/QrFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="QrSlot" type="CenterContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/QrFrame/QrMargin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 312)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="QrPlaceholder" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/QrFrame/QrMargin/QrSlot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 100)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
 theme_override_font_sizes/font_size = 19
-text = "Create a room - your friend's JOIN tab will show your game."
+text = "YOUR ROOM QR\nAPPEARS HERE"
+horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="PlayersRow" type="HBoxContainer" parent="SafeArea/VBoxLobby/PanelHost"]
-layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="ChipP1" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow"]
+[node name="RoomCodeWell" type="PanelContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ChipMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP1"]
+[node name="RoomCodeMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
 
-[node name="ChipBox" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP1/ChipMargin"]
+[node name="RoomCodeColumn" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin"]
 layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
+theme_override_constants/separation = 5
 
-[node name="AvatarP1" type="Control" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP1/ChipMargin/ChipBox"]
-custom_minimum_size = Vector2(34, 34)
+[node name="RoomCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin/RoomCodeColumn"]
 layout_mode = 2
-size_flags_horizontal = 4
-mouse_filter = 2
-script = ExtResource("3_glyph")
-glyph = "people"
-glyph_color = Color(0.356863, 0.423529, 0.54902, 1)
-
-[node name="LblP1" type="Label" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP1/ChipMargin/ChipBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 19
-text = "YOU · HOST"
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 17
+text = "YOUR ROOM CODE"
 horizontal_alignment = 1
 
-[node name="ChipP2" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="ChipMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP2"]
-layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
-
-[node name="ChipBox" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP2/ChipMargin"]
-layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
-
-[node name="AvatarP2" type="Control" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP2/ChipMargin/ChipBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(34, 34)
-layout_mode = 2
-size_flags_horizontal = 4
-mouse_filter = 2
-script = ExtResource("3_glyph")
-glyph = "people"
-glyph_color = Color(0.356863, 0.423529, 0.54902, 1)
-
-[node name="ChipLbl2" type="Label" parent="SafeArea/VBoxLobby/PanelHost/PlayersRow/ChipP2/ChipMargin/ChipBox"]
+[node name="LblRoomCode" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin/RoomCodeColumn"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
-theme_override_font_sizes/font_size = 19
-text = "WAITING..."
+theme_override_font_sizes/font_size = 42
+text = "--------"
 horizontal_alignment = 1
 
-[node name="SpacerHost" type="Control" parent="SafeArea/VBoxLobby/PanelHost"]
-layout_mode = 2
-size_flags_vertical = 3
-mouse_filter = 2
-
-[node name="BtnCreateRoom" type="Button" parent="SafeArea/VBoxLobby/PanelHost"]
+[node name="BtnCopyRoomCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin/RoomCodeColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 focus_mode = 0
+text = "COPY ROOM CODE"
+visible = false
+
+[node name="LblCreateStatus" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Create a room to reveal its QR invitation and shareable code."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="BtnCreateRoom" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 27
 text = "CREATE ROOM"
 
-[node name="BtnLaunchMatch" type="Button" parent="SafeArea/VBoxLobby/PanelHost"]
+[node name="BtnStartMatch" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 focus_mode = 0
-disabled = true
+theme_override_font_sizes/font_size = 24
 text = "START THE DUEL"
+visible = false
 
-[node name="PanelJoin" type="VBoxContainer" parent="SafeArea/VBoxLobby"]
+[node name="BtnEndRoom" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 20
+text = "END ROOM"
+visible = false
+
+[node name="PanelJoin" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 12
-
-[node name="NearbyPanel" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelJoin"]
-layout_mode = 2
-
-[node name="NearbyBox" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelJoin/NearbyPanel"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="NearbyCaption" type="Label" parent="SafeArea/VBoxLobby/PanelJoin/NearbyPanel/NearbyBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
-theme_override_font_sizes/font_size = 19
-text = "PUBLIC ROOMS + LAN"
-
-[node name="NearbyList" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelJoin/NearbyPanel/NearbyBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="NearbyHint" type="Label" parent="SafeArea/VBoxLobby/PanelJoin/NearbyPanel/NearbyBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
-theme_override_font_sizes/font_size = 19
-text = "Looking for games on this Wi-Fi..."
-autowrap_mode = 2
-
-[node name="IpWell" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelJoin"]
-layout_mode = 2
-
-[node name="JoinCol" type="VBoxContainer" parent="SafeArea/VBoxLobby/PanelJoin/IpWell"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="LblCaption" type="Label" parent="SafeArea/VBoxLobby/PanelJoin/IpWell/JoinCol"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.337255, 0.400000, 0.541176, 1)
-theme_override_font_sizes/font_size = 19
-text = "SEARCH BY ROOM NAME OR CODE"
-
-[node name="LineEditIP" type="LineEdit" parent="SafeArea/VBoxLobby/PanelJoin/IpWell/JoinCol"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 62)
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-placeholder_text = "Room name, code or LAN IP"
-alignment = 1
-max_length = 40
-
-[node name="BtnPasteIP" type="Button" parent="SafeArea/VBoxLobby/PanelJoin"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 54)
-layout_mode = 2
-focus_mode = 0
-theme_override_font_sizes/font_size = 19
-text = "PASTE FROM CLIPBOARD"
-
-[node name="StatusPill" type="PanelContainer" parent="SafeArea/VBoxLobby/PanelJoin"]
-layout_mode = 2
-
-[node name="JoinStatusRow" type="HBoxContainer" parent="SafeArea/VBoxLobby/PanelJoin/StatusPill"]
-layout_mode = 2
-
-[node name="LblJoinStatus" type="Label" parent="SafeArea/VBoxLobby/PanelJoin/StatusPill/JoinStatusRow"]
-unique_name_in_owner = true
-layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 19
-text = "Your friend's game will show up above - or paste their code."
+theme_override_constants/separation = 18
+
+[node name="JoinIntro" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="JoinTitle" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinIntro"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "JOIN AN ONLINE ROOM"
+horizontal_alignment = 1
+
+[node name="JoinDescription" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinIntro"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 18
+text = "Enter the 8-character code your friend shared."
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="SpacerJoin" type="Control" parent="SafeArea/VBoxLobby/PanelJoin"]
+[node name="JoinCodeWell" type="PanelContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
 layout_mode = 2
-size_flags_vertical = 3
-mouse_filter = 2
+size_flags_horizontal = 3
 
-[node name="BtnConnect" type="Button" parent="SafeArea/VBoxLobby/PanelJoin"]
+[node name="JoinCodeMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 18
+
+[node name="JoinCodeColumn" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell/JoinCodeMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="JoinCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell/JoinCodeMargin/JoinCodeColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 18
+text = "ROOM CODE"
+horizontal_alignment = 1
+
+[node name="LineEditRoomCode" type="LineEdit" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell/JoinCodeMargin/JoinCodeColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 92)
+custom_minimum_size = Vector2(0, 82)
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+placeholder_text = "XXXXXXXX"
+alignment = 1
+max_length = 8
+clear_button_enabled = true
+select_all_on_focus = true
+
+[node name="LblJoinStatus" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "QR invitations join automatically. Use a code here when you prefer typing."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="BtnJoinRoom" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 88)
 layout_mode = 2
 focus_mode = 0
-text = "JOIN THE DUEL"
+theme_override_font_sizes/font_size = 27
+text = "JOIN ROOM"
 
-[node name="HotspotGuide" type="PanelContainer" parent="SafeArea/VBoxLobby"]
+[node name="PanelRival" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
 
-[node name="GuideMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/HotspotGuide"]
+[node name="RivalIntro" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
+theme_override_constants/separation = 5
 
-[node name="GuideText" type="RichTextLabel" parent="SafeArea/VBoxLobby/HotspotGuide/GuideMargin"]
+[node name="RivalTitle" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/RivalIntro"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "PLAY OFFLINE"
+horizontal_alignment = 1
+
+[node name="RivalDescription" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/RivalIntro"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 18
+text = "No internet needed. Both players play the same 10-round run."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="MyRivalCodeWell" type="PanelContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MyRivalCodeMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="MyRivalCodeColumn" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MyRivalCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 17
+text = "YOUR RIVAL CODE"
+horizontal_alignment = 1
+
+[node name="LblMyRivalCode" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/normal_font_size = 19
-theme_override_font_sizes/bold_font_size = 20
-bbcode_enabled = true
-fit_content = true
-scroll_active = false
-text = "[b]HOW TO DUEL[/b]
-1. Tap [color=#2B52E2]CREATE ROOM[/color] - your game code appears above.
-2. Your friend switches to [color=#2B52E2]JOIN[/color] and enters that code.
-3. When their chip lights up, hit [color=#2B52E2]START THE DUEL![/color]"
+theme_override_font_sizes/font_size = 34
+text = "XXX-XXX-XXX"
+horizontal_alignment = 1
+
+[node name="RivalCodeActions" type="HBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BtnCopyRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn/RivalCodeActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+size_flags_horizontal = 3
+layout_mode = 2
+focus_mode = 0
+text = "COPY MY CODE"
+
+[node name="BtnNewRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn/RivalCodeActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+size_flags_horizontal = 3
+layout_mode = 2
+focus_mode = 0
+text = "NEW CODE"
+
+[node name="BtnPlayMyRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 78)
+layout_mode = 2
+focus_mode = 0
+text = "PLAY MY CODE"
+
+[node name="FriendRivalCodeWell" type="PanelContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FriendRivalCodeMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/FriendRivalCodeWell"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="FriendRivalCodeColumn" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/FriendRivalCodeWell/FriendRivalCodeMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FriendRivalCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/FriendRivalCodeWell/FriendRivalCodeMargin/FriendRivalCodeColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
+theme_override_font_sizes/font_size = 17
+text = "ENTER A FRIEND'S CODE"
+horizontal_alignment = 1
+
+[node name="LineEditRivalCode" type="LineEdit" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/FriendRivalCodeWell/FriendRivalCodeMargin/FriendRivalCodeColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 76)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+placeholder_text = "XXX-XXX-XXX"
+alignment = 1
+max_length = 11
+clear_button_enabled = true
+select_all_on_focus = true
+
+[node name="BtnPlayRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 26
+text = "PLAY FRIEND'S CODE"
+
+[node name="LblRivalStatus" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "No internet needed. Both players use the same code to play the same run."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
