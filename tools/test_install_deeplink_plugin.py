@@ -5,11 +5,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from tools.install_deeplink_plugin import (
-    ARCHIVE_SHA256,
-    PLUGIN_PREFIX,
-    install_archive,
-)
+from tools.install_deeplink_plugin import PLUGIN_PREFIX, install_archive
 
 
 class InstallDeeplinkPluginTests(unittest.TestCase):
@@ -22,6 +18,7 @@ class InstallDeeplinkPluginTests(unittest.TestCase):
             "DeeplinkPlugin.gd": "extends EditorPlugin\n",
             "Deeplink.gd": "extends Node\n",
             "config/DeeplinkExportConfig.gd": "class_name DeeplinkExportConfig\n",
+            "config/DeeplinkExportConfigItem.gd": "class_name DeeplinkExportConfigItem\n",
             "model/DeeplinkUrl.gd": "class_name DeeplinkUrl\n",
             "bin/debug/DeeplinkPlugin-debug.aar": "debug-aar",
             "bin/release/DeeplinkPlugin-release.aar": "release-aar",
