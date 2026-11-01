@@ -369,6 +369,7 @@ func search_public_rooms_async(query_text: String = "") -> Array[Dictionary]:
 func _rooms_from_search_results(search_results: Array, clean_query: String, allow_exact_code_fallback: bool) -> Array[Dictionary]:
         var rooms: Array[Dictionary] = []
         var exact_code_query: bool = _is_valid_room_code(clean_query)
+        var inspected_count: int = 0
 
         for lobby in search_results:
                 if lobby == null or not is_instance_valid(lobby):
@@ -382,6 +383,16 @@ func _rooms_from_search_results(search_results: Array, clean_query: String, allo
                 var bucket_matches: bool = bucket_id == LOBBY_BUCKET
                 var game_matches: bool = game_id == GAME_ID
                 var code_matches: bool = exact_code_query and room_code == clean_query
+
+                if allow_exact_code_fallback and inspected_count < 12:
+                        print("[EOS ROOM] Fallback candidate bucket=%s game=%s status=%s code=%s slots=%d" % [
+                                bucket_id,
+                                game_id,
+                                room_status,
+                                room_code,
+                                int(lobby.get("available_slots"))
+                        ])
+                        inspected_count += 1
 
                 # Normally keep discovery within SpotRush's bucket and game ID.
                 # In the exact-code fallback, the generated code is also a lookup
