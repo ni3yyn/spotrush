@@ -102,7 +102,7 @@ PROJECT_AUTOLOADS = {
 def _section_body(project_text: str, section_name: str) -> str | None:
     """Return a Godot project section without consuming the next section."""
     match = re.search(
-        rf"(?ms)^\\[{re.escape(section_name)}\\]\\s*\\n(.*?)(?=^\\[|\\Z)",
+        rf"(?ms)^\[{re.escape(section_name)}\]\s*\n(.*?)(?=^\[|\Z)",
         project_text,
     )
     return match.group(1) if match else None
@@ -115,7 +115,7 @@ def _section_assignments(section_text: str) -> dict[str, str]:
         stripped = line.strip()
         if not stripped or stripped.startswith(";"):
             continue
-        match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*?)\\s*$", stripped)
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$", stripped)
         if match:
             values[match.group(1)] = match.group(2)
     return values
@@ -142,7 +142,7 @@ def _autoload_reference_error(
         return f"{autoload_name}: expected script is missing ({expected_relative_path})"
 
     if resource.startswith("res://"):
-        actual_relative_path = resource.removeprefix("res://").replace("\\\\", "/")
+        actual_relative_path = resource.removeprefix("res://").replace("\\", "/")
         if actual_relative_path != expected_path.as_posix():
             return (
                 f"{autoload_name}: points to {resource!r}, "
@@ -204,7 +204,6 @@ def check_project_wiring(project_root: Path) -> list[str]:
             f"({len(required_autoloads)} autoloads; res:// and UID references validated)"
         )
     return failures
-
 
 def check_local_config(project_root: Path) -> bool:
     config = project_root / "scripts/networking/EOSLocalConfig.gd"
