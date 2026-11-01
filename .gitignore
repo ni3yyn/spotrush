@@ -59,3 +59,4 @@ Desktop.ini
 # - addons/ (EOSG GDScript, Android AAR/.so and Windows DLLs are required by CI)
 # - *.uid files (Godot 4 resource/script identifiers)
 # - project.godot, export_presets.cfg, Android patch scripts and OTA scripts
+
