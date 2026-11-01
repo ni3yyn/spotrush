@@ -335,22 +335,23 @@ func search_public_rooms_async(query_text: String = "") -> Array[Dictionary]:
                 if attempt < 3:
                         await get_tree().create_timer(1.0).timeout
 
-        # Fallback: search all public lobbies in this EOS deployment and match
-        # the generated 8-character code. This also distinguishes an empty
-        # bucket from a room whose bucket metadata was not indexed as expected.
-        var search_options: EOS.Lobby.CreateLobbySearchOptions = EOS.Lobby.CreateLobbySearchOptions.new()
-        search_options.max_results = MAX_ROOM_RESULTS
-        var search_handle: Variant = _h_lobbies.call("create_search", search_options)
-        if search_handle == null:
-                last_error = "EOS could not create a public lobby search. Check the EOS Lobby service configuration."
-                return rooms
-
-        var all_results: Variant = await _h_lobbies.call("search_async", search_handle)
+        # EOS rejects a lobby search with no parameters (InvalidParameters).
+        # Search by the SpotRush game marker instead: this is broader than the
+        # bucket query, but remains scoped to SpotRush lobbies and can recover a
+        # room whose bucket metadata is stale or inconsistent.
+        var all_results: Variant = await _h_lobbies.call(
+                "search_by_attribute_async",
+                {
+                        "key": "sr_game",
+                        "value": GAME_ID,
+                        "comparison": EOS.ComparisonOp.Equal
+                }
+        )
         if all_results == null or not (all_results is Array):
-                last_error = "EOS could not complete the public lobby search. Check that both devices use the same EOS deployment."
+                last_error = "EOS could not complete the SpotRush lobby search. Check that both devices use the same EOS deployment."
                 return rooms
 
-        print("[EOS ROOM] Unfiltered public search returned %d lobby result(s)." % all_results.size())
+        print("[EOS ROOM] Game-marker fallback search returned %d lobby result(s)." % all_results.size())
         rooms = _rooms_from_search_results(all_results, clean_query, true)
         if rooms.is_empty():
                 last_error = "No open room matches that code. Compare the EOS environment fingerprints in both devices' logs; they must match."
@@ -384,13 +385,18 @@ func _rooms_from_search_results(search_results: Array, clean_query: String, allo
                 var game_matches: bool = game_id == GAME_ID
                 var code_matches: bool = exact_code_query and room_code == clean_query
 
-                if allow_exact_code_fallback and inspected_count < 12:
-                        print("[EOS ROOM] Fallback candidate bucket=%s game=%s status=%s code=%s slots=%d" % [
+                if inspected_count < 12:
+                        var search_stage: String = "game-fallback" if allow_exact_code_fallback else "bucket"
+                        print("[EOS ROOM] %s candidate bucket=%s game=%s status=%s code=%s slots=%d matches_bucket=%s matches_game=%s matches_code=%s" % [
+                                search_stage,
                                 bucket_id,
                                 game_id,
                                 room_status,
                                 room_code,
-                                int(lobby.get("available_slots"))
+                                int(lobby.get("available_slots")),
+                                bucket_matches,
+                                game_matches,
+                                code_matches
                         ])
                         inspected_count += 1
 
