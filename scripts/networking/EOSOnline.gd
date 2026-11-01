@@ -279,48 +279,44 @@ func search_public_rooms_async(query_text: String = "") -> Array[Dictionary]:
         if not ready:
                 return rooms
 
-        var clean_query: String = query_text.strip_edges().to_lower()
-        var search_attributes: Array[Dictionary] = [
-                {"key": EOS.Lobby.SEARCH_BUCKET_ID, "value": LOBBY_BUCKET, "comparison": EOS.ComparisonOp.Equal},
-                {"key": "sr_game", "value": GAME_ID, "comparison": EOS.ComparisonOp.Equal},
-                {"key": "sr_status", "value": "open", "comparison": EOS.ComparisonOp.Equal}
-        ]
+        var clean_query: String = query_text.strip_edges().to_upper()
 
-        # Epic's documented string lobby-search operators are Equal, NotEqual,
-        # AnyOf and NotAnyOf. Do not use the EOSG enum's generic Contains value
-        # here: it is not a supported string operator in the Lobby service.
-        # Exact room codes are filtered server-side. Partial code/name searches
-        # are filtered locally from the service's maximum 200 open SpotRush rooms.
-        var exact_code_query: bool = _is_valid_room_code(clean_query.to_upper())
-        if exact_code_query:
-                search_attributes.append({
-                        "key": "sr_code",
-                        "value": clean_query.to_upper(),
+        # Search only the public lobby bucket on EOS. Filtering custom attributes
+        # server-side can hide a valid room when an attribute is not indexed yet.
+        # All SpotRush attributes are public, so validate them on returned details.
+        var search_result: Variant = await _h_lobbies.call(
+                "search_by_attribute_async",
+                {
+                        "key": EOS.Lobby.SEARCH_BUCKET_ID,
+                        "value": LOBBY_BUCKET,
                         "comparison": EOS.ComparisonOp.Equal
-                })
-
-        var search_result: Variant = await _h_lobbies.call("search_by_attribute_async", search_attributes)
+                }
+        )
         if search_result == null or not (search_result is Array):
-                last_error = "EOS room search failed. Check that Lobbies are enabled for this deployment and Client Policy."
+                last_error = "EOS Lobby search failed. Check that both players use the same EOS deployment and that Lobbies are enabled for this deployment."
                 return rooms
 
         for lobby in search_result:
                 if lobby == null or not is_instance_valid(lobby):
+                        continue
+                if str(lobby.get("bucket_id")) != LOBBY_BUCKET:
                         continue
                 if _get_lobby_attribute(lobby, "sr_game") != GAME_ID:
                         continue
                 if _get_lobby_attribute(lobby, "sr_status") != "open":
                         continue
 
-                var room_code: String = _get_lobby_attribute(lobby, "sr_code").to_upper()
+                var room_code: String = _get_lobby_attribute(lobby, "sr_code").strip_edges().to_upper()
                 var room_name: String = _get_lobby_attribute(lobby, "sr_name")
-                if exact_code_query and room_code != clean_query.to_upper():
-                        continue
-                if not clean_query.is_empty() and not exact_code_query:
-                        var searchable_name: String = room_name.to_lower()
-                        var searchable_code: String = room_code.to_lower()
-                        if not searchable_name.contains(clean_query) and not searchable_code.contains(clean_query):
-                                continue
+                if not clean_query.is_empty():
+                        if _is_valid_room_code(clean_query):
+                                if room_code != clean_query:
+                                        continue
+                        else:
+                                var searchable_name: String = room_name.to_lower()
+                                var searchable_code: String = room_code.to_lower()
+                                if not searchable_name.contains(clean_query.to_lower()) and not searchable_code.contains(clean_query.to_lower()):
+                                        continue
 
                 var available_slots: int = int(lobby.get("available_slots"))
                 if available_slots < 1:
@@ -377,11 +373,16 @@ func join_room_code_async(room_code: String) -> bool:
         if not _is_valid_room_code(clean_code):
                 last_error = "Room codes must contain exactly 8 letters or numbers."
                 return false
+        last_error = ""
         var rooms: Array[Dictionary] = await search_public_rooms_async(clean_code)
+        if rooms.is_empty():
+                if last_error.is_empty():
+                        last_error = "No open room matches that code. Check the code and confirm both players are using the same EOS deployment."
+                return false
         for room in rooms:
                 if str(room.get("room_code", "")) == clean_code:
                         return await join_public_lobby_async(room.get("lobby"))
-        last_error = "No open room matches that code. Check it and try again."
+        last_error = "No open room matches that code. Check the code and confirm both players are using the same EOS deployment."
         return false
 
 func update_current_room_status_async(status: String) -> bool:
