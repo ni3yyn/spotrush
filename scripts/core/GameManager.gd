@@ -8,6 +8,8 @@ var last_match_results: Dictionary = {}
 var next_round_instruction: String = ""
 var _client_ui_tick_accumulator: float = 0.0
 const CLIENT_UI_TICK_INTERVAL: float = 0.05
+const ROUND_CLOCK_SYNC_INTERVAL_MSEC: int = 200
+var _last_round_clock_sync_msec: int = 0
 var _last_perf_frame_log_usec: int = 0
 
 # Daily Spot state: a solo match, but seeded from the date so everyone plays the
@@ -164,10 +166,13 @@ func _process(delta: float) -> void:
 				match_controller.update_process(delta)
 		else:
 				if match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
-						match_controller.round_timer += delta
+						match_controller.round_timer = minf(
+								match_controller.round_duration,
+								match_controller.round_timer + delta
+						)
 						var rem := maxf(0.0, match_controller.round_duration - match_controller.round_timer)
 						_client_ui_tick_accumulator += delta
-						if _client_ui_tick_accumulator >= CLIENT_UI_TICK_INTERVAL or rem <= 0.0:
+						if _client_ui_tick_accumulator >= CLIENT_UI_TICK_INTERVAL:
 								_client_ui_tick_accumulator = fmod(_client_ui_tick_accumulator, CLIENT_UI_TICK_INTERVAL)
 								ui_time_tick.emit(rem, match_controller.round_duration)
 
@@ -225,6 +230,9 @@ func prepare_multiplayer_host_match(rounds: int) -> void:
 func submit_answer(answer: Variant) -> void:
 		if has_submitted_current_round:
 				return
+		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT \
+						and match_controller.current_state != MatchController.MatchState.ACTIVE_ROUND:
+				return
 		has_submitted_current_round = true
 
 		if current_game_mode == GameConfig.GameMode.SINGLE_PLAYER or current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
@@ -252,6 +260,7 @@ func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void
 
 func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
 		has_submitted_current_round = false
+		_last_round_clock_sync_msec = Time.get_ticks_msec()
 		ui_round_started.emit(round_num, challenge, duration)
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 				NetworkSession.send_to_all(NetworkProtocol.MSG_ROUND_START, {
@@ -262,6 +271,14 @@ func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition
 
 func _on_controller_time_tick(remaining: float, total: float) -> void:
 		ui_time_tick.emit(remaining, total)
+		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
+				var now_msec: int = Time.get_ticks_msec()
+				if now_msec - _last_round_clock_sync_msec >= ROUND_CLOCK_SYNC_INTERVAL_MSEC:
+						_last_round_clock_sync_msec = now_msec
+						NetworkSession.send_to_all(NetworkProtocol.MSG_ROUND_CLOCK, {
+								"round_index": match_controller.current_round_index,
+								"remaining": remaining
+						})
 
 func _on_controller_answer_feedback(player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
 		ui_answer_feedback.emit(player_id, is_correct, score_delta, details)
@@ -315,19 +332,67 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 						SceneRouter.goto_game()
 
 				NetworkProtocol.MSG_COUNTDOWN_START:
-						var rnum = int(data.get("round_num", 1))
-						var tot = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
-						next_round_instruction = str(data.get("instruction", ""))
+						var rnum: int = int(data.get("round_num", 1))
+						var tot: int = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
+						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								var countdown_round: int = maxi(0, rnum - 1)
+								if countdown_round < match_controller.current_round_index:
+										return
+								if countdown_round == match_controller.current_round_index \
+										and match_controller.current_state == MatchController.MatchState.COUNTDOWN:
+										return
+								if countdown_round == match_controller.current_round_index \
+										and match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
+										return
+								match_controller.set_client_countdown(countdown_round)
+								# Instructions remain visible on the challenge. Don't replay
+								# a blocking inter-round preview during the shared countdown.
+								next_round_instruction = ""
+						else:
+								next_round_instruction = str(data.get("instruction", ""))
 						ui_countdown_started.emit(rnum, tot)
 
 				NetworkProtocol.MSG_ROUND_START:
+						if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								return
+						var rnum: int = int(data.get("round_num", 1))
+						var start_round: int = maxi(0, rnum - 1)
+						if start_round < match_controller.current_round_index:
+								return
+						if start_round == match_controller.current_round_index \
+								and match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
+								return
+						if match_controller.current_state != MatchController.MatchState.COUNTDOWN:
+								push_warning("Rejected out-of-phase round-start packet for round %d." % rnum)
+								return
 						has_submitted_current_round = false
-						var rnum = data.get("round_num", 1)
-						var dur = float(data.get("duration", 8.0))
-						var ch_dict = data.get("challenge", {})
+						var dur: float = float(data.get("duration", 8.0))
+						var ch_dict: Dictionary = data.get("challenge", {})
 						_client_ui_tick_accumulator = 0.0
-						match_controller.set_client_round(rnum - 1, ch_dict, dur)
+						match_controller.set_client_round(start_round, ch_dict, dur)
 						ui_round_started.emit(rnum, match_controller.current_challenge, dur)
+
+				NetworkProtocol.MSG_ROUND_CLOCK:
+						if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								return
+						var clock_round: int = int(data.get("round_index", -1))
+						if clock_round != match_controller.current_round_index:
+								return
+						if match_controller.current_state != MatchController.MatchState.ACTIVE_ROUND:
+								return
+						var host_remaining: float = clampf(
+								float(data.get("remaining", match_controller.round_duration)),
+								0.0,
+								match_controller.round_duration
+						)
+						match_controller.apply_client_authoritative_elapsed(
+								match_controller.round_duration - host_remaining
+						)
+						var corrected_remaining: float = maxf(
+								0.0,
+								match_controller.round_duration - match_controller.round_timer
+						)
+						ui_time_tick.emit(corrected_remaining, match_controller.round_duration)
 
 				NetworkProtocol.MSG_ANSWER_RESULT:
 						var pid = data.get("player_id", 0)
@@ -347,14 +412,20 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 						ui_answer_feedback.emit(pid, is_corr, delta_sc, det)
 
 				NetworkProtocol.MSG_ROUND_END:
-						var rnum = data.get("round_num", 1)
-						var scores = data.get("scores", {})
+						var rnum: int = int(data.get("round_num", 1))
+						var scores: Dictionary = data.get("scores", {})
 						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
-								match_controller.apply_authoritative_scores(scores)
+								match_controller.complete_client_round(
+										maxi(0, rnum - 1),
+										scores
+								)
+								has_submitted_current_round = true
 						ui_round_ended.emit(rnum, scores)
 
 				NetworkProtocol.MSG_MATCH_END:
 						last_match_results = data.get("results", {})
+						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								match_controller.current_state = MatchController.MatchState.MATCH_OVER
 						ui_match_ended.emit(last_match_results)
 						SceneRouter.goto_results()
 
