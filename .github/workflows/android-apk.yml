@@ -326,16 +326,25 @@ jobs:
           export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.console=plain -Dorg.gradle.logging.level=info"
 
           echo ""
-          echo "[1/4] Installing the Godot Android build template..."
+          echo "[1/5] Installing the Godot Android build template..."
           timeout 10m godot --headless --path . --install-android-build-template
 
-          echo "[2/4] Registering SpotRush invitation deep links..."
-          python3 tools/patch_android_template.py
+          echo "[2/5] Verifying the generated Godot 4.7.2 Gradle template..."
+          test -s android/build/build.gradle || { echo "::error::Godot did not generate android/build/build.gradle."; find android -maxdepth 5 -type f -print 2>/dev/null || true; exit 1; }
+          test -s android/build/src/main/java/com/godot/game/GodotApp.java || { echo "::error::Generated GodotApp.java is missing from the Android template."; find android/build -maxdepth 7 -type f -print || true; exit 1; }
+          if [ ! -s android/build/src/main/AndroidManifest.xml ] && [ ! -s android/build/AndroidManifest.xml ]; then
+            echo "::error::Generated AndroidManifest.xml is missing. Expected src/main/AndroidManifest.xml (Godot 4.7) or the legacy template root.";
+            find android/build -maxdepth 7 -type f -iname '*manifest*' -print || true;
+            exit 1;
+          fi
 
-          echo "[3/4] Integrating EOS Android SDK, Gradle dependencies and native initialization..."
-          python3 tools/patch_eos_android_template.py
+          echo "[3/5] Registering SpotRush invitation deep links..."
+          python3 tools/patch_android_template.py --android-build android/build
 
-          echo "[4/4] Importing project and building APK with Gradle..."
+          echo "[4/5] Integrating EOS Android SDK, Gradle dependencies and native initialization..."
+          python3 tools/patch_eos_android_template.py --android-build android/build
+
+          echo "[5/5] Importing project and building APK with Gradle..."
           echo ""
 
           timeout 30m godot --headless --verbose --path . \

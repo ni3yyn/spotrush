@@ -1,0 +1,20 @@
+SpotRush v46.2 — Android GitHub Actions manifest path fix
+
+Apply this small overlay at the SpotRush project root, replacing the matching files.
+Do NOT delete or replace addons/ or any EOSG binaries.
+
+What changed:
+- tools/patch_android_template.py auto-detects Godot 4.7's
+  android/build/src/main/AndroidManifest.xml and retains fallback support for
+  android/build/AndroidManifest.xml and app/src/main/AndroidManifest.xml.
+- .github/workflows/android-apk.yml verifies the generated template paths on
+  the GitHub Actions runner before applying patches, and passes --android-build
+  explicitly to both patchers.
+- ONLINE_MULTIPLAYER_SETUP.md now explains that the configured workflow performs
+  template installation and patching on the runner. Local patching is optional.
+
+For the normal SpotRush workflow:
+1. Copy these files into your repository, preserving paths.
+2. Commit and push to main, or manually dispatch the Android workflow.
+3. Do not run the Android template patch scripts locally unless you are also
+   doing a local Android export.

@@ -1,2 +1,61 @@
-# EOS client configuration is local to each development machine.
+# Godot 4 generated editor/import cache
+.godot/
+.import/
+
+# Generated Android Gradle build template and Gradle caches
+# Godot CI should install the template, then run the SpotRush patch scripts.
+/android/build/
+.gradle/
+**/.gradle/
+
+# Exported builds and generated OTA packages
+/export/
+/exports/
+/build/
+/dist/
+*.apk
+*.aab
+*.exe
+*.pck
+*.zip
+*.7z
+
+# Local EOS credentials (NEVER commit these)
 /scripts/networking/EOSLocalConfig.gd
+.env
+.env.*
+!.env.example
+/secrets/
+/credentials/
+
+# Signing keys / certificates
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Logs, crash dumps, temporary files
+*.log
+*.tmp
+*.temp
+*.dmp
+*.stackdump
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Keep these tracked:
+# - addons/ (EOSG GDScript, Android AAR/.so and Windows DLLs are required by CI)
+# - *.uid files (Godot 4 resource/script identifiers)
+# - project.godot, export_presets.cfg, Android patch scripts and OTA scripts
