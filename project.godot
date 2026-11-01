@@ -56,7 +56,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/NotificationSchedulerPlugin/plugin.cfg", "res://addons/epic-online-services-godot/plugin.cfg")
+enabled=PackedStringArray("res://addons/DeeplinkPlugin/plugin.cfg", "res://addons/NotificationSchedulerPlugin/plugin.cfg", "res://addons/epic-online-services-godot/plugin.cfg")
 
 [gui]
 
