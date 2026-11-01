@@ -167,7 +167,7 @@ func _set_active_tab(tab: LobbyTab, animate: bool = true) -> void:
 
 func _set_create_room_idle() -> void:
 	lbl_room_code.text = "--------"
-	qr_placeholder.text = "YOUR ROOM QR\\nAPPEARS HERE"
+	qr_placeholder.text = "YOUR ROOM QR\nAPPEARS HERE"
 	qr_placeholder.visible = true
 	_qr_rect.visible = false
 	btn_create_room.visible = true
@@ -247,7 +247,11 @@ func _on_copy_room_code_pressed() -> void:
 func _on_end_room_pressed() -> void:
 	if _closing_room or is_navigating:
 		return
+	btn_back.disabled = true
+	btn_end_room.disabled = true
+	btn_start_match.disabled = true
 	await _close_current_room()
+	btn_back.disabled = false
 	_set_create_room_idle()
 	_set_status(lbl_create_status, "Room ended. Create a new one whenever you're ready.", NeuKit.SLATE)
 	Feel.sfx("click")
@@ -489,11 +493,11 @@ func _start_rival_run(code: String) -> void:
 		Feel.sfx("wrong")
 		Feel.haptic("error")
 		return
+	is_navigating = true
 	# Rival Codes are standalone offline runs. If the player switches to this
 	# tab while an EOS room is still open, close that session before launching.
 	if EOSOnline.has_current_lobby() or NetworkSession.is_connected_to_network() or NetworkSession.is_connecting():
 		await _close_current_room()
-	is_navigating = true
 	SceneRouter.goto_game()
 
 
@@ -502,7 +506,7 @@ func _on_back_pressed() -> void:
 
 
 func _leave_lobby() -> void:
-	if is_navigating or SceneRouter.is_transitioning:
+	if is_navigating or _closing_room or SceneRouter.is_transitioning:
 		return
 	is_navigating = true
 	btn_back.disabled = true
@@ -511,7 +515,7 @@ func _leave_lobby() -> void:
 
 
 func handle_back() -> bool:
-	if is_navigating or SceneRouter.is_transitioning:
+	if is_navigating or _closing_room or SceneRouter.is_transitioning:
 		return true
 	_leave_lobby()
 	return true
