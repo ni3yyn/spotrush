@@ -369,8 +369,9 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 						var dur: float = float(data.get("duration", 8.0))
 						var ch_dict: Dictionary = data.get("challenge", {})
 						_client_ui_tick_accumulator = 0.0
+						# set_client_round emits MatchController.round_started, which already
+						# reaches _on_controller_round_started and the UI exactly once.
 						match_controller.set_client_round(start_round, ch_dict, dur)
-						ui_round_started.emit(rnum, match_controller.current_challenge, dur)
 
 				NetworkProtocol.MSG_ROUND_CLOCK:
 						if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
