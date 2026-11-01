@@ -476,10 +476,15 @@ func _on_solo_pressed() -> void:
 		)
 
 func _on_multiplayer_pressed() -> void:
+		if is_navigating or SceneRouter.is_transitioning:
+				return
+		is_navigating = true
 		play_sfx("click")
 		if main_canvas:
 				main_canvas.trigger_sparkles(btn_multiplayer.global_position + (btn_multiplayer.size * 0.5))
-		_present_modal(modal_friends)
+		# Friends is the destination, not a chooser modal. The three play modes
+		# live together on LocalLobby so there is no intermediate tap.
+		SceneRouter.goto_lobby()
 
 func _on_how_to_play_pressed() -> void:
 		play_sfx("click")
