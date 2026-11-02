@@ -1,6 +1,6 @@
 ﻿{
-    "version":  "1.0.37",
+    "version":  "1.0.46",
     "pck_url":  "https://github.com/ni3yyn/spotrush/releases/latest/download/content.pck",
-    "sha256":  "1fb2ea9fb3ae18e1669fa7976ad9ae1ff17f01785f15ea2f8a05f3354f2a44f0",
-    "notes":  "mltplyr fx"
+    "sha256":  "e96b0d27db82d3f0c301daaa21f5d30c95bf0677c288ec28a614da3dfa39bdb3",
+    "notes":  "fix joinr stuck"
 }

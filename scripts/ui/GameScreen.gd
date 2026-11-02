@@ -66,6 +66,8 @@ var _safe_base_ob: float = 0.0
 var _entrance_primed: bool = false
 # Round index already dealt behind the wipe (skips the round-start reload/rise).
 var _prepared_round_index: int = -1
+# Invalidates any countdown coroutine that resumes after a newer round has started.
+var _countdown_presentation_token: int = 0
 
 # --- PATCH B ---
 var fx: NeuFocusFX
@@ -309,25 +311,32 @@ func _input(event: InputEvent) -> void:
 						GameManager.skip_feedback()
 
 func _on_countdown_started(round_num: int, total_rounds: int) -> void:
+		_countdown_presentation_token += 1
+		var presentation_token: int = _countdown_presentation_token
 		var live_challenge: ChallengeDefinition = GameManager.match_controller.current_challenge
 		var needs_practice: bool = _should_show_first_time_practice(live_challenge)
-		var needs_instruction_preview: bool = round_num > 1
+		# Multiplayer instructions remain visible on the challenge itself. A
+		# separate preview would cause countdown drift between the two devices.
+		var needs_instruction_preview: bool = round_num > 1 \
+						and GameManager.current_game_mode == GameConfig.GameMode.SINGLE_PLAYER
 		if needs_practice or needs_instruction_preview:
 				GameManager.pause_round_countdown()
 
 		# Network/host flows can also arrive during a scene reveal. Hold their first
 		# popup too, rather than letting the wipe rim cut through the card.
 		await SceneRouter.wait_until_idle()
-		if not is_inside_tree():
+		if not is_inside_tree() or presentation_token != _countdown_presentation_token:
 				return
 
 		# Feedback leaves with the reverse of its entrance before the next screen state.
 		await _animate_feedback_exit()
-		if not is_inside_tree() or SceneRouter.is_transitioning:
+		if not is_inside_tree() or presentation_token != _countdown_presentation_token \
+						or SceneRouter.is_transitioning:
 				return
 		if needs_practice and live_challenge != null:
 				await _run_first_time_practice(live_challenge)
-		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+		if not is_inside_tree() or presentation_token != _countdown_presentation_token \
+						or _tutorial_interrupted or SceneRouter.is_transitioning:
 				return
 
 		if needs_instruction_preview:
@@ -335,7 +344,8 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				if preview_line.is_empty() and live_challenge != null:
 						preview_line = live_challenge.instruction
 				await _show_inter_round_instruction(preview_line)
-				if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				if not is_inside_tree() or presentation_token != _countdown_presentation_token \
+						or _tutorial_interrupted or SceneRouter.is_transitioning:
 						return
 
 		GameManager.resume_round_countdown()
@@ -677,6 +687,8 @@ func _press_countdown_card() -> void:
 		_countdown_press_tween.tween_property(_countdown_style, "depth", 0.55, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
+		# A host-authoritative round start supersedes any pending countdown coroutine.
+		_countdown_presentation_token += 1
 		# Playback is requested once the first round is actually live. On the normal
 		# menu path the gameplay loop has already been synthesized during idle time.
 		Music.play_game()
@@ -871,9 +883,15 @@ func _on_player_choice(choice: Variant) -> void:
 		GameManager.submit_answer(choice)
 
 func _on_answer_feedback(player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
-		feedback_panel.visible = true
+		var local_id: int = NetworkSession.get_local_id() if is_multiplayer else 1
+		if is_multiplayer and player_id != local_id:
+				# Opponent results update the scoreboard only. Personal feedback,
+				# sounds, haptics and input locks belong to the player who answered.
+				var opponent_total: int = GameManager.match_controller.score_manager.get_player_score(player_id)
+				lbl_score_p2.text = "OPPONENT: %d" % opponent_total
+				return
 
-		var local_id = NetworkSession.get_local_id() if is_multiplayer else 1
+		feedback_panel.visible = true
 		var stats = GameManager.match_controller.score_manager.get_player_stats(local_id)
 		var streak = stats.get("current_streak", 0)
 		# Scoring 2.0: the event player's breakdown (host computes it, the client
@@ -1077,6 +1095,7 @@ func _on_round_ended(_round_num: int, _scores: Dictionary) -> void:
 		challenge_view.lock_input()
 
 func _on_scene_transition_started() -> void:
+		_countdown_presentation_token += 1
 		_tutorial_interrupted = true
 		# Resolve any open practice sheet so an awaited tutorial cannot hold a
 		# countdown or keep the scene coroutine alive during navigation.

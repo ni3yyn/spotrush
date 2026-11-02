@@ -47,6 +47,7 @@ var _room_transport: StringName = &"none"
 var _friend_connected: bool = false
 var _qr_rect: TextureRect
 var _watchdog_token: int = 0
+var _join_ui_connected: bool = false
 var is_navigating: bool = false
 var _closing_room: bool = false
 
@@ -275,37 +276,44 @@ func _close_current_room() -> void:
 	_closing_room = false
 
 
-func _on_peer_connected(_peer_id: int) -> void:
+func _on_peer_connected(peer_id: int) -> void:
 	if not _room_open or not NetworkSession.is_host():
+		return
+	# The Godot signal and EOSG's native peer map should agree before we
+	# expose Start Duel. This guarantees the host can actually address the peer.
+	var remote_ids: Array[int] = NetworkSession.get_remote_peer_ids()
+	if not remote_ids.has(peer_id):
+		push_warning("[LOBBY] Peer-connected signal arrived before EOSG registered peer %d. Current peers=%s" % [peer_id, str(remote_ids)])
 		return
 	_friend_connected = true
 	_set_status(lbl_create_status, "Your friend is connected. You're both ready!", NeuKit.MINT.darkened(0.34))
 	btn_start_match.visible = true
-	await EOSOnline.update_current_room_status_async("full")
+	btn_start_match.disabled = false
 	Feel.sfx("correct")
 	Feel.haptic("success")
-
 
 func _on_peer_disconnected(_peer_id: int) -> void:
 	if not _room_open or not NetworkSession.is_host():
 		return
 	_friend_connected = false
 	btn_start_match.visible = false
+	btn_start_match.disabled = false
 	_set_status(lbl_create_status, "Your friend left. The room is open again.", NeuKit.SLATE)
-	await EOSOnline.update_current_room_status_async("open")
-
 
 func _on_start_match_pressed() -> void:
-	if is_navigating or not _friend_connected:
+	if is_navigating or not _friend_connected or not NetworkSession.is_host():
+		return
+	if NetworkSession.get_remote_peer_ids().is_empty():
+		_set_status(lbl_create_status, "Your friend is not connected yet. Please wait a moment.", NeuKit.CORAL)
 		return
 	is_navigating = true
 	btn_start_match.disabled = true
 	btn_back.disabled = true
 	btn_end_room.disabled = true
-	await EOSOnline.update_current_room_status_async("playing")
 	GameManager.queue_multiplayer_host_start(10)
+	# A 2-player EOS lobby has no free slots once the friend has joined. Lobby
+	# discovery metadata does not need to block the local scene transition.
 	SceneRouter.goto_game()
-
 
 func _on_join_room_pressed() -> void:
 	var code: String = line_edit_room_code.text.strip_edges().to_upper()
@@ -323,6 +331,10 @@ func _join_online_code(code: String) -> void:
 		_set_status(lbl_join_status, "Online rooms are unavailable in this build. RIVAL CODE works offline.", NeuKit.CORAL)
 		return
 
+	_join_ui_connected = false
+	# Reset the previous session BEFORE connecting. Never reset here from
+	# connection_succeeded: the host's match-start packet can race that callback.
+	GameManager.reset_multiplayer_client_handoff()
 	btn_join_room.disabled = true
 	_set_status(lbl_join_status, "Finding room %s..." % code, NeuKit.SLATE)
 	var joined: bool = await EOSOnline.join_room_code_async(code)
@@ -335,9 +347,15 @@ func _join_online_code(code: String) -> void:
 		return
 
 	_room_transport = &"eos_p2p"
-	_arm_join_watchdog(25.0)
-	_set_status(lbl_join_status, "Room found. Connecting directly to your friend...", NeuKit.SLATE)
-	Feel.sfx("correct")
+	# EOS may finish the peer handshake before join_room_code_async() resumes.
+	# In that case _on_join_succeeded() has already run; do not overwrite its
+	# Connected status with the older "Room found..." message.
+	if _join_ui_connected or NetworkSession.is_connected_to_network():
+		_on_join_succeeded()
+	else:
+		_arm_join_watchdog(25.0)
+		_set_status(lbl_join_status, "Room found. Connecting directly to your friend...", NeuKit.SLATE)
+		Feel.sfx("correct")
 
 
 func _on_room_code_changed(new_text: String) -> void:
@@ -354,6 +372,9 @@ func _on_room_code_changed(new_text: String) -> void:
 
 
 func _on_join_succeeded() -> void:
+	if _join_ui_connected:
+		return
+	_join_ui_connected = true
 	_cancel_join_watchdog()
 	btn_join_room.disabled = true
 	_set_status(lbl_join_status, "Connected. Your friend will start the duel.", NeuKit.MINT.darkened(0.34))
@@ -362,6 +383,7 @@ func _on_join_succeeded() -> void:
 
 
 func _on_join_failed() -> void:
+	_join_ui_connected = false
 	_cancel_join_watchdog()
 	if EOSOnline.has_current_lobby():
 		await EOSOnline.leave_current_lobby_async()
@@ -375,6 +397,7 @@ func _on_join_failed() -> void:
 func _on_server_disconnected() -> void:
 	if is_navigating:
 		return
+	_join_ui_connected = false
 	_cancel_join_watchdog()
 	if EOSOnline.has_current_lobby():
 		await EOSOnline.leave_current_lobby_async()
@@ -394,7 +417,10 @@ func _cancel_join_watchdog() -> void:
 
 
 func _on_join_watchdog_timeout(token: int) -> void:
-	if token != _watchdog_token or is_navigating or not NetworkSession.is_connecting():
+	if token != _watchdog_token or is_navigating:
+		return
+	if NetworkSession.is_connected_to_network():
+		_on_join_succeeded()
 		return
 	NetworkSession.disconnect_session()
 	if EOSOnline.has_current_lobby():

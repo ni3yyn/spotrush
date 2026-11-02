@@ -8,6 +8,8 @@ var last_match_results: Dictionary = {}
 var next_round_instruction: String = ""
 var _client_ui_tick_accumulator: float = 0.0
 const CLIENT_UI_TICK_INTERVAL: float = 0.05
+const ROUND_CLOCK_SYNC_INTERVAL_MSEC: int = 200
+var _last_round_clock_sync_msec: int = 0
 var _last_perf_frame_log_usec: int = 0
 
 # Daily Spot state: a solo match, but seeded from the date so everyone plays the
@@ -28,10 +30,13 @@ var challenge_code_value: String = ""
 # the menu is still active and lets the first challenge animate into view normally.
 var _pending_single_player_rounds: int = -1
 
-# Multiplayer host matches use the same queue: LocalLobby queues the duel and
-# navigates, GameScreen prepares it (and tells the friend's phone to load the
-# arena) once its UI is connected, then starts the countdown on its own beat.
+# Host matches use one scene-owned start path: LocalLobby queues the rounds,
+# then GameScreen prepares the match and sends the one reliable start packet.
 var _pending_multiplayer_host_rounds: int = -1
+
+# One pending host start is consumed by GameScreen after the transition.
+# The host then sends one reliable match-start RPC before its first countdown.
+var _client_match_route_pending: bool = false
 
 func queue_single_player_start(rounds: int) -> void:
 		# Update the mode now so GameScreen builds the correct solo HUD before the
@@ -83,11 +88,27 @@ func _clear_challenge_state() -> void:
 func queue_multiplayer_host_start(rounds: int) -> void:
 		current_game_mode = GameConfig.GameMode.MULTIPLAYER_HOST
 		_pending_multiplayer_host_rounds = maxi(1, rounds)
+		_client_match_route_pending = false
 
 func consume_pending_multiplayer_host_start() -> int:
 		var rounds: int = _pending_multiplayer_host_rounds
 		_pending_multiplayer_host_rounds = -1
 		return rounds
+
+
+func reset_multiplayer_client_handoff() -> void:
+		_client_match_route_pending = false
+
+func _try_route_client_match() -> void:
+		if not _client_match_route_pending:
+				return
+		var active_scene: Node = get_tree().current_scene
+		if active_scene != null and active_scene.scene_file_path == SceneRouter.SCENE_GAME:
+				_client_match_route_pending = false
+				return
+		if not SceneRouter.is_transitioning:
+				print("[MATCH] Joiner opening GameScreen.")
+				SceneRouter.goto_game()
 
 ## Build the solo match state and pre-generate the opening challenge WITHOUT
 ## starting the countdown. Lets GameScreen deal the first round behind the
@@ -157,6 +178,8 @@ func _process(delta: float) -> void:
 		# its breath - interruptions should never cost you the round. Duels
 		# stay live: both phones must keep the same beat, and the rival on the
 		# other screen is not waiting on this dialog.
+		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+				_try_route_client_match()
 		if (NeuDialog.is_open() or AppLifecycle.is_background) \
 						and current_game_mode == GameConfig.GameMode.SINGLE_PLAYER:
 				return
@@ -164,10 +187,13 @@ func _process(delta: float) -> void:
 				match_controller.update_process(delta)
 		else:
 				if match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
-						match_controller.round_timer += delta
+						match_controller.round_timer = minf(
+								match_controller.round_duration,
+								match_controller.round_timer + delta
+						)
 						var rem := maxf(0.0, match_controller.round_duration - match_controller.round_timer)
 						_client_ui_tick_accumulator += delta
-						if _client_ui_tick_accumulator >= CLIENT_UI_TICK_INTERVAL or rem <= 0.0:
+						if _client_ui_tick_accumulator >= CLIENT_UI_TICK_INTERVAL:
 								_client_ui_tick_accumulator = fmod(_client_ui_tick_accumulator, CLIENT_UI_TICK_INTERVAL)
 								ui_time_tick.emit(rem, match_controller.round_duration)
 
@@ -182,24 +208,6 @@ func start_single_player_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS) ->
 		match_controller.initialize_match(current_game_mode, rounds, [1])
 		match_controller.start_match()
 
-func start_multiplayer_host_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS) -> void:
-		has_submitted_current_round = false
-		current_game_mode = GameConfig.GameMode.MULTIPLAYER_HOST
-		is_daily_match = false
-		daily_seed_value = -1
-		_clear_challenge_state()
-		var peers: Array[int] = [1]
-		for p in NetworkSession.connected_peers:
-				peers.append(p)
-		match_controller.initialize_match(current_game_mode, rounds, peers)
-
-		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
-				"total_rounds": rounds,
-				"player_ids": peers
-		})
-
-		match_controller.start_match()
-
 ## The queued (lobby -> game) variant: build the match state, tell the friend's
 ## phone to load the arena, and deal the opening challenge WITHOUT starting the
 ## countdown. start_prepared_match() fires once GameScreen is fully visible, so
@@ -210,20 +218,32 @@ func prepare_multiplayer_host_match(rounds: int) -> void:
 		is_daily_match = false
 		daily_seed_value = -1
 		_clear_challenge_state()
-		var peers: Array[int] = [1]
-		for p in NetworkSession.connected_peers:
-				peers.append(p)
-		match_controller.initialize_match(current_game_mode, rounds, peers)
 
+		var peers: Array[int] = [1]
+		for peer_id in NetworkSession.get_remote_peer_ids():
+				if not peers.has(peer_id):
+						peers.append(peer_id)
+
+		match_controller.initialize_match(current_game_mode, rounds, peers)
+		match_controller.prepare_first_challenge()
+
+		if peers.size() < 2:
+				push_error("[MATCH] Cannot start duel: EOS P2P has no connected friend peer.")
+				return
+
+		# EOSG's P2P peer is already connected at this point. Send one reliable,
+		# ordered host command; the countdown and round data follow on this channel.
 		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
 				"total_rounds": rounds,
 				"player_ids": peers
 		})
-
-		match_controller.prepare_first_challenge()
+		print("[MATCH] Host started duel handoff. rounds=%d players=%s" % [rounds, str(peers)])
 
 func submit_answer(answer: Variant) -> void:
 		if has_submitted_current_round:
+				return
+		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT \
+						and match_controller.current_state != MatchController.MatchState.ACTIVE_ROUND:
 				return
 		has_submitted_current_round = true
 
@@ -252,6 +272,7 @@ func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void
 
 func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
 		has_submitted_current_round = false
+		_last_round_clock_sync_msec = Time.get_ticks_msec()
 		ui_round_started.emit(round_num, challenge, duration)
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 				NetworkSession.send_to_all(NetworkProtocol.MSG_ROUND_START, {
@@ -262,6 +283,14 @@ func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition
 
 func _on_controller_time_tick(remaining: float, total: float) -> void:
 		ui_time_tick.emit(remaining, total)
+		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
+				var now_msec: int = Time.get_ticks_msec()
+				if now_msec - _last_round_clock_sync_msec >= ROUND_CLOCK_SYNC_INTERVAL_MSEC:
+						_last_round_clock_sync_msec = now_msec
+						NetworkSession.send_to_all(NetworkProtocol.MSG_ROUND_CLOCK, {
+								"round_index": match_controller.current_round_index,
+								"remaining": remaining
+						})
 
 func _on_controller_answer_feedback(player_id: int, is_correct: bool, score_delta: int, details: String) -> void:
 		ui_answer_feedback.emit(player_id, is_correct, score_delta, details)
@@ -305,29 +334,95 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 										push_warning("Rejected stale answer from peer %d for round %d (current %d)" % [sender_id, round_idx, match_controller.current_round_index])
 
 				NetworkProtocol.MSG_MATCH_START:
-						current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
-						var total_r = data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)
-						var pids_array = data.get("player_ids", [1, NetworkSession.get_local_id()])
-						var pids: Array[int] = []
-						for p in pids_array:
-								pids.append(int(p))
-						match_controller.initialize_match(current_game_mode, total_r, pids)
-						SceneRouter.goto_game()
+						# EOSG client/server mode reserves peer ID 1 for the server.
+						# Only the host may command the joiner to enter a match.
+						if NetworkSession.is_host() or sender_id != 1:
+								push_warning("[MATCH] Ignored match-start from non-server peer %d." % sender_id)
+								return
 
+						var total_r: int = maxi(1, int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)))
+						var pids: Array[int] = [1]
+						var player_ids_value: Variant = data.get("player_ids", [])
+						if player_ids_value is Array:
+								for player_id in player_ids_value:
+										var clean_id: int = int(player_id)
+										if clean_id > 1 and not pids.has(clean_id):
+												pids.append(clean_id)
+						var local_id: int = NetworkSession.get_local_id()
+						if local_id > 1 and not pids.has(local_id):
+								pids.append(local_id)
+						# Every fresh host start creates a fresh local match. This also
+						# resets the joiner correctly for host rematches.
+						current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
+						has_submitted_current_round = false
+						next_round_instruction = ""
+						_client_ui_tick_accumulator = 0.0
+						match_controller.initialize_match(current_game_mode, total_r, pids)
+						_client_match_route_pending = true
+						print("[MATCH] Joiner received host start. rounds=%d players=%s" % [total_r, str(pids)])
+						_try_route_client_match()
 				NetworkProtocol.MSG_COUNTDOWN_START:
-						var rnum = int(data.get("round_num", 1))
-						var tot = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
-						next_round_instruction = str(data.get("instruction", ""))
+						var rnum: int = int(data.get("round_num", 1))
+						var tot: int = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
+						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								var countdown_round: int = maxi(0, rnum - 1)
+								if countdown_round < match_controller.current_round_index:
+										return
+								# The first countdown starts from IDLE. Any same-round packet
+								# after that point is stale and must not reopen the popup.
+								if countdown_round == match_controller.current_round_index \
+										and match_controller.current_state != MatchController.MatchState.IDLE:
+										return
+								match_controller.set_client_countdown(countdown_round)
+								# Instructions remain visible on the challenge. Don't replay
+								# a blocking inter-round preview during the shared countdown.
+								next_round_instruction = ""
+						else:
+								next_round_instruction = str(data.get("instruction", ""))
 						ui_countdown_started.emit(rnum, tot)
 
 				NetworkProtocol.MSG_ROUND_START:
+						if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								return
+						var rnum: int = int(data.get("round_num", 1))
+						var start_round: int = maxi(0, rnum - 1)
+						if start_round < match_controller.current_round_index:
+								return
+						if start_round == match_controller.current_round_index \
+								and match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
+								return
+						if match_controller.current_state != MatchController.MatchState.COUNTDOWN:
+								push_warning("Rejected out-of-phase round-start packet for round %d." % rnum)
+								return
 						has_submitted_current_round = false
-						var rnum = data.get("round_num", 1)
-						var dur = float(data.get("duration", 8.0))
-						var ch_dict = data.get("challenge", {})
+						var dur: float = float(data.get("duration", 8.0))
+						var ch_dict: Dictionary = data.get("challenge", {})
 						_client_ui_tick_accumulator = 0.0
-						match_controller.set_client_round(rnum - 1, ch_dict, dur)
-						ui_round_started.emit(rnum, match_controller.current_challenge, dur)
+						# set_client_round emits MatchController.round_started, which already
+						# reaches _on_controller_round_started and the UI exactly once.
+						match_controller.set_client_round(start_round, ch_dict, dur)
+
+				NetworkProtocol.MSG_ROUND_CLOCK:
+						if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								return
+						var clock_round: int = int(data.get("round_index", -1))
+						if clock_round != match_controller.current_round_index:
+								return
+						if match_controller.current_state != MatchController.MatchState.ACTIVE_ROUND:
+								return
+						var host_remaining: float = clampf(
+								float(data.get("remaining", match_controller.round_duration)),
+								0.0,
+								match_controller.round_duration
+						)
+						match_controller.apply_client_authoritative_elapsed(
+								match_controller.round_duration - host_remaining
+						)
+						var corrected_remaining: float = maxf(
+								0.0,
+								match_controller.round_duration - match_controller.round_timer
+						)
+						ui_time_tick.emit(corrected_remaining, match_controller.round_duration)
 
 				NetworkProtocol.MSG_ANSWER_RESULT:
 						var pid = data.get("player_id", 0)
@@ -347,14 +442,20 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 						ui_answer_feedback.emit(pid, is_corr, delta_sc, det)
 
 				NetworkProtocol.MSG_ROUND_END:
-						var rnum = data.get("round_num", 1)
-						var scores = data.get("scores", {})
+						var rnum: int = int(data.get("round_num", 1))
+						var scores: Dictionary = data.get("scores", {})
 						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
-								match_controller.apply_authoritative_scores(scores)
+								match_controller.complete_client_round(
+										maxi(0, rnum - 1),
+										scores
+								)
+								has_submitted_current_round = true
 						ui_round_ended.emit(rnum, scores)
 
 				NetworkProtocol.MSG_MATCH_END:
 						last_match_results = data.get("results", {})
+						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
+								match_controller.current_state = MatchController.MatchState.MATCH_OVER
 						ui_match_ended.emit(last_match_results)
 						SceneRouter.goto_results()
 
@@ -368,6 +469,7 @@ func abandon_match() -> void:
 		_pending_multiplayer_host_rounds = -1
 		if current_game_mode != GameConfig.GameMode.SINGLE_PLAYER:
 				NetworkSession.disconnect_session()
+		_client_match_route_pending = false
 		current_game_mode = GameConfig.GameMode.SINGLE_PLAYER
 		is_daily_match = false
 		daily_seed_value = -1

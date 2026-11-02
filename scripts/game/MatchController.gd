@@ -188,14 +188,49 @@ func _start_active_round() -> void:
 		
 		round_started.emit(current_round_index + 1, current_challenge, round_duration)
 
+func set_client_countdown(round_idx: int) -> void:
+		# The host owns the countdown clock. This state transition exists so the
+		# client rejects submissions and clears the previous round presentation
+		# while waiting for the host-authoritative round-start packet.
+		current_round_index = maxi(0, round_idx)
+		current_challenge = null
+		round_duration = 0.0
+		round_timer = 0.0
+		countdown_timer = GameConfig.COUNTDOWN_DURATION
+		countdown_paused = false
+		feedback_timer = 0.0
+		round_submissions.clear()
+		current_state = MatchState.COUNTDOWN
+
 func set_client_round(round_idx: int, challenge_data: Dictionary, duration: float) -> void:
 		current_round_index = round_idx
 		current_challenge = ChallengeDefinition.from_dict(challenge_data)
-		round_duration = duration
+		round_duration = maxf(0.1, duration)
 		round_timer = 0.0
+		countdown_timer = 0.0
+		countdown_paused = false
+		feedback_timer = 0.0
 		round_submissions.clear()
 		current_state = MatchState.ACTIVE_ROUND
 		round_started.emit(current_round_index + 1, current_challenge, round_duration)
+
+func complete_client_round(round_idx: int, scores: Dictionary) -> void:
+		# The client never advances the match itself. It waits for the host's next
+		# countdown packet, but enters FEEDBACK immediately to reject further input.
+		if round_idx < current_round_index:
+				return
+		current_round_index = round_idx
+		score_manager.apply_authoritative_scores(scores)
+		current_state = MatchState.FEEDBACK
+		round_timer = round_duration
+		round_submissions.clear()
+
+func apply_client_authoritative_elapsed(elapsed: float) -> void:
+		if current_state != MatchState.ACTIVE_ROUND:
+				return
+		# Never move a client's visual clock backwards. Host snapshots correct
+		# for network delay and local clock drift when the client is behind.
+		round_timer = clampf(maxf(round_timer, elapsed), 0.0, round_duration)
 
 func submit_player_answer(player_id: int, answer: Variant) -> Dictionary:
 		if current_state != MatchState.ACTIVE_ROUND:
