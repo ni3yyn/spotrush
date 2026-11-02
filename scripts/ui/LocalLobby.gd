@@ -355,6 +355,7 @@ func _on_room_code_changed(new_text: String) -> void:
 
 func _on_join_succeeded() -> void:
 	_cancel_join_watchdog()
+	GameManager.reset_multiplayer_client_handoff()
 	btn_join_room.disabled = true
 	_set_status(lbl_join_status, "Connected. Your friend will start the duel.", NeuKit.MINT.darkened(0.34))
 	Feel.sfx("correct")
