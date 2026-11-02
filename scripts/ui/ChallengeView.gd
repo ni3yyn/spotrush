@@ -95,7 +95,23 @@ func _ensure_nodes() -> void:
 		if btn_action_done == null and has_node("%BtnActionDone"):
 				btn_action_done = %BtnActionDone
 
+func get_loaded_challenge_id() -> String:
+		return current_challenge.id if current_challenge != null else ""
+
+func get_instruction_text() -> String:
+		return instruction_label.text if instruction_label != null else ""
+
+func get_option_count() -> int:
+		return options_container.get_child_count() if options_container != null else -1
+
 func load_challenge(challenge: ChallengeDefinition, animate: bool = true) -> void:
+		if challenge == null:
+				push_error("[DUEL][VIEW] load_challenge called with null challenge")
+				return
+		print("[DUEL][VIEW] LOAD begin id=%s type=%s valid=%s instruction_chars=%d input_mode=%s visual_keys=%s options=%d animate=%s" % [
+				challenge.id, challenge.type, str(challenge.is_valid()), challenge.instruction.length(),
+				challenge.input_mode, str(challenge.visual_data.keys()), challenge.options.size(), str(animate)
+		])
 		_ensure_nodes()
 		_wire_challenge_canvas()
 		current_challenge = challenge
@@ -116,6 +132,12 @@ func load_challenge(challenge: ChallengeDefinition, animate: bool = true) -> voi
 				challenge_canvas.set_challenge(challenge, animate)
 		
 		_setup_options()
+		print("[DUEL][VIEW] LOAD complete id=%s instruction_label=%s canvas=%s options=%d action_button=%s" % [
+				challenge.id,
+				str(instruction_label != null and instruction_label.text == challenge.instruction),
+				str(challenge_canvas != null), options_container.get_child_count() if options_container != null else -1,
+				str(btn_action_done != null)
+		])
 		if animate:
 				call_deferred("play_entry_animation")
 

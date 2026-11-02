@@ -66,6 +66,8 @@ var _safe_base_ob: float = 0.0
 var _entrance_primed: bool = false
 # Round index already dealt behind the wipe (skips the round-start reload/rise).
 var _prepared_round_index: int = -1
+# Invalidates any countdown coroutine that resumes after a newer ROUND_START.
+var _countdown_presentation_token: int = 0
 
 # --- PATCH B ---
 var fx: NeuFocusFX
@@ -308,37 +310,64 @@ func _input(event: InputEvent) -> void:
 						get_viewport().set_input_as_handled()
 						GameManager.skip_feedback()
 
+func _duel_ui_trace(message: String) -> void:
+		var line := "[DUEL][UI] " + message
+		var logger := get_node_or_null("/root/CrashLogger")
+		if logger != null and logger.has_method("breadcrumb"):
+				logger.call("breadcrumb", line)
+		else:
+				print(line)
+
 func _on_countdown_started(round_num: int, total_rounds: int) -> void:
+		_countdown_presentation_token += 1
+		var presentation_token: int = _countdown_presentation_token
+		if not _countdown_presentation_is_current(round_num, presentation_token):
+				return
+
 		var live_challenge: ChallengeDefinition = GameManager.match_controller.current_challenge
+		_duel_ui_trace("COUNTDOWN UI round=%d/%d mode=%s state=%s challenge_id=%s type=%s valid=%s instruction_chars=%d view_current=%s" % [
+			round_num, total_rounds, str(GameManager.current_game_mode), str(GameManager.match_controller.current_state),
+			live_challenge.id if live_challenge != null else "<null>",
+			live_challenge.type if live_challenge != null else "<null>",
+			str(live_challenge != null and live_challenge.is_valid()),
+			live_challenge.instruction.length() if live_challenge != null else 0,
+			str(challenge_view.call("get_loaded_challenge_id")) if challenge_view.has_method("get_loaded_challenge_id") else "<no-accessor>"
+		])
+		if GameManager.current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT and live_challenge == null:
+				push_error("[DUEL][UI] Client countdown has no current challenge; data was not applied before UI signal")
 		var needs_practice: bool = _should_show_first_time_practice(live_challenge)
 		var needs_instruction_preview: bool = round_num > 1
-		if needs_practice or needs_instruction_preview:
+		# The client never owns the countdown clock. The host's ROUND_START packet
+		# is authoritative, so local tutorial holds must not pretend to pause it.
+		if GameManager.current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT \
+				and (needs_practice or needs_instruction_preview):
 				GameManager.pause_round_countdown()
 
 		# Network/host flows can also arrive during a scene reveal. Hold their first
 		# popup too, rather than letting the wipe rim cut through the card.
 		await SceneRouter.wait_until_idle()
-		if not is_inside_tree():
+		if not _countdown_presentation_is_current(round_num, presentation_token):
 				return
 
 		# Feedback leaves with the reverse of its entrance before the next screen state.
 		await _animate_feedback_exit()
-		if not is_inside_tree() or SceneRouter.is_transitioning:
+		if not _countdown_presentation_is_current(round_num, presentation_token):
 				return
 		if needs_practice and live_challenge != null:
 				await _run_first_time_practice(live_challenge)
-		if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+		if not _countdown_presentation_is_current(round_num, presentation_token) or _tutorial_interrupted:
 				return
 
 		if needs_instruction_preview:
 				var preview_line: String = GameManager.next_round_instruction
 				if preview_line.is_empty() and live_challenge != null:
 						preview_line = live_challenge.instruction
-				await _show_inter_round_instruction(preview_line)
-				if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+				await _show_inter_round_instruction(preview_line, round_num, presentation_token)
+				if not _countdown_presentation_is_current(round_num, presentation_token):
 						return
 
-		GameManager.resume_round_countdown()
+		if GameManager.current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
+				GameManager.resume_round_countdown()
 		_kill_tweens()
 		lbl_round.text = "%d / %d" % [round_num, total_rounds]
 		round_pips.set_current(round_num - 1, total_rounds)
@@ -348,13 +377,21 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 		feedback_panel.visible = false
 		challenge_view.visible = true
 
-		# Solo/host challenges are prepared before countdown. Render the first level
-		# behind GET READY instead of showing an empty playfield; keep it locked and
-		# suppress its entrance until the countdown ends.
-		if GameManager.current_game_mode in [GameConfig.GameMode.SINGLE_PLAYER, GameConfig.GameMode.MULTIPLAYER_HOST] \
-				and GameManager.match_controller.current_challenge != null:
-				if _prepared_round_index != GameManager.match_controller.current_round_index:
+		# Every mode receives the upcoming challenge before the countdown. Render
+		# it behind GET READY / SPOT and keep it locked until ROUND_START arrives.
+		var challenge_already_prepared: bool = _prepared_round_index == GameManager.match_controller.current_round_index
+		if GameManager.match_controller.current_challenge != null:
+				var current_id: String = str(challenge_view.call("get_loaded_challenge_id"))
+				var incoming_id: String = GameManager.match_controller.current_challenge.id
+				if not challenge_already_prepared or current_id != incoming_id:
 						challenge_view.load_challenge(GameManager.match_controller.current_challenge, false)
+						_prepared_round_index = GameManager.match_controller.current_round_index
+				_duel_ui_trace("COUNTDOWN playfield prepared round=%d id=%s view_id=%s instruction=%s options=%d" % [
+						GameManager.match_controller.current_round_index + 1, incoming_id,
+						str(challenge_view.call("get_loaded_challenge_id")) if challenge_view.has_method("get_loaded_challenge_id") else "<no-accessor>",
+						str(challenge_view.call("get_instruction_text")),
+						int(challenge_view.call("get_option_count"))
+				])
 				challenge_view.lock_input()
 
 		if lbl_timer != null:
@@ -400,6 +437,8 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 		countdown_tween.chain().tween_interval(maxf(0.14, (GameConfig.COUNTDOWN_DURATION * 0.5) - 0.26))
 		countdown_tween.tween_callback(func():
+				if not _countdown_presentation_is_current(round_num, presentation_token):
+						return
 				lbl_countdown.text = "SPOT!"
 				lbl_countdown.font_size = 84
 				lbl_countdown.color = NeuKit.CANARY
@@ -408,10 +447,26 @@ func _on_countdown_started(round_num: int, total_rounds: int) -> void:
 				_press_countdown_card()
 		)
 
-		if fx != null and _prepared_round_index < 0:
+		if fx != null and not challenge_already_prepared:
 				var halo_rect := countdown_overlay.get_global_rect()
 				halo_rect.position.y -= 28.0
 				fx.halo(halo_rect, GameConfig.COUNTDOWN_DURATION * 0.5)
+
+func _countdown_presentation_is_current(round_num: int, presentation_token: int) -> bool:
+		if not is_inside_tree() or _tutorial_interrupted:
+				return false
+		if presentation_token != _countdown_presentation_token:
+				return false
+		var mc: MatchController = GameManager.match_controller
+		var target_round_index: int = round_num - 1
+		if mc.current_round_index > target_round_index:
+				return false
+		if mc.current_round_index == target_round_index and mc.current_state == MatchController.MatchState.ACTIVE_ROUND:
+				return false
+		if GameManager.current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT \
+				and mc.current_state != MatchController.MatchState.COUNTDOWN:
+				return false
+		return true
 
 ## First encounter of a family gets one unscored, low-pressure practice round.
 ## Deliberately limited to solo modes: duel timing remains fully authoritative.
@@ -608,8 +663,8 @@ func _create_inter_round_instruction_layer() -> void:
 	_inter_round_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_inter_round_layer.add_child(_inter_round_label)
 
-func _show_inter_round_instruction(instruction: String) -> void:
-	if instruction.strip_edges().is_empty():
+func _show_inter_round_instruction(instruction: String, round_num: int, presentation_token: int) -> void:
+	if instruction.strip_edges().is_empty() or not _countdown_presentation_is_current(round_num, presentation_token):
 		return
 
 	var phase_started_usec: int = Time.get_ticks_usec()
@@ -630,7 +685,7 @@ func _show_inter_round_instruction(instruction: String) -> void:
 	_inter_round_label.scale = Vector2(0.94, 0.94)
 	_inter_round_layer.visible = true
 	await get_tree().process_frame
-	if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+	if not _countdown_presentation_is_current(round_num, presentation_token):
 		return
 	_inter_round_label.pivot_offset = _inter_round_label.size * 0.5
 
@@ -644,16 +699,15 @@ func _show_inter_round_instruction(instruction: String) -> void:
 		_inter_round_tween.tween_property(_inter_round_label, "scale", Vector2.ONE, INTER_ROUND_INSTRUCTION_IN_SECONDS)
 		exit_seconds = INTER_ROUND_INSTRUCTION_OUT_SECONDS
 		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_IN_SECONDS).timeout
-
-	if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
-		return
+		if not _countdown_presentation_is_current(round_num, presentation_token):
+			return
 
 	# The full instruction phase, including reveal and fade, is capped at 1.5 seconds.
 	var elapsed_seconds: float = float(Time.get_ticks_usec() - phase_started_usec) / 1000000.0
 	var hold_seconds: float = maxf(0.0, INTER_ROUND_INSTRUCTION_SECONDS - elapsed_seconds - exit_seconds)
 	if hold_seconds > 0.0:
 		await get_tree().create_timer(hold_seconds).timeout
-	if not is_inside_tree() or _tutorial_interrupted or SceneRouter.is_transitioning:
+	if not _countdown_presentation_is_current(round_num, presentation_token):
 		return
 
 	if not Feel.reduced():
@@ -661,6 +715,8 @@ func _show_inter_round_instruction(instruction: String) -> void:
 		_inter_round_tween.tween_property(_inter_round_label, "modulate:a", 0.0, INTER_ROUND_INSTRUCTION_OUT_SECONDS)
 		_inter_round_tween.tween_property(_inter_round_label, "scale", Vector2(0.98, 0.98), INTER_ROUND_INSTRUCTION_OUT_SECONDS)
 		await get_tree().create_timer(INTER_ROUND_INSTRUCTION_OUT_SECONDS).timeout
+		if not _countdown_presentation_is_current(round_num, presentation_token):
+			return
 
 	_inter_round_layer.visible = false
 	_inter_round_label.modulate = Color.WHITE
@@ -677,15 +733,32 @@ func _press_countdown_card() -> void:
 		_countdown_press_tween.tween_property(_countdown_style, "depth", 0.55, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
+		var live_challenge: ChallengeDefinition = challenge
+		if live_challenge == null:
+				live_challenge = GameManager.match_controller.current_challenge
+		_duel_ui_trace("ROUND_START UI round=%d mode=%s state=%s callback_id=%s current_id=%s valid=%s duration=%.2f prepared_index=%d view_id=%s" % [
+			round_num, str(GameManager.current_game_mode), str(GameManager.match_controller.current_state),
+			challenge.id if challenge != null else "<null>",
+			GameManager.match_controller.current_challenge.id if GameManager.match_controller.current_challenge != null else "<null>",
+			str(live_challenge != null and live_challenge.is_valid()), duration, _prepared_round_index,
+			str(challenge_view.call("get_loaded_challenge_id")) if challenge_view.has_method("get_loaded_challenge_id") else "<no-accessor>"
+		])
+		# The host's ROUND_START is authoritative. Invalidate any countdown or
+		# instruction coroutine that is still waiting on a scene/timer await.
+		_countdown_presentation_token += 1
 		# Playback is requested once the first round is actually live. On the normal
 		# menu path the gameplay loop has already been synthesized during idle time.
 		Music.play_game()
 		_kill_tweens()
+		_inter_round_tween = null
 		_last_tick_second = -1
 
 		countdown_overlay.visible = false
+		challenge_view.visible = true
 		if _inter_round_layer != null:
 			_inter_round_layer.visible = false
+		if safe_area != null:
+			safe_area.visible = true
 		# Restore the overlay's resting offsets/alpha/scale so the next countdown
 		# starts from a clean state even if the previous tween was interrupted.
 		countdown_overlay.offset_top = _countdown_base_ot
@@ -708,16 +781,24 @@ func _on_round_started(round_num: int, challenge: ChallengeDefinition, duration:
 				lbl_timer.text = "%.1f" % duration
 				lbl_timer.modulate = Color.WHITE
 
-		if _prepared_round_index == round_num - 1:
-				# This round was already dealt behind the wipe and rose in with the screen
-				# entrance - hand control back without reloading, re-rising or re-sweeping.
+		var view_has_same_challenge: bool = live_challenge != null and str(challenge_view.call("get_loaded_challenge_id")) == live_challenge.id
+		if _prepared_round_index == round_num - 1 and view_has_same_challenge:
+				# The exact challenge was already rendered under the countdown.
 				_prepared_round_index = -1
 				challenge_view.unlock_input()
 		else:
-				challenge_view.load_challenge(challenge)
-						# ChallengeCanvas already animates token entrances. Avoid a second
-				# full-screen expanding ring here: its 96-segment redraw is costly
-				# on mobile exactly when the challenge first appears.
+				if live_challenge == null:
+					push_error("[DUEL][UI] ROUND_START reached GameScreen without a challenge; playfield cannot render")
+				else:
+					challenge_view.load_challenge(live_challenge)
+					challenge_view.unlock_input()
+				_prepared_round_index = -1
+				_duel_ui_trace("ROUND_START playfield rendered round=%d incoming_id=%s view_id=%s instruction_chars=%d canvas_visible=%s" % [
+					round_num, live_challenge.id if live_challenge != null else "<null>",
+					str(challenge_view.call("get_loaded_challenge_id")) if challenge_view.has_method("get_loaded_challenge_id") else "<no-accessor>",
+					str(challenge_view.call("get_instruction_text")).length(),
+					str(challenge_view.visible)
+				])
 
 
 func _on_time_tick(remaining: float, total: float) -> void:
@@ -1077,6 +1158,7 @@ func _on_round_ended(_round_num: int, _scores: Dictionary) -> void:
 		challenge_view.lock_input()
 
 func _on_scene_transition_started() -> void:
+		_countdown_presentation_token += 1
 		_tutorial_interrupted = true
 		# Resolve any open practice sheet so an awaited tutorial cannot hold a
 		# countdown or keep the scene coroutine alive during navigation.
