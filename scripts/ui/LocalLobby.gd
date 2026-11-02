@@ -47,6 +47,7 @@ var _room_transport: StringName = &"none"
 var _friend_connected: bool = false
 var _qr_rect: TextureRect
 var _watchdog_token: int = 0
+var _join_ui_connected: bool = false
 var is_navigating: bool = false
 var _closing_room: bool = false
 
@@ -332,6 +333,7 @@ func _join_online_code(code: String) -> void:
 		_set_status(lbl_join_status, "Online rooms are unavailable in this build. RIVAL CODE works offline.", NeuKit.CORAL)
 		return
 
+	_join_ui_connected = false
 	btn_join_room.disabled = true
 	_set_status(lbl_join_status, "Finding room %s..." % code, NeuKit.SLATE)
 	var joined: bool = await EOSOnline.join_room_code_async(code)
@@ -344,9 +346,15 @@ func _join_online_code(code: String) -> void:
 		return
 
 	_room_transport = &"eos_p2p"
-	_arm_join_watchdog(25.0)
-	_set_status(lbl_join_status, "Room found. Connecting directly to your friend...", NeuKit.SLATE)
-	Feel.sfx("correct")
+	# EOS may finish the peer handshake before join_room_code_async() resumes.
+	# In that case _on_join_succeeded() has already run; do not overwrite its
+	# Connected status with the older "Room found..." message.
+	if _join_ui_connected or NetworkSession.is_connected_to_network():
+		_on_join_succeeded()
+	else:
+		_arm_join_watchdog(25.0)
+		_set_status(lbl_join_status, "Room found. Connecting directly to your friend...", NeuKit.SLATE)
+		Feel.sfx("correct")
 
 
 func _on_room_code_changed(new_text: String) -> void:
@@ -363,6 +371,9 @@ func _on_room_code_changed(new_text: String) -> void:
 
 
 func _on_join_succeeded() -> void:
+	if _join_ui_connected:
+		return
+	_join_ui_connected = true
 	_cancel_join_watchdog()
 	GameManager.reset_multiplayer_client_handoff()
 	btn_join_room.disabled = true
@@ -372,6 +383,7 @@ func _on_join_succeeded() -> void:
 
 
 func _on_join_failed() -> void:
+	_join_ui_connected = false
 	_cancel_join_watchdog()
 	if EOSOnline.has_current_lobby():
 		await EOSOnline.leave_current_lobby_async()
@@ -385,6 +397,7 @@ func _on_join_failed() -> void:
 func _on_server_disconnected() -> void:
 	if is_navigating:
 		return
+	_join_ui_connected = false
 	_cancel_join_watchdog()
 	if EOSOnline.has_current_lobby():
 		await EOSOnline.leave_current_lobby_async()
@@ -404,7 +417,12 @@ func _cancel_join_watchdog() -> void:
 
 
 func _on_join_watchdog_timeout(token: int) -> void:
-	if token != _watchdog_token or is_navigating or not NetworkSession.is_connecting():
+	if token != _watchdog_token or is_navigating:
+		return
+	if NetworkSession.is_connected_to_network():
+		_on_join_succeeded()
+		return
+	if not NetworkSession.is_connecting():
 		return
 	NetworkSession.disconnect_session()
 	if EOSOnline.has_current_lobby():
