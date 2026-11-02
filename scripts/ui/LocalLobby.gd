@@ -279,9 +279,15 @@ func _on_peer_connected(_peer_id: int) -> void:
 	if not _room_open or not NetworkSession.is_host():
 		return
 	_friend_connected = true
+	# Do not expose Start Duel until the "full" lobby update has completed.
+	# This prevents the host from racing a second "playing" update against it.
+	btn_start_match.disabled = true
+	await EOSOnline.update_current_room_status_async("full")
+	if not is_inside_tree() or not _friend_connected or not NetworkSession.is_host():
+		return
 	_set_status(lbl_create_status, "Your friend is connected. You're both ready!", NeuKit.MINT.darkened(0.34))
 	btn_start_match.visible = true
-	await EOSOnline.update_current_room_status_async("full")
+	btn_start_match.disabled = false
 	Feel.sfx("correct")
 	Feel.haptic("success")
 
@@ -302,8 +308,11 @@ func _on_start_match_pressed() -> void:
 	btn_start_match.disabled = true
 	btn_back.disabled = true
 	btn_end_room.disabled = true
-	await EOSOnline.update_current_room_status_async("playing")
+	# Announce the duel while the host is still in LocalLobby. The joiner
+	# can open GameScreen immediately; host gameplay setup follows after the
+	# room status update and the host's own scene transition.
 	GameManager.queue_multiplayer_host_start(10)
+	await EOSOnline.update_current_room_status_async("playing")
 	SceneRouter.goto_game()
 
 
