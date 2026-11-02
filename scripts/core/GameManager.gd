@@ -173,23 +173,23 @@ func _tick_match_start_delivery(delta: float) -> void:
 
 
 func _route_client_to_game() -> void:
-		if _client_match_transition_requested:
-				return
-		_client_match_transition_requested = true
-		call_deferred("_finish_client_game_route")
+		# Do not wait on a one-shot transition_finished signal. A match-start
+		# packet can arrive while the previous curtain is closing/opening; the
+		# normal _process loop retries this route as soon as it becomes idle.
+		_try_route_initialized_client_match()
 
 
-func _finish_client_game_route() -> void:
-		if SceneRouter.is_transitioning:
-				await SceneRouter.transition_finished
+func _try_route_initialized_client_match() -> void:
 		if not _client_match_start_initialized:
-				_client_match_transition_requested = false
 				return
-
 		var active_scene: Node = get_tree().current_scene
 		if active_scene != null and active_scene.scene_file_path == SceneRouter.SCENE_GAME:
+				_client_match_transition_requested = true
 				return
-		print("[MATCH HANDOFF] Joiner opening GameScreen after match-start receipt.")
+		if _client_match_transition_requested or SceneRouter.is_transitioning:
+				return
+		_client_match_transition_requested = true
+		print("[MATCH HANDOFF] Joiner opening GameScreen. sender-independent route retry.")
 		SceneRouter.goto_game()
 
 ## Build the solo match state and pre-generate the opening challenge WITHOUT
@@ -261,6 +261,10 @@ func _process(delta: float) -> void:
 		# stay live: both phones must keep the same beat, and the rival on the
 		# other screen is not waiting on this dialog.
 		_tick_match_start_delivery(delta)
+		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT \
+						and _client_match_start_initialized \
+						and not _client_match_transition_requested:
+				_try_route_initialized_client_match()
 		if (NeuDialog.is_open() or AppLifecycle.is_background) \
 						and current_game_mode == GameConfig.GameMode.SINGLE_PLAYER:
 				return
@@ -433,10 +437,15 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 										push_warning("Rejected stale answer from peer %d for round %d (current %d)" % [sender_id, round_idx, match_controller.current_round_index])
 
 				NetworkProtocol.MSG_MATCH_START:
-						if sender_id != 1:
-								push_warning("[MATCH HANDOFF] Ignored match-start packet from non-host sender %d." % sender_id)
+						# This P2P room has exactly one remote peer. Do not hard-code
+						# the RPC sender ID here: EOSG can expose peer IDs differently
+						# across its desktop/mobile MultiplayerPeer implementations.
+						# A client cannot receive this packet from itself.
+						if NetworkSession.is_host():
+								push_warning("[MATCH HANDOFF] Host ignored an incoming match-start packet from peer %d." % sender_id)
 								return
 
+						print("[MATCH HANDOFF] Match-start accepted from remote peer id=%d." % sender_id)
 						var total_r: int = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
 						if not _client_match_start_initialized:
 								current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
