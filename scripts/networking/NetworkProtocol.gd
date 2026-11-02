@@ -2,12 +2,13 @@ class_name NetworkProtocol
 extends RefCounted
 
 const PORT: int = 7000
-const PROTOCOL_VERSION: int = 2 # v2: explicit client round phases and host clock sync
+const PROTOCOL_VERSION: int = 3 # v3: acknowledged/retried match-start handoff
 
 # Message type constants
 const MSG_PLAYER_JOINED: String = "player_joined"
 const MSG_PLAYER_READY: String = "player_ready"
 const MSG_MATCH_START: String = "match_start"
+const MSG_MATCH_START_ACK: String = "match_start_ack"
 const MSG_COUNTDOWN_START: String = "countdown_start"
 const MSG_ROUND_START: String = "round_start"
 const MSG_ROUND_CLOCK: String = "round_clock"
