@@ -168,13 +168,37 @@ func get_local_id() -> int:
         return multiplayer.get_unique_id()
 
 func send_packet(target_id: int, msg_type: String, payload: Dictionary = {}) -> void:
-        if not is_connected_to_network():
+        if peer == null or not is_connected_to_network():
+                push_warning("[NET] SEND SKIPPED type=%s target=%d peer_present=%s status=%d" % [
+                        msg_type,
+                        target_id,
+                        peer != null,
+                        peer.get_connection_status() if peer != null else -1
+                ])
                 return
+
         var packet = NetworkProtocol.create_packet(msg_type, payload)
-        if target_id == 0:
+        if target_id == 0 and multiplayer.is_server():
+                # Address each connected client explicitly. This avoids relying
+                # on an EOSG broadcast path for the critical initial match handoff.
+                var recipients: Array[int] = connected_peers.duplicate()
+                if recipients.is_empty():
+                        push_warning("[NET] BROADCAST SKIPPED type=%s: server has no registered remote peers." % msg_type)
+                        return
+                for recipient_id in recipients:
+                        if recipient_id <= 1:
+                                continue
+                        _rpc_receive_packet.rpc_id(recipient_id, packet)
+                        if msg_type == NetworkProtocol.MSG_MATCH_START or msg_type == NetworkProtocol.MSG_MATCH_START_ACK:
+                                print("[NET] SEND type=%s target=%d ver=%d" % [msg_type, recipient_id, NetworkProtocol.PROTOCOL_VERSION])
+        elif target_id == 0:
                 _rpc_receive_packet.rpc(packet)
+                if msg_type == NetworkProtocol.MSG_MATCH_START or msg_type == NetworkProtocol.MSG_MATCH_START_ACK:
+                        print("[NET] SEND type=%s target=ALL ver=%d" % [msg_type, NetworkProtocol.PROTOCOL_VERSION])
         else:
                 _rpc_receive_packet.rpc_id(target_id, packet)
+                if msg_type == NetworkProtocol.MSG_MATCH_START or msg_type == NetworkProtocol.MSG_MATCH_START_ACK:
+                        print("[NET] SEND type=%s target=%d ver=%d" % [msg_type, target_id, NetworkProtocol.PROTOCOL_VERSION])
 
 func send_to_server(msg_type: String, payload: Dictionary = {}) -> void:
         send_packet(1, msg_type, payload)
@@ -186,14 +210,24 @@ func send_to_all(msg_type: String, payload: Dictionary = {}) -> void:
 func _rpc_receive_packet(packet: Dictionary) -> void:
         var sender_id: int = multiplayer.get_remote_sender_id()
         if not NetworkProtocol.is_valid_packet(packet):
-                push_warning("Rejected invalid packet from sender %d" % sender_id)
+                var received_version: Variant = packet.get("ver", "<missing>") if packet is Dictionary else "<not-dictionary>"
+                var received_type: Variant = packet.get("type", "<missing>") if packet is Dictionary else "<not-dictionary>"
+                push_warning("[NET] REJECT sender=%d type=%s received_ver=%s expected_ver=%d" % [
+                        sender_id, str(received_type), str(received_version), NetworkProtocol.PROTOCOL_VERSION
+                ])
                 return
-                
+
         var msg_type: String = packet.get("type", "")
         var payload: Dictionary = packet.get("data", {})
+        if msg_type == NetworkProtocol.MSG_MATCH_START or msg_type == NetworkProtocol.MSG_MATCH_START_ACK:
+                print("[NET] RECEIVE type=%s sender=%d ver=%d" % [msg_type, sender_id, NetworkProtocol.PROTOCOL_VERSION])
         packet_received.emit(sender_id, msg_type, payload)
 
 func _on_connected_to_server() -> void:
+        print("[NET] Client connected to server. local_id=%d status=%d" % [
+                multiplayer.get_unique_id(),
+                peer.get_connection_status() if peer != null else -1
+        ])
         connection_succeeded.emit()
 
 func _on_connection_failed() -> void:
@@ -203,6 +237,13 @@ func _on_connection_failed() -> void:
 func _on_peer_connected(peer_id: int) -> void:
         if not peer_id in connected_peers:
                 connected_peers.append(peer_id)
+        print("[NET] Peer connected id=%d local_id=%d host=%s peers=%s status=%d" % [
+                peer_id,
+                multiplayer.get_unique_id(),
+                multiplayer.is_server(),
+                str(connected_peers),
+                peer.get_connection_status() if peer != null else -1
+        ])
         peer_connected.emit(peer_id)
 
 func _on_peer_disconnected(peer_id: int) -> void:
