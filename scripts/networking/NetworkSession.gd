@@ -171,7 +171,14 @@ func is_host() -> bool:
         return is_active_host and multiplayer.is_server()
 
 func is_connected_to_network() -> bool:
-        return peer != null and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+        if peer == null:
+                return false
+        # A server-side EOSG peer is a listener, not a client connection.
+        # Its own CONNECTION_CONNECTED status is not the source of truth;
+        # peer_connected populates this list when a remote player is usable.
+        if is_active_host and multiplayer.is_server():
+                return not connected_peers.is_empty()
+        return peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
 
 ## True while a join attempt is still knocking (used by the lobby watchdog to
 ## give up on unreachable hosts instead of hanging on ENet's long timeout).
