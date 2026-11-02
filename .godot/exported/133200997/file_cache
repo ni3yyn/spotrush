@@ -5,7 +5,7 @@ res://scenes/game/ChallengeView.tscn::5b2e04ca3699320814499c85a9720e48::17933807
 res://scenes/game/GameScreen.tscn::13a7f0541a33e27cacdde8d1b7a1cade::1793380760::res://.godot/exported/133200997/export-b283e90e9b29beccffa678fee60d87da-GameScreen.scn
 res://scenes/game/MatchResults.tscn::f154d2c4977c8b9147ec5f644158dd1b::1793380760::res://.godot/exported/133200997/export-7839a952888b683036b05baef9edcbcc-MatchResults.scn
 res://scenes/main/MainMenu.tscn::0cbfdf838c7b82f47386d2498065d3cc::1793406190::res://.godot/exported/133200997/export-7f26e0d15f396623b3824c1cf41e625d-MainMenu.scn
-res://scenes/multiplayer/LocalLobby.tscn::7fba265fef31ce453e8715bb4672994d::1793545616::res://.godot/exported/133200997/export-2e98260b840a1deb79751a8f4fdf1bde-LocalLobby.scn
+res://scenes/multiplayer/LocalLobby.tscn::478b5d735ad19eff2aa86d2b6975da3b::1793565120::res://.godot/exported/133200997/export-2e98260b840a1deb79751a8f4fdf1bde-LocalLobby.scn
 res://scenes/settings/SettingsScreen.tscn::a36b18d4d444a96fbe05b53ceb9066b9::1793380760::res://.godot/exported/133200997/export-48cb07d7b69728b0d14156da83aa85c6-SettingsScreen.scn
 res://tests/CaptureMenu.tscn::34e557e3b6aa13126be5f2f6b9c03be8::1793384361::res://.godot/exported/133200997/export-238989f44461e78134557a83d00a2f7d-CaptureMenu.scn
 res://tests/CapturePhase4All.tscn::a965787fee7595687fdade21a6cddc2c::1793384361::res://.godot/exported/133200997/export-918a729a763d0f0aab90a14932aeca8c-CapturePhase4All.scn
