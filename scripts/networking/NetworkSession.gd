@@ -13,12 +13,25 @@ var is_active_host: bool = false
 var connected_peers: Array[int] = []
 var transport_kind: StringName = &"none"
 
+# Some custom MultiplayerPeer transports can reach CONNECTION_CONNECTED
+# without reliably delivering connected_to_server on every platform.
+# Emit the public signal once, using the peer state as a guarded fallback.
+var _connection_succeeded_emitted: bool = false
+
 func _ready() -> void:
         multiplayer.connected_to_server.connect(_on_connected_to_server)
         multiplayer.connection_failed.connect(_on_connection_failed)
         multiplayer.peer_connected.connect(_on_peer_connected)
         multiplayer.peer_disconnected.connect(_on_peer_disconnected)
         multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+
+func _process(_delta: float) -> void:
+        if is_active_host or peer == null or _connection_succeeded_emitted:
+                return
+        if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+                print("[NET] Client connection confirmed by peer state; emitting connection_succeeded fallback.")
+                _emit_connection_succeeded_once()
 
 func create_host(port: int = GameConfig.DEFAULT_PORT) -> Error:
         disconnect_session()
@@ -144,6 +157,7 @@ func _tune_transport(new_peer: MultiplayerPeer) -> void:
                 host_conn.compress(ENetConnection.COMPRESS_RANGE_CODER)
 
 func disconnect_session() -> void:
+        _connection_succeeded_emitted = false
         if peer != null:
                 peer.close()
                 peer = null
@@ -223,12 +237,19 @@ func _rpc_receive_packet(packet: Dictionary) -> void:
                 print("[NET] RECEIVE type=%s sender=%d ver=%d" % [msg_type, sender_id, NetworkProtocol.PROTOCOL_VERSION])
         packet_received.emit(sender_id, msg_type, payload)
 
+func _emit_connection_succeeded_once() -> void:
+        if _connection_succeeded_emitted:
+                return
+        _connection_succeeded_emitted = true
+        connection_succeeded.emit()
+
+
 func _on_connected_to_server() -> void:
-        print("[NET] Client connected to server. local_id=%d status=%d" % [
+        print("[NET] connected_to_server signal received. local_id=%d status=%d" % [
                 multiplayer.get_unique_id(),
                 peer.get_connection_status() if peer != null else -1
         ])
-        connection_succeeded.emit()
+        _emit_connection_succeeded_once()
 
 func _on_connection_failed() -> void:
         disconnect_session()
