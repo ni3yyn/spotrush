@@ -35,6 +35,18 @@ var _pending_single_player_rounds: int = -1
 # arena) once its UI is connected, then starts the countdown on its own beat.
 var _pending_multiplayer_host_rounds: int = -1
 
+# Reliable lobby-to-match handoff. The host announces the match before leaving
+# LocalLobby, then retries until the joining device confirms it initialized.
+const MATCH_START_RETRY_INTERVAL: float = 0.65
+const MATCH_START_MAX_RETRIES: int = 12
+var _match_start_pending_peer_ids: Array[int] = []
+var _match_start_payload: Dictionary = {}
+var _match_start_retry_elapsed: float = 0.0
+var _match_start_retry_count: int = 0
+var _match_start_retries_exhausted: bool = false
+var _client_match_start_initialized: bool = false
+var _client_match_transition_requested: bool = false
+
 func queue_single_player_start(rounds: int) -> void:
 		# Update the mode now so GameScreen builds the correct solo HUD before the
 		# queued match is initialized on the next scene.
@@ -85,11 +97,100 @@ func _clear_challenge_state() -> void:
 func queue_multiplayer_host_start(rounds: int) -> void:
 		current_game_mode = GameConfig.GameMode.MULTIPLAYER_HOST
 		_pending_multiplayer_host_rounds = maxi(1, rounds)
+		_client_match_start_initialized = false
+		_client_match_transition_requested = false
+
+		var player_ids: Array[int] = [1]
+		_match_start_pending_peer_ids.clear()
+		for peer_id in NetworkSession.connected_peers:
+				var clean_peer_id: int = int(peer_id)
+				if clean_peer_id > 1 and not _match_start_pending_peer_ids.has(clean_peer_id):
+						_match_start_pending_peer_ids.append(clean_peer_id)
+						player_ids.append(clean_peer_id)
+
+		_match_start_payload = {
+				"total_rounds": _pending_multiplayer_host_rounds,
+				"player_ids": player_ids
+		}
+		_match_start_retry_elapsed = 0.0
+		_match_start_retry_count = 0
+		_match_start_retries_exhausted = false
+
+		print("[MATCH HANDOFF] Host announcing match before scene transition. rounds=%d recipients=%s" % [
+				_pending_multiplayer_host_rounds,
+				str(_match_start_pending_peer_ids)
+		])
+		if _match_start_pending_peer_ids.is_empty():
+				push_warning("[MATCH HANDOFF] No connected peer was registered when Start Duel was pressed.")
+		else:
+				_send_match_start_to_pending_peers()
 
 func consume_pending_multiplayer_host_start() -> int:
 		var rounds: int = _pending_multiplayer_host_rounds
 		_pending_multiplayer_host_rounds = -1
 		return rounds
+
+
+func reset_multiplayer_client_handoff() -> void:
+		# Called for every freshly connected lobby session, so a rematch or a
+		# later room join in the same app process can initialize cleanly.
+		_client_match_start_initialized = false
+		_client_match_transition_requested = false
+
+
+func _send_match_start_to_pending_peers() -> void:
+		if _match_start_pending_peer_ids.is_empty():
+				return
+		for peer_id in _match_start_pending_peer_ids.duplicate():
+				if not NetworkSession.connected_peers.has(peer_id):
+						_match_start_pending_peer_ids.erase(peer_id)
+						continue
+				NetworkSession.send_packet(peer_id, NetworkProtocol.MSG_MATCH_START, _match_start_payload)
+
+
+func _tick_match_start_delivery(delta: float) -> void:
+		if current_game_mode != GameConfig.GameMode.MULTIPLAYER_HOST or _match_start_pending_peer_ids.is_empty():
+				return
+		if _match_start_retries_exhausted:
+				return
+		_match_start_retry_elapsed += delta
+		if _match_start_retry_elapsed < MATCH_START_RETRY_INTERVAL:
+				return
+		_match_start_retry_elapsed = 0.0
+		if _match_start_retry_count >= MATCH_START_MAX_RETRIES:
+				_match_start_retries_exhausted = true
+				push_warning("[MATCH HANDOFF] No acknowledgement after %d retries. Pending peers=%s" % [
+						MATCH_START_MAX_RETRIES,
+						str(_match_start_pending_peer_ids)
+				])
+				return
+		_match_start_retry_count += 1
+		print("[MATCH HANDOFF] Retrying match-start announcement #%d to %s" % [
+				_match_start_retry_count,
+				str(_match_start_pending_peer_ids)
+		])
+		_send_match_start_to_pending_peers()
+
+
+func _route_client_to_game() -> void:
+		if _client_match_transition_requested:
+				return
+		_client_match_transition_requested = true
+		call_deferred("_finish_client_game_route")
+
+
+func _finish_client_game_route() -> void:
+		if SceneRouter.is_transitioning:
+				await SceneRouter.transition_finished
+		if not _client_match_start_initialized:
+				_client_match_transition_requested = false
+				return
+
+		var active_scene: Node = get_tree().current_scene
+		if active_scene != null and active_scene.scene_file_path == SceneRouter.SCENE_GAME:
+				return
+		print("[MATCH HANDOFF] Joiner opening GameScreen after match-start receipt.")
+		SceneRouter.goto_game()
 
 ## Build the solo match state and pre-generate the opening challenge WITHOUT
 ## starting the countdown. Lets GameScreen deal the first round behind the
@@ -159,6 +260,7 @@ func _process(delta: float) -> void:
 		# its breath - interruptions should never cost you the round. Duels
 		# stay live: both phones must keep the same beat, and the rival on the
 		# other screen is not waiting on this dialog.
+		_tick_match_start_delivery(delta)
 		if (NeuDialog.is_open() or AppLifecycle.is_background) \
 						and current_game_mode == GameConfig.GameMode.SINGLE_PLAYER:
 				return
@@ -220,11 +322,9 @@ func prepare_multiplayer_host_match(rounds: int) -> void:
 				peers.append(p)
 		match_controller.initialize_match(current_game_mode, rounds, peers)
 
-		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
-				"total_rounds": rounds,
-				"player_ids": peers
-		})
-
+		# MSG_MATCH_START is announced from queue_multiplayer_host_start()
+		# before the host leaves LocalLobby. Do not send a second fresh handoff
+		# here; the client has already acknowledged the queued announcement.
 		match_controller.prepare_first_challenge()
 
 func submit_answer(answer: Variant) -> void:
@@ -312,6 +412,17 @@ func _on_controller_match_ended(results: Dictionary) -> void:
 
 func _on_network_packet_received(sender_id: int, msg_type: String, data: Dictionary) -> void:
 		match msg_type:
+				NetworkProtocol.MSG_MATCH_START_ACK:
+						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
+								if _match_start_pending_peer_ids.has(sender_id):
+										_match_start_pending_peer_ids.erase(sender_id)
+										print("[MATCH HANDOFF] Joiner %d acknowledged match start. Remaining=%s" % [
+												sender_id,
+												str(_match_start_pending_peer_ids)
+										])
+								else:
+										print("[MATCH HANDOFF] Duplicate or unexpected ACK from peer %d." % sender_id)
+
 				NetworkProtocol.MSG_SUBMIT_ANSWER:
 						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 								var round_idx = data.get("round_index", -1)
@@ -322,14 +433,32 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 										push_warning("Rejected stale answer from peer %d for round %d (current %d)" % [sender_id, round_idx, match_controller.current_round_index])
 
 				NetworkProtocol.MSG_MATCH_START:
-						current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
-						var total_r = data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)
-						var pids_array = data.get("player_ids", [1, NetworkSession.get_local_id()])
-						var pids: Array[int] = []
-						for p in pids_array:
-								pids.append(int(p))
-						match_controller.initialize_match(current_game_mode, total_r, pids)
-						SceneRouter.goto_game()
+						if sender_id != 1:
+								push_warning("[MATCH HANDOFF] Ignored match-start packet from non-host sender %d." % sender_id)
+								return
+
+						var total_r: int = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
+						if not _client_match_start_initialized:
+								current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
+								var pids_array = data.get("player_ids", [1, NetworkSession.get_local_id()])
+								var pids: Array[int] = []
+								for p in pids_array:
+										pids.append(int(p))
+								match_controller.initialize_match(current_game_mode, total_r, pids)
+								_client_match_start_initialized = true
+								print("[MATCH HANDOFF] Joiner initialized match. rounds=%d players=%s" % [
+										total_r,
+										str(pids)
+								])
+								_route_client_to_game()
+						else:
+								print("[MATCH HANDOFF] Duplicate match-start received; re-acknowledging without resetting match state.")
+
+						# ACK every copy. If the first acknowledgement was delayed,
+						# the host's retry loop stops as soon as one reaches it.
+						NetworkSession.send_to_server(NetworkProtocol.MSG_MATCH_START_ACK, {
+								"total_rounds": total_r
+						})
 
 				NetworkProtocol.MSG_COUNTDOWN_START:
 						var rnum: int = int(data.get("round_num", 1))
@@ -439,6 +568,11 @@ func abandon_match() -> void:
 		_pending_multiplayer_host_rounds = -1
 		if current_game_mode != GameConfig.GameMode.SINGLE_PLAYER:
 				NetworkSession.disconnect_session()
+		_match_start_pending_peer_ids.clear()
+		_match_start_payload.clear()
+		_match_start_retries_exhausted = false
+		_client_match_start_initialized = false
+		_client_match_transition_requested = false
 		current_game_mode = GameConfig.GameMode.SINGLE_PLAYER
 		is_daily_match = false
 		daily_seed_value = -1
@@ -446,6 +580,7 @@ func abandon_match() -> void:
 		last_match_results = {}
 
 func _on_peer_disconnected(peer_id: int) -> void:
+		_match_start_pending_peer_ids.erase(peer_id)
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
 				push_warning("Client peer %d disconnected during match!" % peer_id)
 				match_controller.handle_peer_disconnected(peer_id)
