@@ -334,6 +334,9 @@ func _join_online_code(code: String) -> void:
 		return
 
 	_join_ui_connected = false
+	# Reset the previous session BEFORE connecting. Never reset here from
+	# connection_succeeded: the host's match-start packet can race that callback.
+	GameManager.reset_multiplayer_client_handoff()
 	btn_join_room.disabled = true
 	_set_status(lbl_join_status, "Finding room %s..." % code, NeuKit.SLATE)
 	var joined: bool = await EOSOnline.join_room_code_async(code)
@@ -375,7 +378,6 @@ func _on_join_succeeded() -> void:
 		return
 	_join_ui_connected = true
 	_cancel_join_watchdog()
-	GameManager.reset_multiplayer_client_handoff()
 	btn_join_room.disabled = true
 	_set_status(lbl_join_status, "Connected. Your friend will start the duel.", NeuKit.MINT.darkened(0.34))
 	Feel.sfx("correct")
