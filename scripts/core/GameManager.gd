@@ -137,6 +137,7 @@ func _ready() -> void:
 		match_controller.match_ended.connect(_on_controller_match_ended)
 
 		NetworkSession.packet_received.connect(_on_network_packet_received)
+		NetworkSession.peer_connected.connect(_on_peer_connected_for_resync)
 		NetworkSession.peer_disconnected.connect(_on_peer_disconnected)
 		NetworkSession.server_disconnected.connect(_on_server_disconnected)
 
@@ -192,11 +193,17 @@ func start_multiplayer_host_match(rounds: int = GameConfig.DEFAULT_TOTAL_ROUNDS)
 		for p in NetworkSession.connected_peers:
 				peers.append(p)
 		match_controller.initialize_match(current_game_mode, rounds, peers)
+		_stamp_duel_deck()
 
 		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
 				"total_rounds": rounds,
-				"player_ids": peers
+				"player_ids": peers,
+				"deck_seed": match_controller.deck_seed(),
+				"deck_band": match_controller.deck_start_band()
 		})
+		if OS.is_debug_build():
+				CrashLogger.breadcrumb("[DUEL][NET] TX match_start rounds=%d players=%s deck_seed=%d deck_band=%d" % [
+						rounds, str(peers), match_controller.deck_seed(), match_controller.deck_start_band()])
 
 		match_controller.start_match()
 
@@ -214,13 +221,33 @@ func prepare_multiplayer_host_match(rounds: int) -> void:
 		for p in NetworkSession.connected_peers:
 				peers.append(p)
 		match_controller.initialize_match(current_game_mode, rounds, peers)
+		_stamp_duel_deck()
 
 		NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_START, {
 				"total_rounds": rounds,
-				"player_ids": peers
+				"player_ids": peers,
+				"deck_seed": match_controller.deck_seed(),
+				"deck_band": match_controller.deck_start_band()
 		})
+		if OS.is_debug_build():
+				CrashLogger.breadcrumb("[DUEL][NET] TX match_start rounds=%d players=%s deck_seed=%d deck_band=%d" % [
+						rounds, str(peers), match_controller.deck_seed(), match_controller.deck_start_band()])
 
 		match_controller.prepare_first_challenge()
+
+## Stamp + forge the duel deck BEFORE match_start goes out, so deck_seed()/
+## deck_start_band() below read back the real values that just got baked in
+## (not -1/"not forged yet"). A duel deck is a pure curve (adaptive stays
+## false - see MatchController._forge_deck()), so the seed + this one anchor
+## band fully determine every round: the joining phone reforges the exact
+## same deck from these two integers instead of receiving each round's full
+## token layout, which is what was blowing past the P2P transport's
+## per-packet size limit.
+func _stamp_duel_deck() -> void:
+		match_controller.challenge_seed = RunDeck.fresh_seed()
+		match_controller.challenge_band = clampi(Records.skill_rating(), GameConfig.DIFFICULTY_MIN, GameConfig.DIFFICULTY_MAX)
+		match_controller.fixed_difficulty_ramp = false
+		match_controller.ensure_deck_forged()
 
 func submit_answer(answer: Variant) -> void:
 		if has_submitted_current_round:
@@ -239,102 +266,35 @@ func skip_feedback() -> void:
 		if current_game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
 				match_controller.skip_feedback()
 
-func _duel_trace(message: String) -> void:
-		var line := "[DUEL][GAME] " + message
-		var logger := get_node_or_null("/root/CrashLogger")
-		if logger != null and logger.has_method("breadcrumb"):
-				logger.call("breadcrumb", line)
-		else:
-				print(line)
-
-func _challenge_to_wire(challenge: ChallengeDefinition) -> Dictionary:
-		if challenge == null:
-				return {}
-		return challenge.to_dict()
-
-func _decode_network_challenge(data: Dictionary, message_name: String, round_num: int) -> Dictionary:
-		var raw_json: String = str(data.get("challenge_json", ""))
-		if not raw_json.is_empty():
-				var parsed: Variant = JSON.parse_string(raw_json)
-				if parsed is Dictionary:
-					var json_challenge: Dictionary = parsed
-					if not json_challenge.is_empty():
-						_duel_trace("RX %s decoded JSON challenge round=%d bytes=%d id=%s type=%s keys=%s" % [
-							message_name, round_num, raw_json.to_utf8_buffer().size(),
-							str(json_challenge.get("id", "")), str(json_challenge.get("type", "")), str(json_challenge.keys())
-						])
-						return json_challenge
-				_duel_trace("WARN %s challenge_json parse failed or empty round=%d bytes=%d; trying Dictionary fallback" % [
-				message_name, round_num, raw_json.to_utf8_buffer().size()
-				])
-		var raw_dictionary: Variant = data.get("challenge", {})
-		if raw_dictionary is Dictionary:
-				var fallback: Dictionary = raw_dictionary
-				_duel_trace("RX %s using Dictionary fallback round=%d id=%s type=%s keys=%s" % [
-					message_name, round_num, str(fallback.get("id", "")),
-					str(fallback.get("type", "")), str(fallback.keys())
-				])
-				return fallback
-		_duel_trace("ERROR %s has no usable challenge payload round=%d data_keys=%s" % [message_name, round_num, str(data.keys())])
-		return {}
-
-func _ensure_client_match_state(total_rounds_hint: int = -1) -> void:
-		if NetworkSession.is_host():
-				return
-		current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
-		if match_controller.game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
-				var safe_rounds: int = maxi(1, total_rounds_hint if total_rounds_hint > 0 else GameConfig.DEFAULT_TOTAL_ROUNDS)
-				var local_id: int = NetworkSession.get_local_id()
-				if local_id <= 1:
-					local_id = 2
-				_duel_trace("RECOVERY reinitializing client controller mode=%s rounds=%d local_id=%d" % [str(match_controller.game_mode), safe_rounds, local_id])
-				match_controller.initialize_match(GameConfig.GameMode.MULTIPLAYER_CLIENT, safe_rounds, [1, local_id])
-
 func _on_controller_countdown_started(round_num: int, total_rounds: int) -> void:
 		has_submitted_current_round = false
 		next_round_instruction = match_controller.current_challenge.instruction if match_controller.current_challenge != null else ""
 		ui_countdown_started.emit(round_num, total_rounds)
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
-				var challenge_data: Dictionary = _challenge_to_wire(match_controller.current_challenge)
-				var challenge_json: String = JSON.stringify(challenge_data)
-				_duel_trace("HOST countdown TX round=%d/%d state=%s challenge_id=%s type=%s valid=%s instruction_chars=%d duration=%.2f json_bytes=%d peers=%s" % [
-						round_num, total_rounds, str(match_controller.current_state),
-						str(challenge_data.get("id", "")), str(challenge_data.get("type", "")),
-						str(match_controller.current_challenge != null and match_controller.current_challenge.is_valid()),
-						next_round_instruction.length(), match_controller.round_duration,
-						challenge_json.to_utf8_buffer().size(), str(NetworkSession.connected_peers)
-				])
 				NetworkSession.send_to_all(NetworkProtocol.MSG_COUNTDOWN_START, {
 						"round_num": round_num,
 						"total_rounds": total_rounds,
-						"instruction": next_round_instruction,
-						"duration": match_controller.round_duration,
-						"challenge": challenge_data,
-						"challenge_json": challenge_json
+						"instruction": next_round_instruction
 				})
+				if OS.is_debug_build():
+						CrashLogger.breadcrumb("[DUEL][NET] TX countdown_start round=%d/%d instruction_chars=%d" % [
+								round_num, total_rounds, next_round_instruction.length()])
 
 func _on_controller_round_started(round_num: int, challenge: ChallengeDefinition, duration: float) -> void:
 		has_submitted_current_round = false
-		_duel_trace("CONTROLLER round_started round=%d mode=%s state=%s challenge_id=%s type=%s valid=%s duration=%.2f" % [
-			round_num, str(current_game_mode), str(match_controller.current_state),
-			challenge.id if challenge != null else "<null>", challenge.type if challenge != null else "<null>",
-			str(challenge != null and challenge.is_valid()), duration
-		])
 		ui_round_started.emit(round_num, challenge, duration)
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:
-				var challenge_data: Dictionary = _challenge_to_wire(challenge)
-				var challenge_json: String = JSON.stringify(challenge_data)
-				_duel_trace("HOST ROUND_START TX round=%d id=%s type=%s valid=%s duration=%.2f json_bytes=%d peers=%s" % [
-						round_num, str(challenge_data.get("id", "")), str(challenge_data.get("type", "")),
-						str(challenge != null and challenge.is_valid()), duration,
-						challenge_json.to_utf8_buffer().size(), str(NetworkSession.connected_peers)
-				])
+				# Only the round number + duration travel over the wire - the client
+				# already has the same deck_seed/deck_band from match_start and
+				# reforges this exact challenge locally (see MatchController.
+				# set_client_round()), so no token layout needs to be sent here.
 				NetworkSession.send_to_all(NetworkProtocol.MSG_ROUND_START, {
 						"round_num": round_num,
-						"duration": duration,
-						"challenge": challenge_data,
-						"challenge_json": challenge_json
+						"duration": duration
 				})
+				if OS.is_debug_build():
+						CrashLogger.breadcrumb("[DUEL][NET] TX round_start round=%d duration=%.2f challenge_id=%s" % [
+								round_num, duration, challenge.id if challenge != null else "?"])
 
 func _on_controller_time_tick(remaining: float, total: float) -> void:
 		ui_time_tick.emit(remaining, total)
@@ -352,6 +312,8 @@ func _on_controller_answer_feedback(player_id: int, is_correct: bool, score_delt
 						"breakdown": match_controller.score_manager.get_last_breakdown(player_id),
 						"streak": match_controller.score_manager.get_streak(player_id)
 				})
+				if OS.is_debug_build():
+						CrashLogger.breadcrumb("[DUEL][NET] TX answer_result player=%d correct=%s delta=%d" % [player_id, str(is_correct), score_delta])
 
 func _on_controller_round_ended(round_num: int, scores: Dictionary) -> void:
 		ui_round_ended.emit(round_num, scores)
@@ -360,6 +322,8 @@ func _on_controller_round_ended(round_num: int, scores: Dictionary) -> void:
 						"round_num": round_num,
 						"scores": scores
 				})
+				if OS.is_debug_build():
+						CrashLogger.breadcrumb("[DUEL][NET] TX round_end round=%d scores=%s" % [round_num, str(scores)])
 
 func _on_controller_match_ended(results: Dictionary) -> void:
 		last_match_results = results
@@ -368,6 +332,8 @@ func _on_controller_match_ended(results: Dictionary) -> void:
 				NetworkSession.send_to_all(NetworkProtocol.MSG_MATCH_END, {
 						"results": results
 				})
+				if OS.is_debug_build():
+						CrashLogger.breadcrumb("[DUEL][NET] TX match_end")
 
 func _on_network_packet_received(sender_id: int, msg_type: String, data: Dictionary) -> void:
 		match msg_type:
@@ -381,91 +347,68 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 										push_warning("Rejected stale answer from peer %d for round %d (current %d)" % [sender_id, round_idx, match_controller.current_round_index])
 
 				NetworkProtocol.MSG_MATCH_START:
-						_duel_trace("RX MATCH_START sender=%d mode_before=%s data_keys=%s total_rounds=%s player_ids=%s" % [
-							sender_id, str(current_game_mode), str(data.keys()),
-							str(data.get("total_rounds", "?")), str(data.get("player_ids", []))
-						])
-						if NetworkSession.is_host():
-							push_warning("[DUEL][GAME] Host unexpectedly received MATCH_START from peer %d" % sender_id)
-							return
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX match_start sender=%d bytes_deck_seed=%s bytes_deck_band=%s" % [
+										sender_id, str(data.get("deck_seed", "?")), str(data.get("deck_band", "?"))])
 						current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
-						has_submitted_current_round = false
-						var total_r: int = maxi(1, int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)))
+						var total_r = data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS)
 						var pids_array = data.get("player_ids", [1, NetworkSession.get_local_id()])
 						var pids: Array[int] = []
 						for p in pids_array:
 								pids.append(int(p))
-						if not 1 in pids:
-								pids.push_front(1)
-						var local_peer_id: int = NetworkSession.get_local_id()
-						if local_peer_id > 1 and not local_peer_id in pids:
-								pids.append(local_peer_id)
 						match_controller.initialize_match(current_game_mode, total_r, pids)
-						_duel_trace("MATCH_START applied sender=%d mode=%s controller_mode=%s rounds=%d players=%s local=%d" % [
-							sender_id, str(current_game_mode), str(match_controller.game_mode), total_r, str(pids), local_peer_id
-						])
+						# Mirror the host's duel deck from these two small integers instead of
+						# the full per-round token layout - see MatchController._forge_deck()
+						# and set_client_round().
+						match_controller.challenge_seed = int(data.get("deck_seed", -1))
+						match_controller.challenge_band = int(data.get("deck_band", -1))
 						SceneRouter.goto_game()
 
 				NetworkProtocol.MSG_COUNTDOWN_START:
-						if NetworkSession.is_host():
-							push_warning("[DUEL][GAME] Host received unexpected COUNTDOWN_START from peer %d" % sender_id)
-							return
-						var rnum: int = maxi(1, int(data.get("round_num", 1)))
-						var tot: int = maxi(1, int(data.get("total_rounds", match_controller.total_rounds)))
-						_ensure_client_match_state(tot)
-						var challenge_data: Dictionary = _decode_network_challenge(data, "COUNTDOWN_START", rnum)
-						var challenge_duration: float = float(data.get("duration", 8.0))
-						_duel_trace("CLIENT COUNTDOWN handling sender=%d current_mode=%s controller_mode=%s current_round=%d state=%s instruction_chars=%d challenge_keys=%s" % [
-							sender_id, str(current_game_mode), str(match_controller.game_mode),
-							match_controller.current_round_index + 1, str(match_controller.current_state),
-							str(data.get("instruction", "")).length(), str(challenge_data.keys())
-						])
-						var countdown_applied: bool = match_controller.set_client_countdown(rnum - 1, challenge_data, challenge_duration)
-						if countdown_applied:
-							next_round_instruction = match_controller.current_challenge.instruction
-							_duel_trace("CLIENT COUNTDOWN APPLIED round=%d state=%s id=%s type=%s" % [
-								rnum, str(match_controller.current_state), match_controller.current_challenge.id,
-								match_controller.current_challenge.type
-							])
-							ui_countdown_started.emit(rnum, tot)
-						else:
-							_duel_trace("CLIENT COUNTDOWN NOT APPLIED round=%d state=%s current_round=%d challenge_id=%s" % [
-								rnum, str(match_controller.current_state), match_controller.current_round_index + 1,
-								match_controller.current_challenge.id if match_controller.current_challenge != null else "<null>"
-							])
+						var rnum = int(data.get("round_num", 1))
+						var tot = int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
+						next_round_instruction = str(data.get("instruction", ""))
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX countdown_start sender=%d round=%d/%d instruction_chars=%d" % [
+										sender_id, rnum, tot, next_round_instruction.length()])
+						ui_countdown_started.emit(rnum, tot)
 
 				NetworkProtocol.MSG_ROUND_START:
-						if NetworkSession.is_host():
-							push_warning("[DUEL][GAME] Host received unexpected ROUND_START from peer %d" % sender_id)
-							return
-						var rnum: int = maxi(1, int(data.get("round_num", 1)))
-						var dur: float = float(data.get("duration", 8.0))
-						_ensure_client_match_state(match_controller.total_rounds)
-						var challenge_data: Dictionary = _decode_network_challenge(data, "ROUND_START", rnum)
-						_duel_trace("CLIENT ROUND_START handling sender=%d mode=%s controller_mode=%s state_before=%s round_before=%d duration=%.2f challenge_keys=%s" % [
-							sender_id, str(current_game_mode), str(match_controller.game_mode),
-							str(match_controller.current_state), match_controller.current_round_index + 1, dur,
-							str(challenge_data.keys())
-						])
+						var rnum = data.get("round_num", 1)
+						var dur = float(data.get("duration", 8.0))
 						_client_ui_tick_accumulator = 0.0
-						has_submitted_current_round = false
-						var round_applied: bool = match_controller.set_client_round(rnum - 1, challenge_data, dur)
-						if round_applied:
-							_duel_trace("CLIENT ROUND_START APPLIED round=%d state=%s id=%s type=%s" % [
-								rnum, str(match_controller.current_state), match_controller.current_challenge.id,
-								match_controller.current_challenge.type
-							])
-						else:
-							_duel_trace("CLIENT ROUND_START NOT APPLIED round=%d state=%s current_round=%d current_id=%s" % [
-								rnum, str(match_controller.current_state), match_controller.current_round_index + 1,
-								match_controller.current_challenge.id if match_controller.current_challenge != null else "<null>"
-							])
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX round_start sender=%d round=%s duration=%.2f" % [sender_id, str(rnum), dur])
+						# set_client_round() reforges this round locally from the deck_seed/
+						# deck_band stamped at match_start (or match_resync) and emits
+						# MatchController's own round_started signal, which
+						# _on_controller_round_started() (connected in _ready) already turns
+						# into ui_round_started for the UI - do not also emit it here, that
+						# used to fire GameScreen._on_round_started() TWICE per round on the
+						# joining player's device and is what originally left the joiner's
+						# playfield looking empty behind the countdown overlay.
+						match_controller.set_client_round(int(rnum) - 1, dur)
+
+				NetworkProtocol.MSG_REQUEST_RESYNC:
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX request_resync sender=%d" % sender_id)
+						if NetworkSession.is_host():
+								_send_match_resync(sender_id)
+
+				NetworkProtocol.MSG_MATCH_RESYNC:
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX match_resync sender=%d round=%s state=%s" % [
+										sender_id, str(data.get("round_num", "?")), str(data.get("state", "?"))])
+						_apply_match_resync(data)
 
 				NetworkProtocol.MSG_ANSWER_RESULT:
 						var pid = data.get("player_id", 0)
 						var is_corr = data.get("is_correct", false)
 						var delta_sc = data.get("score_delta", 0)
 						var det = data.get("details", "")
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX answer_result sender=%d player=%s correct=%s delta=%s" % [
+										sender_id, str(pid), str(is_corr), str(delta_sc)])
 						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
 								var cur_sc = match_controller.score_manager.get_player_score(pid)
 								match_controller.score_manager.set_player_score(pid, maxi(0, cur_sc + delta_sc))
@@ -480,15 +423,17 @@ func _on_network_packet_received(sender_id: int, msg_type: String, data: Diction
 
 				NetworkProtocol.MSG_ROUND_END:
 						var rnum = data.get("round_num", 1)
-						var scores: Dictionary = data.get("scores", {})
+						var scores = data.get("scores", {})
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX round_end sender=%d round=%s scores=%s" % [sender_id, str(rnum), str(scores)])
 						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
-								match_controller.set_client_round_end(scores)
+								match_controller.apply_authoritative_scores(scores)
 						ui_round_ended.emit(rnum, scores)
 
 				NetworkProtocol.MSG_MATCH_END:
+						if OS.is_debug_build():
+								CrashLogger.breadcrumb("[DUEL][NET] RX match_end sender=%d" % sender_id)
 						last_match_results = data.get("results", {})
-						if current_game_mode == GameConfig.GameMode.MULTIPLAYER_CLIENT:
-								match_controller.current_state = MatchController.MatchState.MATCH_OVER
 						ui_match_ended.emit(last_match_results)
 						SceneRouter.goto_results()
 
@@ -507,6 +452,95 @@ func abandon_match() -> void:
 		daily_seed_value = -1
 		_clear_challenge_state()
 		last_match_results = {}
+
+## A device just connected to us. If we are already mid-duel (this device is
+## reconnecting after a drop, or somehow connected_peers fired after the
+## match had already started), push it the full state immediately instead of
+## waiting for it to notice nothing is happening and ask - this is the push
+## half of the fix for a joiner being stuck on the lobby's "Connected" screen
+## while we're already playing. See MSG_REQUEST_RESYNC for the pull half.
+func _on_peer_connected_for_resync(peer_id: int) -> void:
+		if not NetworkSession.is_host() or current_game_mode != GameConfig.GameMode.MULTIPLAYER_HOST:
+				return
+		if match_controller.current_state == MatchController.MatchState.IDLE \
+						or match_controller.current_state == MatchController.MatchState.MATCH_OVER:
+				return
+		if OS.is_debug_build():
+				CrashLogger.breadcrumb("[DUEL][NET] peer %d connected mid-duel (state=%d) - pushing resync" % [peer_id, match_controller.current_state])
+		_send_match_resync(peer_id)
+
+## Host-side: answer a join/reconnect/request_resync with everything the
+## client needs to catch up - players, scores, the duel's deck_seed/band
+## (so it can reforge the current round locally) and where we are in it.
+## Kept to a handful of ints/floats + one small score dictionary, nowhere
+## near the P2P transport's per-packet ceiling that the old full-challenge
+## broadcasts used to blow past.
+func _send_match_resync(peer_id: int) -> void:
+		if match_controller.current_state == MatchController.MatchState.IDLE \
+						or match_controller.current_state == MatchController.MatchState.MATCH_OVER:
+				return
+		var scores: Dictionary = {}
+		for pid in match_controller.player_ids:
+				scores[pid] = match_controller.score_manager.get_player_score(pid)
+		var remaining: float = 0.0
+		if match_controller.current_state == MatchController.MatchState.ACTIVE_ROUND:
+				remaining = maxf(0.0, match_controller.round_duration - match_controller.round_timer)
+		NetworkSession.send_packet(peer_id, NetworkProtocol.MSG_MATCH_RESYNC, {
+				"total_rounds": match_controller.total_rounds,
+				"player_ids": match_controller.player_ids,
+				"deck_seed": match_controller.deck_seed(),
+				"deck_band": match_controller.deck_start_band(),
+				"round_num": match_controller.current_round_index + 1,
+				"round_index": match_controller.current_round_index,
+				"duration": match_controller.round_duration,
+				"remaining": remaining,
+				"state": match_controller.current_state,
+				"scores": scores
+		})
+		if OS.is_debug_build():
+				CrashLogger.breadcrumb("[DUEL][NET] TX match_resync -> peer=%d round=%d/%d state=%d remaining=%.2f" % [
+						peer_id, match_controller.current_round_index + 1, match_controller.total_rounds,
+						match_controller.current_state, remaining])
+
+## Client-side: land on the game screen already caught up, whatever state the
+## host happens to be in. Scores and the current round are restored exactly;
+## a resync that lands mid-COUNTDOWN or mid-FEEDBACK doesn't try to replay
+## that transient UI state - it simply waits for the host's next
+## countdown_start/round_start broadcast, which arrives moments later either
+## way and is now the single source of truth for what the player sees next.
+func _apply_match_resync(data: Dictionary) -> void:
+		current_game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
+		is_daily_match = false
+		daily_seed_value = -1
+		_clear_challenge_state()
+		has_submitted_current_round = false
+
+		var total_r := int(data.get("total_rounds", GameConfig.DEFAULT_TOTAL_ROUNDS))
+		var pids_array = data.get("player_ids", [1, NetworkSession.get_local_id()])
+		var pids: Array[int] = []
+		for p in pids_array:
+				pids.append(int(p))
+		match_controller.initialize_match(current_game_mode, total_r, pids)
+		match_controller.challenge_seed = int(data.get("deck_seed", -1))
+		match_controller.challenge_band = int(data.get("deck_band", -1))
+		match_controller.apply_authoritative_scores(data.get("scores", {}))
+
+		var active_scene := get_tree().current_scene
+		var already_in_game := active_scene != null and active_scene.scene_file_path == SceneRouter.SCENE_GAME
+		if not already_in_game and not SceneRouter.is_transitioning:
+				SceneRouter.goto_game()
+
+		var state := int(data.get("state", MatchController.MatchState.ACTIVE_ROUND))
+		if state == MatchController.MatchState.ACTIVE_ROUND:
+				var round_idx := int(data.get("round_index", 0))
+				var duration := float(data.get("duration", 8.0))
+				var remaining := float(data.get("remaining", duration))
+				_client_ui_tick_accumulator = 0.0
+				match_controller.set_client_round(round_idx, duration)
+				# Fast-forward the local clock to match how much of the round the
+				# host has already burned through, so the timer/HUD aren't ~remaining
+				# seconds ahead of the host's authoritative deadline.
+				match_controller.round_timer = clampf(duration - remaining, 0.0, duration)
 
 func _on_peer_disconnected(peer_id: int) -> void:
 		if current_game_mode == GameConfig.GameMode.MULTIPLAYER_HOST:

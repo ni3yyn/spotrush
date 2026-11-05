@@ -34,6 +34,15 @@ const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 @onready var burst_layer: Control = %BurstLayer
 
 var is_navigating: bool = false
+# Joiner side only: after requesting a rematch, keep asking the host "did you
+# start yet?" every few seconds until MSG_MATCH_START/MSG_MATCH_RESYNC
+# answers (GameManager handles both and navigates this screen away itself) or
+# the player leaves. Covers a dropped match_start the exact same way
+# LocalLobby's own probe covers a dropped one before the first match - without
+# this, a lost rematch packet left the joiner stuck on "WAITING FOR HOST..."
+# forever with no way out but to back out.
+const MATCH_RESYNC_PROBE_INTERVAL: float = 3.0
+var _resync_probe_token: int = 0
 var _final_score: int = 0
 var _accuracy: float = 0.0
 var _is_new_best: bool = false
@@ -404,10 +413,39 @@ func _on_rematch_pressed() -> void:
                 lbl_outcome.text = "WAITING FOR HOST..."
                 is_navigating = false
                 btn_menu.disabled = false
+                _arm_match_resync_probe()
+
+
+## Start (or restart) the "has the host started the rematch yet?" probe. This
+## is the pull half of the fix: GameManager already navigates this screen
+## away by itself the moment MSG_MATCH_START or MSG_MATCH_RESYNC lands (see
+## its MSG_MATCH_START/MSG_MATCH_RESYNC handlers), so there's nothing to await
+## here - this loop just keeps nudging the host every few seconds until that
+## happens or _cancel_match_resync_probe() is called (leaving to the main
+## menu, the host disconnecting, the scene being torn down, etc).
+func _arm_match_resync_probe() -> void:
+        _resync_probe_token += 1
+        _poll_match_resync(_resync_probe_token)
+
+
+func _cancel_match_resync_probe() -> void:
+        _resync_probe_token += 1
+
+
+func _poll_match_resync(token: int) -> void:
+        if token != _resync_probe_token or not is_inside_tree():
+                return
+        if not NetworkSession.is_connected_to_network():
+                return
+        NetworkSession.send_to_server(NetworkProtocol.MSG_REQUEST_RESYNC, {})
+        var timer := get_tree().create_timer(MATCH_RESYNC_PROBE_INTERVAL)
+        timer.timeout.connect(func() -> void: _poll_match_resync(token))
+
 
 func _on_menu_pressed() -> void:
         if is_navigating:
                 return
+        _cancel_match_resync_probe()
         is_navigating = true
         btn_rematch.disabled = true
         btn_menu.disabled = true
@@ -422,6 +460,7 @@ func _on_menu_pressed() -> void:
 
 func _exit_tree() -> void:
         BackNav.unregister(self)
+        _cancel_match_resync_probe()
 
 ## Android back / desktop Escape from the results screen: exactly what the
 ## MAIN MENU key does - plain "up" navigation, nothing to confirm.

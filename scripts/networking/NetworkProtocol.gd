@@ -17,6 +17,12 @@ const MSG_ROUND_END: String = "round_end"
 const MSG_MATCH_END: String = "match_end"
 const MSG_REMATCH_REQUEST: String = "rematch_request"
 const MSG_PLAYER_DISCONNECTED: String = "player_disconnected"
+# A joined device that never saw match_start (dropped packet, or it
+# reconnected mid-duel) asks the host "what's going on", and the host answers
+# with a full state snapshot so the client is never stuck sitting on the
+# lobby's "Connected" screen while the host is already mid-duel.
+const MSG_REQUEST_RESYNC: String = "request_resync"
+const MSG_MATCH_RESYNC: String = "match_resync"
 
 static func create_packet(msg_type: String, payload: Dictionary = {}) -> Dictionary:
 	return {

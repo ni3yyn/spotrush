@@ -114,9 +114,14 @@ func _generate_current_challenge() -> void:
 ##   * Daily Spot: fixed seed, fixed full ramp, identical worldwide.
 ##   * Solo: fresh seed, curve anchored at the player's persisted rating,
 ##     with live momentum bending it as results come in.
-##   * Duel: fresh seed shared with the joining phone (challenges travel in
-##     the round packets), curve anchored at the host's rating, pure curve so
-##     both duelists face the exact same rounds.
+##   * Duel: a fresh seed + anchor band is stamped into challenge_seed /
+##     challenge_band by GameManager BEFORE this runs (host) and again from
+##     the tiny match_start packet (client) - see deck_seed()/deck_start_band().
+##     The curve stays pure (no live momentum - RunDeck.record_result() is a
+##     no-op unless adaptive), so (seed, band) alone fully determines the
+##     series: both phones forge the byte-identical deck locally and only
+##     round numbers/durations need to travel over the wire, never the full
+##     per-round token layout.
 func _forge_deck() -> void:
 		var start_band := clampi(skill_rating, GameConfig.DIFFICULTY_MIN, GameConfig.DIFFICULTY_MAX)
 		var adaptive := false
@@ -132,6 +137,30 @@ func _forge_deck() -> void:
 				adaptive = true
 		var deck_seed := challenge_seed if challenge_seed >= 0 else RunDeck.fresh_seed()
 		run_deck = RunDeck.forge(total_rounds, deck_seed, start_band, adaptive, span)
+
+## Forge the deck now if it hasn't been yet (idempotent). Called by the host
+## right after stamping challenge_seed/challenge_band so deck_seed()/
+## deck_start_band() below have a real deck to read from before match_start
+## is broadcast, and by a duel client the first time it needs to derive a
+## round from a seed it just received.
+func ensure_deck_forged() -> void:
+		if run_deck == null:
+				_forge_deck()
+
+## The deck's actual seed, after forging. -1 if no deck exists yet.
+func deck_seed() -> int:
+		return run_deck.run_seed if run_deck != null else -1
+
+## The anchor band the deck was actually forged at (mirrors the branch
+## _forge_deck() took), so a duel client can be handed this one number and
+## reforge the identical deck without also needing the host's skill_rating.
+## GameManager always stamps challenge_band explicitly before forging a duel
+## deck, so that is the authoritative value; skill_rating is only the
+## fallback _forge_deck() itself would have used if nothing was stamped.
+func deck_start_band() -> int:
+		if challenge_band >= 0:
+				return clampi(challenge_band, GameConfig.DIFFICULTY_MIN, GameConfig.DIFFICULTY_MAX)
+		return clampi(skill_rating, GameConfig.DIFFICULTY_MIN, GameConfig.DIFFICULTY_MAX)
 
 ## Generate the opening challenge WITHOUT starting the countdown, so a screen
 ## can deal the round behind a closed transition curtain and present it in one
@@ -188,93 +217,22 @@ func _start_active_round() -> void:
 		
 		round_started.emit(current_round_index + 1, current_challenge, round_duration)
 
-## Mirror the host's countdown phase before the active-round packet arrives.
-## The challenge is sent with COUNTDOWN_START so the client can render the real
-## playfield underneath GET READY / SPOT instead of showing an empty placeholder.
-func set_client_countdown(round_idx: int, challenge_data: Dictionary, duration: float) -> bool:
-		# This method is called only by GameManager after receiving a host packet.
-		# Repair a stale local mode instead of silently dropping every incoming round.
-		if game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
-				push_warning("[DUEL][STATE] Countdown corrected controller mode %s -> MULTIPLAYER_CLIENT" % str(game_mode))
-				game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
-		if round_idx < current_round_index:
-				push_warning("[DUEL][STATE] Ignored stale countdown round=%d current=%d" % [round_idx + 1, current_round_index + 1])
-				return false
-		if round_idx == current_round_index and current_state == MatchState.ACTIVE_ROUND:
-				print("[DUEL][STATE] Countdown arrived after active round; keeping active round %d" % (round_idx + 1))
-				return false
-		if challenge_data.is_empty():
-				push_error("[DUEL][STATE] COUNTDOWN has no challenge data for round %d" % (round_idx + 1))
-				return false
-
-		var decoded_challenge: ChallengeDefinition = ChallengeDefinition.from_dict(challenge_data)
-		if not decoded_challenge.is_valid():
-				push_error("[DUEL][STATE] COUNTDOWN challenge invalid round=%d id=%s type=%s keys=%s" % [
-					round_idx + 1, decoded_challenge.id, decoded_challenge.type, str(challenge_data.keys())
-				])
-				return false
-
+## Duel client: apply a round the host announced. The host only ever sends a
+## round NUMBER and DURATION (tiny, well under any P2P packet-size ceiling) -
+## challenge_seed/challenge_band were already stamped from match_start, so
+## the exact same deck (RunDeck.begin_round() is a pure function of seed +
+## round index, see RunDeck.gd) gets forged here locally and reproduces the
+## host's challenge byte-for-byte without a single token's x/y/color/shape
+## ever crossing the wire.
+func set_client_round(round_idx: int, duration: float) -> void:
+		ensure_deck_forged()
 		current_round_index = round_idx
-		current_challenge = decoded_challenge
-		round_duration = maxf(0.1, duration) if duration > 0.0 else current_challenge.time_limit
+		current_challenge = run_deck.begin_round(round_idx)
+		round_duration = duration
 		round_timer = 0.0
-		countdown_timer = 0.0 # The host owns countdown timing; the client waits for ROUND_START.
-		countdown_paused = false
-		round_submissions.clear()
-		current_state = MatchState.COUNTDOWN
-		print("[DUEL][STATE] COUNTDOWN applied round=%d id=%s type=%s instruction_chars=%d duration=%.2f valid=%s" % [
-			round_idx + 1, current_challenge.id, current_challenge.type, current_challenge.instruction.length(),
-			round_duration, str(current_challenge.is_valid())
-		])
-		return true
-
-func set_client_round(round_idx: int, challenge_data: Dictionary, duration: float) -> bool:
-		# ROUND_START is authoritative. If its challenge payload is unexpectedly empty,
-		# retain the already validated countdown challenge for this same round.
-		if game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
-				push_warning("[DUEL][STATE] ROUND_START corrected controller mode %s -> MULTIPLAYER_CLIENT" % str(game_mode))
-				game_mode = GameConfig.GameMode.MULTIPLAYER_CLIENT
-		if round_idx < current_round_index:
-				push_warning("[DUEL][STATE] Ignored stale ROUND_START round=%d current=%d" % [round_idx + 1, current_round_index + 1])
-				return false
-
-		var decoded_challenge: ChallengeDefinition = null
-		if not challenge_data.is_empty():
-				decoded_challenge = ChallengeDefinition.from_dict(challenge_data)
-		if decoded_challenge == null or not decoded_challenge.is_valid():
-				if current_challenge != null and current_round_index == round_idx and current_challenge.is_valid():
-					push_warning("[DUEL][STATE] ROUND_START challenge invalid; reusing validated countdown data for round %d" % (round_idx + 1))
-					decoded_challenge = current_challenge
-				else:
-					push_error("[DUEL][STATE] ROUND_START challenge invalid/missing round=%d keys=%s current_round=%d current_id=%s" % [
-						round_idx + 1, str(challenge_data.keys()), current_round_index + 1,
-						current_challenge.id if current_challenge != null else "<null>"
-					])
-					return false
-
-		current_round_index = round_idx
-		current_challenge = decoded_challenge
-		round_duration = duration if duration > 0.0 else current_challenge.time_limit
-		round_timer = 0.0
-		countdown_timer = 0.0
-		countdown_paused = false
-		_ui_tick_accumulator = 0.0
 		round_submissions.clear()
 		current_state = MatchState.ACTIVE_ROUND
-		print("[DUEL][STATE] ACTIVE_ROUND applied round=%d id=%s type=%s instruction_chars=%d duration=%.2f valid=%s" % [
-			round_idx + 1, current_challenge.id, current_challenge.type, current_challenge.instruction.length(),
-			round_duration, str(current_challenge.is_valid())
-		])
 		round_started.emit(current_round_index + 1, current_challenge, round_duration)
-		return true
-
-func set_client_round_end(scores: Dictionary) -> void:
-		if game_mode != GameConfig.GameMode.MULTIPLAYER_CLIENT:
-				return
-		apply_authoritative_scores(scores)
-		round_timer = 0.0
-		countdown_paused = false
-		current_state = MatchState.FEEDBACK
 
 func submit_player_answer(player_id: int, answer: Variant) -> Dictionary:
 		if current_state != MatchState.ACTIVE_ROUND:

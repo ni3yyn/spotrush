@@ -6,6 +6,7 @@ const Feel = preload("res://scripts/core/Feel.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 const LanDiscoveryScript = preload("res://scripts/networking/LanDiscovery.gd")
 const Records = preload("res://scripts/core/Records.gd")
+const Settings = preload("res://scripts/core/Settings.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 const CommunityQRCodeRect = preload("res://addons/kenyoni/qr_code/qr_code_rect.gd")
 const CommunityQRCode = preload("res://addons/kenyoni/qr_code/qr_code.gd")
@@ -46,9 +47,25 @@ var _room_open: bool = false
 var _room_transport: StringName = &"none"
 var _friend_connected: bool = false
 var _qr_rect: TextureRect
+var _btn_retry_qr: Button
+var _current_room_code: String = ""
 var _watchdog_token: int = 0
 var is_navigating: bool = false
 var _closing_room: bool = false
+# Joiner side only: after connecting, ask the host "are we already playing?"
+# and keep asking every few seconds until match_start/match_resync answers
+# (handled in GameManager, which navigates away from this screen) or the
+# player leaves. Covers match_start getting lost in transit, and reconnecting
+# into a duel the host already started - without this a dropped packet left
+# the joiner stuck on this screen forever with no way out but to back out.
+const MATCH_RESYNC_PROBE_INTERVAL: float = 3.0
+var _resync_probe_token: int = 0
+
+# Host-side duel length picker, built the same way SettingsScreen builds its
+# own round-count row. Lets the host choose 5/10/15 right here instead of
+# having to leave to Settings beforehand - _on_start_match_pressed() already
+# reads Settings.match_rounds() when the duel actually starts.
+var _duel_round_buttons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -60,6 +77,7 @@ func _ready() -> void:
 	_connect_ui()
 	_style_ui()
 	_build_qr()
+	_build_duel_round_section()
 	_refresh_rival_code()
 	_set_active_tab(LobbyTab.CREATE, false)
 
@@ -139,6 +157,91 @@ func _build_qr() -> void:
 	_qr_rect.visible = false
 	qr_slot.add_child(_qr_rect)
 
+	# QrSlot is a CenterContainer: siblings don't stack, they'd just overlap at
+	# the same center point. Wrap the placeholder label in a small column so a
+	# "RETRY QR" affordance can appear directly beneath the failure message
+	# instead of on top of it.
+	var qr_fallback := VBoxContainer.new()
+	qr_fallback.name = "QrFallback"
+	qr_fallback.add_theme_constant_override("separation", 10)
+	qr_fallback.alignment = BoxContainer.ALIGNMENT_CENTER
+	var placeholder_parent := qr_placeholder.get_parent()
+	var placeholder_index := qr_placeholder.get_index()
+	placeholder_parent.remove_child(qr_placeholder)
+	qr_fallback.add_child(qr_placeholder)
+
+	_btn_retry_qr = Button.new()
+	_btn_retry_qr.name = "BtnRetryQr"
+	_btn_retry_qr.text = "RETRY QR"
+	_btn_retry_qr.custom_minimum_size = Vector2(0, 56)
+	_btn_retry_qr.focus_mode = Control.FOCUS_NONE
+	_btn_retry_qr.visible = false
+	_btn_retry_qr.add_theme_font_override("font", NeuKit.bold_font(_btn_retry_qr, 0.4))
+	SpotRushTypography.apply_as(_btn_retry_qr, SpotRushTypography.Role.BUTTON)
+	NeuKit.style_button(_btn_retry_qr, "raised", 16.0)
+	_btn_retry_qr.pressed.connect(_on_retry_qr_pressed)
+	qr_fallback.add_child(_btn_retry_qr)
+
+	placeholder_parent.add_child(qr_fallback)
+	placeholder_parent.move_child(qr_fallback, placeholder_index)
+
+
+## Insert a "DUEL LENGTH" 5/10/15 picker into the Create panel, right under
+## its intro text and above the QR frame - visible the whole time the room
+## is open, so the host can change their mind right up until they press
+## START THE DUEL. Mirrors SettingsScreen._build_match_section()'s row, but
+## writes/reads the same Settings.match_rounds() key so the two stay in sync.
+func _build_duel_round_section() -> void:
+	var section := VBoxContainer.new()
+	section.name = "DuelRoundSection"
+	section.add_theme_constant_override("separation", 8)
+
+	var caption := Label.new()
+	caption.text = "DUEL LENGTH"
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.add_theme_color_override("font_color", NeuKit.SLATE)
+	SpotRushTypography.apply_as(caption, SpotRushTypography.Role.CAPTION)
+	section.add_child(caption)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	section.add_child(row)
+
+	for count in [5, 10, 15]:
+		var button := Button.new()
+		button.text = "%d ROUNDS" % count
+		button.custom_minimum_size = Vector2(0, 68)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.focus_mode = Control.FOCUS_NONE
+		button.add_theme_font_override("font", NeuKit.bold_font(button, 0.4))
+		SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON)
+		NeuKit.style_button(button, "raised", 16.0)
+		button.pressed.connect(_on_duel_round_button_pressed.bind(count))
+		_duel_round_buttons[count] = button
+		row.add_child(button)
+
+	panel_create.add_child(section)
+	panel_create.move_child(section, 1) # right after CreateIntro, before QrFrame
+	_sync_duel_round_buttons()
+
+
+func _on_duel_round_button_pressed(count: int) -> void:
+	Settings.set_match_rounds(count)
+	_sync_duel_round_buttons()
+	Feel.sfx("pop", 0.85)
+	Feel.haptic("light")
+
+
+func _sync_duel_round_buttons() -> void:
+	var current := Settings.match_rounds()
+	for count in _duel_round_buttons:
+		var button: Button = _duel_round_buttons[count]
+		var selected := int(count) == current
+		NeuKit.set_selected(button, selected)
+		var tint := NeuKit.COBALT if selected else NeuKit.SLATE
+		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+			button.add_theme_color_override(key, tint)
+
 
 func _set_active_tab(tab: LobbyTab, animate: bool = true) -> void:
 	_active_tab = tab
@@ -166,10 +269,12 @@ func _set_active_tab(tab: LobbyTab, animate: bool = true) -> void:
 
 
 func _set_create_room_idle() -> void:
+	_current_room_code = ""
 	lbl_room_code.text = "--------"
 	qr_placeholder.text = "YOUR ROOM QR\nAPPEARS HERE"
 	qr_placeholder.visible = true
 	_qr_rect.visible = false
+	_btn_retry_qr.visible = false
 	btn_create_room.visible = true
 	btn_create_room.disabled = false
 	btn_copy_room_code.visible = false
@@ -187,6 +292,7 @@ func _set_status(label: Label, message: String, color: Color) -> void:
 
 
 func _set_room_invitation(code: String) -> void:
+	_current_room_code = code
 	lbl_room_code.text = code
 	btn_create_room.visible = false
 	btn_copy_room_code.visible = true
@@ -194,16 +300,34 @@ func _set_room_invitation(code: String) -> void:
 	btn_start_match.visible = false
 	qr_placeholder.visible = false
 
+	_apply_qr_for_code(code)
+	_set_status(lbl_create_status, "Room is open. Your friend can scan the QR or enter the code in JOIN.", NeuKit.MINT.darkened(0.34))
+
+
+## Shared by the initial room-open render and the "RETRY QR" button, so a
+## transient QR-generation hiccup (e.g. DeepLinkRouter not ready yet) isn't a
+## dead end - the room code/copy button/duel itself all still work either way.
+func _apply_qr_for_code(code: String) -> void:
 	var link: String = DeepLinkRouter.make_room_code_link(code)
 	if link.is_empty():
 		_qr_rect.visible = false
 		qr_placeholder.text = "QR INVITATION COULDN'T BE GENERATED"
 		qr_placeholder.visible = true
+		_btn_retry_qr.visible = true
 	else:
 		_qr_rect.set("data", link)
 		_qr_rect.visible = true
 		_qr_rect.reset_size()
-	_set_status(lbl_create_status, "Room is open. Your friend can scan the QR or enter the code in JOIN.", NeuKit.MINT.darkened(0.34))
+		qr_placeholder.visible = false
+		_btn_retry_qr.visible = false
+
+
+func _on_retry_qr_pressed() -> void:
+	if _current_room_code.is_empty():
+		return
+	Feel.sfx("pop", 0.85)
+	Feel.haptic("light")
+	_apply_qr_for_code(_current_room_code)
 
 
 func _on_create_room_pressed() -> void:
@@ -264,6 +388,7 @@ func _close_current_room() -> void:
 		return
 	_closing_room = true
 	_cancel_join_watchdog()
+	_cancel_match_resync_probe()
 
 	if EOSOnline.has_current_lobby():
 		await EOSOnline.leave_current_lobby_async()
@@ -302,8 +427,12 @@ func _on_start_match_pressed() -> void:
 	btn_start_match.disabled = true
 	btn_back.disabled = true
 	btn_end_room.disabled = true
+	for count in _duel_round_buttons:
+		(_duel_round_buttons[count] as Button).disabled = true
 	await EOSOnline.update_current_room_status_async("playing")
-	GameManager.queue_multiplayer_host_start(10)
+	# Respect the host's 5/10/15 round-count preference (Settings) instead of
+	# always forcing a 10-round duel regardless of what they picked.
+	GameManager.queue_multiplayer_host_start(Settings.match_rounds())
 	SceneRouter.goto_game()
 
 
@@ -359,9 +488,36 @@ func _on_join_succeeded() -> void:
 	_set_status(lbl_join_status, "Connected. Your friend will start the duel.", NeuKit.MINT.darkened(0.34))
 	Feel.sfx("correct")
 	Feel.haptic("success")
+	_arm_match_resync_probe()
+
+
+## Start (or restart) the "are we already mid-duel?" probe. GameManager
+## answers a request_resync with match_resync and navigates this screen away
+## by itself (SceneRouter.goto_game()), so there is nothing to await here -
+## this loop just keeps nudging the host every few seconds until that
+## happens or _cancel_match_resync_probe() is called (leaving the lobby,
+## the room closing, the host disconnecting, etc).
+func _arm_match_resync_probe() -> void:
+	_resync_probe_token += 1
+	_poll_match_resync(_resync_probe_token)
+
+
+func _cancel_match_resync_probe() -> void:
+	_resync_probe_token += 1
+
+
+func _poll_match_resync(token: int) -> void:
+	if token != _resync_probe_token or not is_inside_tree():
+		return
+	if not NetworkSession.is_connected_to_network():
+		return
+	NetworkSession.send_to_server(NetworkProtocol.MSG_REQUEST_RESYNC, {})
+	var timer := get_tree().create_timer(MATCH_RESYNC_PROBE_INTERVAL)
+	timer.timeout.connect(func() -> void: _poll_match_resync(token))
 
 
 func _on_join_failed() -> void:
+	_cancel_match_resync_probe()
 	_cancel_join_watchdog()
 	if EOSOnline.has_current_lobby():
 		await EOSOnline.leave_current_lobby_async()
@@ -373,6 +529,7 @@ func _on_join_failed() -> void:
 
 
 func _on_server_disconnected() -> void:
+	_cancel_match_resync_probe()
 	if is_navigating:
 		return
 	_cancel_join_watchdog()
@@ -526,3 +683,4 @@ func handle_back() -> bool:
 func _exit_tree() -> void:
 	BackNav.unregister(self)
 	_cancel_join_watchdog()
+	_cancel_match_resync_probe()

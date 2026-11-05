@@ -13,6 +13,24 @@ var is_active_host: bool = false
 var connected_peers: Array[int] = []
 var transport_kind: StringName = &"none"
 
+# --- Large-packet fragmentation ---------------------------------------------
+# EOS P2P (eos_p2p transport, used for online duel rooms) silently drops any
+# single packet above roughly its underlying UDP-ish limit (~1-1.2KB); unlike
+# ENet it does NOT fragment/reassemble oversized packets itself. A duel's
+# countdown_start/round_start packets carry a full challenge payload (several
+# KB once the token field/options/visual_data are variant-encoded) and were
+# being queued fine on the sender but never arriving at all on the joining
+# device - every other message (match_start, round_end, answer results) is
+# small enough to fit in one packet and always got through. Packets at or
+# under MAX_SINGLE_PACKET_BYTES still go out as a single RPC exactly as
+# before; anything larger is split into MAX_SINGLE_PACKET_BYTES-sized chunks
+# here and reassembled on the receiving end before packet_received fires, so
+# every message type behaves the same regardless of payload size or transport.
+const MAX_SINGLE_PACKET_BYTES: int = 768
+var _next_chunk_msg_id: int = 0
+# key "<sender_id>:<msg_id>" -> {"chunks": Array[PackedByteArray], "received": int}
+var _chunk_reassembly: Dictionary = {}
+
 func _ready() -> void:
 		multiplayer.connected_to_server.connect(_on_connected_to_server)
 		multiplayer.connection_failed.connect(_on_connection_failed)
@@ -152,6 +170,8 @@ func disconnect_session() -> void:
 		is_active_host = false
 		transport_kind = &"none"
 		connected_peers.clear()
+		_chunk_reassembly.clear()
+		_next_chunk_msg_id = 0
 
 func is_host() -> bool:
 		return is_active_host and multiplayer.is_server()
@@ -169,56 +189,32 @@ func get_local_id() -> int:
 
 func send_packet(target_id: int, msg_type: String, payload: Dictionary = {}) -> void:
 		if not is_connected_to_network():
-				if _is_duel_message(msg_type):
-					_duel_trace("TX BLOCKED type=%s target=%d transport=%s active=%s peer=%s status=%s" % [
-						msg_type, target_id, str(transport_kind), str(is_active_host),
-						str(peer != null), str(peer.get_connection_status() if peer != null else -1)
-					])
 				return
 		var packet = NetworkProtocol.create_packet(msg_type, payload)
-		if target_id == 0:
-				_rpc_receive_packet.rpc(packet)
-		else:
-				_rpc_receive_packet.rpc_id(target_id, packet)
-		if _is_duel_message(msg_type):
-				_duel_trace("TX QUEUED type=%s target=%d local=%d transport=%s bytes=%d %s" % [
-					msg_type, target_id, get_local_id(), str(transport_kind),
-					JSON.stringify(packet).to_utf8_buffer().size(), _duel_payload_summary(msg_type, payload)
-				])
+		var packet_bytes: PackedByteArray = var_to_bytes(packet)
+		if packet_bytes.size() <= MAX_SINGLE_PACKET_BYTES:
+				CrashLogger.breadcrumb("[DUEL][NET] TX SEND type=%s target=%d bytes=%d single" % [msg_type, target_id, packet_bytes.size()])
+				if target_id == 0:
+						_rpc_receive_packet.rpc(packet)
+				else:
+						_rpc_receive_packet.rpc_id(target_id, packet)
+				return
 
-func _is_duel_message(msg_type: String) -> bool:
-		return msg_type in [
-				NetworkProtocol.MSG_MATCH_START,
-				NetworkProtocol.MSG_COUNTDOWN_START,
-				NetworkProtocol.MSG_ROUND_START,
-				NetworkProtocol.MSG_ROUND_END,
-				NetworkProtocol.MSG_MATCH_END
-		]
-
-func _duel_payload_summary(msg_type: String, payload: Dictionary) -> String:
-		if msg_type == NetworkProtocol.MSG_MATCH_START:
-				return "rounds=%s players=%s" % [str(payload.get("total_rounds", "?")), str(payload.get("player_ids", []))]
-		if msg_type in [NetworkProtocol.MSG_COUNTDOWN_START, NetworkProtocol.MSG_ROUND_START]:
-				var challenge: Variant = payload.get("challenge", {})
-				var challenge_dict: Dictionary = {}
-				if challenge is Dictionary:
-						challenge_dict = challenge
-				var raw_json: String = str(payload.get("challenge_json", ""))
-				return "round=%s/%s duration=%s instruction_chars=%d challenge_id=%s type=%s keys=%s json_bytes=%d" % [
-					str(payload.get("round_num", "?")), str(payload.get("total_rounds", "?")),
-					str(payload.get("duration", "?")), str(payload.get("instruction", "")).length(),
-					str(challenge_dict.get("id", "")), str(challenge_dict.get("type", "")),
-					str(challenge_dict.keys()), raw_json.to_utf8_buffer().size()
-				]
-		return "keys=%s" % str(payload.keys())
-
-func _duel_trace(message: String) -> void:
-		var line := "[DUEL][NET] " + message
-		var logger := get_node_or_null("/root/CrashLogger")
-		if logger != null and logger.has_method("breadcrumb"):
-				logger.call("breadcrumb", line)
-		else:
-				print(line)
+		# Oversized packet (e.g. a round_start/countdown_start carrying a full
+		# challenge): split into chunks small enough for the transport to actually
+		# deliver, and let the receiving side reassemble them below.
+		var msg_id: int = _next_chunk_msg_id
+		_next_chunk_msg_id += 1
+		var chunk_count: int = int(ceil(float(packet_bytes.size()) / float(MAX_SINGLE_PACKET_BYTES)))
+		CrashLogger.breadcrumb("[DUEL][NET] TX SEND type=%s target=%d bytes=%d chunked msg_id=%d chunks=%d" % [msg_type, target_id, packet_bytes.size(), msg_id, chunk_count])
+		for i in range(chunk_count):
+				var start: int = i * MAX_SINGLE_PACKET_BYTES
+				var end: int = mini(start + MAX_SINGLE_PACKET_BYTES, packet_bytes.size())
+				var chunk: PackedByteArray = packet_bytes.slice(start, end)
+				if target_id == 0:
+						_rpc_receive_chunk.rpc(msg_id, i, chunk_count, chunk)
+				else:
+						_rpc_receive_chunk.rpc_id(target_id, msg_id, i, chunk_count, chunk)
 
 func send_to_server(msg_type: String, payload: Dictionary = {}) -> void:
 		send_packet(1, msg_type, payload)
@@ -229,19 +225,52 @@ func send_to_all(msg_type: String, payload: Dictionary = {}) -> void:
 @rpc("any_peer", "call_remote", "reliable")
 func _rpc_receive_packet(packet: Dictionary) -> void:
 		var sender_id: int = multiplayer.get_remote_sender_id()
+		CrashLogger.breadcrumb("[DUEL][NET] RX RECV type=%s sender=%d bytes=%d single" % [str(packet.get("type", "?")), sender_id, var_to_bytes(packet).size()])
+		_deliver_packet(sender_id, packet)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_receive_chunk(msg_id: int, chunk_index: int, chunk_count: int, chunk: PackedByteArray) -> void:
+		var sender_id: int = multiplayer.get_remote_sender_id()
+		if chunk_count <= 0 or chunk_index < 0 or chunk_index >= chunk_count:
+				push_warning("Rejected malformed chunk from sender %d (msg %d, %d/%d)" % [sender_id, msg_id, chunk_index, chunk_count])
+				return
+
+		var key: String = "%d:%d" % [sender_id, msg_id]
+		if not _chunk_reassembly.has(key):
+				var chunks: Array = []
+				chunks.resize(chunk_count)
+				_chunk_reassembly[key] = {"chunks": chunks, "received": 0}
+		var entry: Dictionary = _chunk_reassembly[key]
+		var chunks: Array = entry["chunks"]
+		if chunk_index >= chunks.size():
+				push_warning("Rejected out-of-range chunk from sender %d (msg %d, %d/%d)" % [sender_id, msg_id, chunk_index, chunk_count])
+				return
+		if chunks[chunk_index] == null:
+				entry["received"] = int(entry["received"]) + 1
+		chunks[chunk_index] = chunk
+		CrashLogger.breadcrumb("[DUEL][NET] RX CHUNK sender=%d msg_id=%d chunk=%d/%d bytes=%d received=%d/%d" % [sender_id, msg_id, chunk_index + 1, chunk_count, chunk.size(), int(entry["received"]), chunks.size()])
+
+		if int(entry["received"]) < chunks.size():
+				return
+
+		_chunk_reassembly.erase(key)
+		var full_bytes := PackedByteArray()
+		for part in chunks:
+				full_bytes.append_array(part as PackedByteArray)
+		var packet: Variant = bytes_to_var(full_bytes)
+		if not (packet is Dictionary):
+				push_warning("Rejected unparsable reassembled packet from sender %d (msg %d)" % [sender_id, msg_id])
+				return
+		CrashLogger.breadcrumb("[DUEL][NET] RX REASSEMBLED sender=%d msg_id=%d type=%s bytes=%d chunks=%d" % [sender_id, msg_id, str(packet.get("type", "?")), full_bytes.size(), chunks.size()])
+		_deliver_packet(sender_id, packet)
+
+func _deliver_packet(sender_id: int, packet: Dictionary) -> void:
 		if not NetworkProtocol.is_valid_packet(packet):
-				if packet is Dictionary and _is_duel_message(str(packet.get("type", ""))):
-					_duel_trace("RX REJECTED sender=%d local=%d transport=%s invalid_packet=%s" % [sender_id, get_local_id(), str(transport_kind), str(packet)])
 				push_warning("Rejected invalid packet from sender %d" % sender_id)
 				return
-				
+
 		var msg_type: String = packet.get("type", "")
 		var payload: Dictionary = packet.get("data", {})
-		if _is_duel_message(msg_type):
-				_duel_trace("RX RECEIVED sender=%d local=%d transport=%s type=%s packet_bytes=%d %s" % [
-					sender_id, get_local_id(), str(transport_kind), msg_type,
-					JSON.stringify(packet).to_utf8_buffer().size(), _duel_payload_summary(msg_type, payload)
-				])
 		packet_received.emit(sender_id, msg_type, payload)
 
 func _on_connected_to_server() -> void:
@@ -258,6 +287,12 @@ func _on_peer_connected(peer_id: int) -> void:
 
 func _on_peer_disconnected(peer_id: int) -> void:
 		connected_peers.erase(peer_id)
+		# Drop any chunked message that was still being reassembled from this peer -
+		# it can never complete now, and a stale buffer must not confuse a later
+		# msg_id from a freshly reconnected peer with the same id.
+		for key in _chunk_reassembly.keys().duplicate():
+				if str(key).begins_with("%d:" % peer_id):
+						_chunk_reassembly.erase(key)
 		peer_disconnected.emit(peer_id)
 
 func _on_server_disconnected() -> void:

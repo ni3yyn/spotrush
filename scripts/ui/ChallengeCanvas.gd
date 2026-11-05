@@ -307,6 +307,19 @@ func _gui_input(event: InputEvent) -> void:
 
 ## Shared token hit-testing for ordinary tap_targets challenges.
 ## Selection policy is deliberately not family-specific; the view owns rules.
+##
+## "Smart tap" (same idea as a phone's software keyboard): rather than
+## requiring the finger to land exactly inside a token's drawn silhouette,
+## the whole field is treated as a Voronoi-style zone map - whichever
+## token's CENTER is nearest to the tap wins, not whichever token's own
+## small radius the tap happened to fall inside. Tokens are already
+## guaranteed a minimum visual gap by RunDeck's quality gate (see
+## RunDeck._items_ok/_quality_ok), so "nearest center wins" never has to
+## arbitrate between two overlapping silhouettes - it just forgives the
+## kind of few-dozen-pixel miss that's easy to make on a crowded mobile
+## screen full of small shapes. A generous but bounded max_reach still
+## refuses a tap that landed nowhere near any token at all (an empty
+## corner of a sparse board), so missing the field entirely still misses.
 func _find_token_at_position(click_pos: Vector2, items: Array) -> int:
         var pad: float = 24.0
         var play_w: float = maxf(size.x - pad * 2.0, 1.0)
@@ -322,13 +335,25 @@ func _find_token_at_position(click_pos: Vector2, items: Array) -> int:
                         pad + float(item.get("x", 0.5)) * play_w,
                         pad + float(item.get("y", 0.5)) * play_h
                 )
-                var base_size: float = float(item.get("size", 28.0))
-                var touch_radius: float = maxf(base_size * 0.9, 28.0)
                 var distance_squared: float = click_pos.distance_squared_to(center)
-                if distance_squared <= touch_radius * touch_radius and distance_squared < best_distance_squared:
+                if distance_squared < best_distance_squared:
                         best_distance_squared = distance_squared
                         best_index = i
-        return best_index
+
+        if best_index < 0:
+                return -1
+
+        # Forgive a miss comfortably larger than the nearest token's own drawn
+        # radius (floor matches a standard mobile touch-target size), but still
+        # bounded so a tap on the far side of the field can't jump to it.
+        var base_size: float = float(items[best_index].get("size", 28.0))
+        var max_reach: float = clampf(base_size * 2.2, 56.0, 96.0)
+        if best_distance_squared <= max_reach * max_reach:
+                return best_index
+        if OS.is_debug_build():
+                print("[TOKEN INPUT] smart-tap miss: nearest=%d dist=%.1f max_reach=%.1f" % [
+                        best_index, sqrt(best_distance_squared), max_reach])
+        return -1
 
 func _draw() -> void:
         if current_challenge == null or size.x <= 0 or size.y <= 0 or _tray == null:
