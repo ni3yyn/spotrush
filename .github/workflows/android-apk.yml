@@ -1,5 +1,5 @@
 
-name: Build SpotRush Android APK
+name: Build SpotRush Android AAB
 
 on:
   push:
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Android AAB
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -249,7 +249,12 @@ jobs:
           test -f export_presets.cfg
           grep -Fq 'name="Android"' export_presets.cfg
           grep -Fq 'gradle_build/use_gradle_build=true' export_presets.cfg
+          grep -Fq 'gradle_build/export_format=1' export_presets.cfg
           grep -Fq 'gradle_build/min_sdk="24"' export_presets.cfg
+          grep -Fq 'architectures/armeabi-v7a=true' export_presets.cfg
+          grep -Fq 'architectures/arm64-v8a=true' export_presets.cfg
+          grep -Fq 'architectures/x86=false' export_presets.cfg
+          grep -Fq 'architectures/x86_64=false' export_presets.cfg
 
           echo "All required project files are present."
 
@@ -337,10 +342,29 @@ jobs:
 
           echo "Notification Scheduler v6 icon resources prepared."
 
-      - name: Export Debug APK
+      - name: Export signed Release AAB
         shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
+
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || \
+             [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || \
+             [ -z "${ANDROID_KEY_ALIAS:-}" ]; then
+            echo "::error::Configure ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, and ANDROID_KEY_ALIAS in GitHub Actions secrets before building the signed Play Store AAB."
+            exit 1
+          fi
+
+          keystore_path="$RUNNER_TEMP/spotrush-upload.keystore"
+          trap 'rm -f "$keystore_path"; git checkout -- export_presets.cfg' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          keytool -list -keystore "$keystore_path" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" >/dev/null
 
           mkdir -p build
 
@@ -351,7 +375,7 @@ jobs:
           echo "Java: $JAVA_HOME"
           echo "Android SDK: $ANDROID_HOME"
           echo "Preset: Android"
-          echo "Output: build/SpotRush-debug.apk"
+          echo "Output: build/SpotRush.aab"
           echo "======================================"
 
           # Make Gradle print tasks instead of using an animated console.
@@ -399,52 +423,73 @@ jobs:
           echo "[4/5] Integrating EOS Android SDK, Gradle dependencies and native initialization..."
           python3 tools/patch_eos_android_template.py --android-build android/build
 
-          echo "[5/5] Importing project and building APK with Gradle..."
+          echo "[5/5] Configuring temporary upload signing and building the AAB..."
           echo ""
 
-          timeout 30m godot --headless --verbose --path . \
-            --export-debug "Android" \
-            build/SpotRush-debug.apk
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("export_presets.cfg")
+          contents = path.read_text(encoding="utf-8")
+          values = {
+              "package/keystore/release": os.environ["RUNNER_TEMP"] + "/spotrush-upload.keystore",
+              "package/keystore/user": os.environ["ANDROID_KEY_ALIAS"],
+              "package/keystore/password": os.environ["ANDROID_KEYSTORE_PASSWORD"],
+          }
+          for key, value in values.items():
+              old = f'{key}=""'
+              new = f"{key}={json.dumps(value)}"
+              if contents.count(old) != 1:
+                  raise SystemExit(f"Expected exactly one empty {key} setting in export_presets.cfg")
+              contents = contents.replace(old, new, 1)
+          path.write_text(contents, encoding="utf-8")
+          PY
+
+          timeout 30m godot --headless --path . \
+            --export-release "Android" \
+            build/SpotRush.aab
 
           echo ""
           echo "======================================"
           echo "Godot export command finished."
           echo "======================================"
 
-      - name: Verify APK
+      - name: Verify AAB
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Checking generated APK..."
+          echo "Checking generated Android App Bundle..."
 
-          if [ ! -s build/SpotRush-debug.apk ]; then
-            echo "::error::APK was not generated or is empty."
+          if [ ! -s build/SpotRush.aab ]; then
+            echo "::error::AAB was not generated or is empty."
             echo "Build directory contents:"
             find build -maxdepth 2 -type f -ls || true
             exit 1
           fi
 
-          echo "APK generated successfully:"
-          ls -lh build/SpotRush-debug.apk
+          echo "AAB generated successfully:"
+          ls -lh build/SpotRush.aab
 
-          echo "Checking that the APK registers SpotRush invitation links..."
-          aapt="$ANDROID_HOME/build-tools/36.1.0/aapt"
-          test -x "$aapt"
-          "$aapt" dump xmltree build/SpotRush-debug.apk AndroidManifest.xml > build/SpotRush-AndroidManifest.txt
-          manifest_dump="build/SpotRush-AndroidManifest.txt"
-          grep -Fq 'org.godotengine.plugin.deeplink.DeeplinkActivity' "$manifest_dump"
-          grep -Fq 'spotrush' "$manifest_dump"
-          grep -Fq 'join' "$manifest_dump"
-          grep -Fq 'android.intent.action.VIEW' "$manifest_dump"
-          grep -Fq 'android.intent.category.DEFAULT' "$manifest_dump"
-          grep -Fq 'android.intent.category.BROWSABLE' "$manifest_dump"
-          echo "PASS APK manifest: spotrush://join resolves through DeeplinkActivity."
+          echo "Verifying the release signature..."
+          jarsigner -verify build/SpotRush.aab
 
-      - name: Upload APK artifact
+          echo "Verifying the bundle contains only the requested Android ABIs..."
+          unzip -Z1 build/SpotRush.aab | grep -Fq 'base/manifest/AndroidManifest.xml'
+          actual_abis="$(unzip -Z1 build/SpotRush.aab | sed -nE 's#^base/lib/([^/]+)/.*#\1#p' | sort -u)"
+          expected_abis="$(printf 'arm64-v8a\narmeabi-v7a')"
+          printf 'Included ABIs:\n%s\n' "$actual_abis"
+          if [ "$actual_abis" != "$expected_abis" ]; then
+            echo "::error::Expected exactly arm64-v8a and armeabi-v7a, found: ${actual_abis:-none}"
+            exit 1
+          fi
+
+      - name: Upload AAB artifact
         uses: actions/upload-artifact@v7
         with:
-          name: SpotRush-Android-APK
-          path: build/SpotRush-debug.apk
+          name: SpotRush-Android-AAB
+          path: build/SpotRush.aab
           if-no-files-found: error
           retention-days: 14

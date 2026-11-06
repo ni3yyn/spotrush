@@ -13,6 +13,11 @@ Project facts this checklist assumes (all already set in the repo):
 | Kit location | `store/` (excluded from the exported game via `exclude_filter`) |
 | Extras docs | `android_extras/` (notifications + backup wiring; also excluded) |
 
+The EOSG Android GDExtension in this project provides an arm64-v8a binary,
+but no armeabi-v7a binary. The 32-bit variant can therefore run the game
+without EOS-backed online features unless a compatible 32-bit EOSG build or
+an in-game fallback is added.
+
 ---
 
 ## 0. Pre-flight (one-time machine setup)
@@ -47,8 +52,18 @@ Open **Project → Export → Android** and fill:
 - `Keystore / Release User` → `spotrush`
 - `Keystore / Release Password` → your password
 
-(or leave them and export from CI with env vars — editor fields are simpler
-for a first release).
+The GitHub Actions workflow reads these GitHub Actions secrets instead of
+committing signing credentials:
+
+- `ANDROID_KEYSTORE_BASE64` — base64 encoding of `spotrush-release.keystore`
+- `ANDROID_KEYSTORE_PASSWORD` — keystore password
+- `ANDROID_KEY_ALIAS` — `spotrush` (or the alias used when creating the key)
+
+On Windows PowerShell, encode the keystore with
+`[Convert]::ToBase64String([IO.File]::ReadAllBytes("spotrush-release.keystore"))`
+and save the result directly as the GitHub secret. The workflow expects the
+keystore and private-key passwords to match. Never commit the keystore or
+passwords.
 
 ## 3. Build the AAB
 
@@ -57,7 +72,9 @@ For the Play Console you need an **Android App Bundle**, not an APK:
 1. In the Android export preset set:
    - `gradle_build/export_format = 1` (0=APK, 1=AAB)
    - `export_path = build/SpotRush.aab`
-2. Export. Command-line equivalent:
+2. Push to `main` or run the Android workflow manually; it creates and signs
+   `build/SpotRush.aab` and uploads it as the `SpotRush-Android-AAB` artifact.
+   Command-line equivalent after filling in the release keystore fields:
    ```
    godot --headless --export-release "Android" build/SpotRush.aab
    ```
