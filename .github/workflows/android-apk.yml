@@ -359,12 +359,20 @@ jobs:
           fi
 
           keystore_path="$RUNNER_TEMP/spotrush-upload.keystore"
-          trap 'rm -f "$keystore_path"; git checkout -- export_presets.cfg' EXIT
+          trap 'rm -f "$keystore_path"' EXIT
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
           test -s "$keystore_path"
           keytool -list -keystore "$keystore_path" \
             -storepass "$ANDROID_KEYSTORE_PASSWORD" \
             -alias "$ANDROID_KEY_ALIAS" >/dev/null
+
+          # Godot reads Android release-signing credentials from these variables.
+          # They override the empty keystore fields in export_presets.cfg.
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$keystore_path"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$ANDROID_KEY_ALIAS"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+
+
 
           mkdir -p build
 
@@ -423,29 +431,8 @@ jobs:
           echo "[4/5] Integrating EOS Android SDK, Gradle dependencies and native initialization..."
           python3 tools/patch_eos_android_template.py --android-build android/build
 
-          echo "[5/5] Configuring temporary upload signing and building the AAB..."
+          echo "[5/5] Building the signed AAB with Godot release-signing environment variables..."
           echo ""
-
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          path = Path("export_presets.cfg")
-          contents = path.read_text(encoding="utf-8")
-          values = {
-              "package/keystore/release": os.environ["RUNNER_TEMP"] + "/spotrush-upload.keystore",
-              "package/keystore/user": os.environ["ANDROID_KEY_ALIAS"],
-              "package/keystore/password": os.environ["ANDROID_KEYSTORE_PASSWORD"],
-          }
-          for key, value in values.items():
-              old = f'{key}=""'
-              new = f"{key}={json.dumps(value)}"
-              if contents.count(old) != 1:
-                  raise SystemExit(f"Expected exactly one empty {key} setting in export_presets.cfg")
-              contents = contents.replace(old, new, 1)
-          path.write_text(contents, encoding="utf-8")
-          PY
 
           timeout 30m godot --headless --path . \
             --export-release "Android" \
