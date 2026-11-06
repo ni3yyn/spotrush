@@ -1,6 +1,6 @@
 ﻿{
-    "version":  "1.0.60",
+    "version":  "1.0.65",
     "pck_url":  "https://github.com/ni3yyn/spotrush/releases/latest/download/content.pck",
-    "sha256":  "c22c177536f7988f0a011cb1560d978d7bc7fad489cc944a44931ccd3f579deb",
+    "sha256":  "5a70c68c1e13d8b4d91b60f5a0ab1fe8db4160151ff3ca9ddb622e6dbe01ce13",
     "notes":  "fix joinr stuck claude"
 }

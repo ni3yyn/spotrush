@@ -83,34 +83,32 @@ func _draw_play(c: Vector2, s: float, color: Color, shadow: Color, highlight: Co
 	_filled_shape(tri, Vector2.ZERO, color)
 
 func _draw_friends(c: Vector2, s: float, color: Color, shadow: Color, highlight: Color) -> void:
-	# Three clearly separated heads over broad shoulder silhouettes. The centered
-	# figure leads; the two smaller companions sit behind it, making the group read
-	# as people rather than two abstract loops.
-	var head_r: float = s * 0.095
-	var side_r: float = s * 0.075
-	var center_head := c + Vector2(0.0, -s * 0.18)
-	var left_head := c + Vector2(-s * 0.235, -s * 0.055)
-	var right_head := c + Vector2(s * 0.235, -s * 0.055)
+	# Two overlapping avatars (head + shoulders). A back figure, muted and
+	# offset left, sits behind a larger, full-strength front figure - this
+	# reads clearly as "people" even at small mobile icon sizes, unlike a
+	# three-head cluster which collapses into an indistinct clump of dots.
+	var back_c := c + Vector2(-s * 0.19, -s * 0.045)
+	var front_c := c + Vector2(s * 0.145, s * 0.03)
+	var back_head_r: float = s * 0.15
+	var front_head_r: float = s * 0.185
+	var stroke: float = maxf(2.6, s * 0.085)
 
-	for head in [left_head, right_head]:
-		draw_circle(head + Vector2(0.8, 1.1), side_r, shadow)
-		draw_circle(head + Vector2(-0.45, -0.55), side_r, highlight)
-		draw_circle(head, side_r, color)
-	draw_circle(center_head + Vector2(0.9, 1.2), head_r, shadow)
-	draw_circle(center_head + Vector2(-0.45, -0.65), head_r, highlight)
-	draw_circle(center_head, head_r, color)
+	var back_color := color
+	back_color.a = color.a * 0.55
 
-	var stroke: float = maxf(2.4, s * 0.075)
-	# Rear shoulders are deliberately shorter and lower-contrast so the front
-	# silhouette remains legible at small mobile icon sizes.
-	_stroke_arc(c + Vector2(-s * 0.235, s * 0.22) + Vector2(0.8, 1.0), s * 0.155, PI * 0.10, PI * 0.90, shadow, stroke)
-	_stroke_arc(c + Vector2(-s * 0.235, s * 0.22), s * 0.155, PI * 0.10, PI * 0.90, color, stroke)
-	_stroke_arc(c + Vector2(s * 0.235, s * 0.22) + Vector2(0.8, 1.0), s * 0.155, PI * 0.10, PI * 0.90, shadow, stroke)
-	_stroke_arc(c + Vector2(s * 0.235, s * 0.22), s * 0.155, PI * 0.10, PI * 0.90, color, stroke)
-	# Front shoulders form one broad, unmistakable group base.
-	_stroke_arc(c + Vector2(0.0, s * 0.18) + Vector2(0.9, 1.2), s * 0.235, PI * 0.08, PI * 0.92, shadow, stroke * 1.18)
-	_stroke_arc(c + Vector2(0.0, s * 0.18) + Vector2(-0.55, -0.6), s * 0.235, PI * 0.10, PI * 0.42, highlight, maxf(1.0, stroke * 0.34))
-	_stroke_arc(c + Vector2(0.0, s * 0.18), s * 0.235, PI * 0.08, PI * 0.92, color, stroke * 1.18)
+	# Back figure: head + shoulder arc, drawn first so the front figure
+	# visibly overlaps it.
+	draw_circle(back_c + Vector2(0.8, 1.1), back_head_r, shadow)
+	draw_circle(back_c, back_head_r, back_color)
+	_stroke_arc(back_c + Vector2(0.0, back_head_r * 1.6) + Vector2(0.8, 1.0), back_head_r * 1.7, PI * 0.08, PI * 0.92, shadow, stroke)
+	_stroke_arc(back_c + Vector2(0.0, back_head_r * 1.6), back_head_r * 1.7, PI * 0.08, PI * 0.92, back_color, stroke)
+
+	# Front figure: full color and slightly larger, anchoring the mark.
+	draw_circle(front_c + Vector2(0.9, 1.2), front_head_r, shadow)
+	draw_circle(front_c + Vector2(-0.5, -0.6), front_head_r, highlight)
+	draw_circle(front_c, front_head_r, color)
+	_stroke_arc(front_c + Vector2(0.0, front_head_r * 1.55) + Vector2(0.9, 1.2), front_head_r * 1.65, PI * 0.06, PI * 0.94, shadow, stroke * 1.12)
+	_stroke_arc(front_c + Vector2(0.0, front_head_r * 1.55), front_head_r * 1.65, PI * 0.06, PI * 0.94, color, stroke * 1.12)
 
 func _draw_book(c: Vector2, s: float, color: Color, shadow: Color, highlight: Color) -> void:
 	var left := PackedVector2Array([

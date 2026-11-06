@@ -49,12 +49,13 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="HeaderBar" type="HBoxContainer" parent="SafeArea/VBoxLobby"]
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="BtnBack" type="Button" parent="SafeArea/VBoxLobby/HeaderBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(92, 58)
+custom_minimum_size = Vector2(96, 56)
 layout_mode = 2
 focus_mode = 0
 text = "BACK"
@@ -67,7 +68,6 @@ alignment = 1
 
 [node name="LobbyTitle" type="Label" parent="SafeArea/VBoxLobby/HeaderBar/HeaderTitle"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
 text = "PLAY WITH FRIENDS"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -75,13 +75,12 @@ vertical_alignment = 1
 [node name="LobbySubtitle" type="Label" parent="SafeArea/VBoxLobby/HeaderBar/HeaderTitle"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 15
 text = "CHOOSE YOUR WAY TO PLAY"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="HeaderPad" type="Control" parent="SafeArea/VBoxLobby/HeaderBar"]
-custom_minimum_size = Vector2(92, 0)
+custom_minimum_size = Vector2(96, 0)
 layout_mode = 2
 mouse_filter = 2
 
@@ -98,7 +97,7 @@ custom_minimum_size = Vector2(0, 64)
 size_flags_horizontal = 3
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 22
 text = "CREATE"
 
 [node name="BtnTabJoin" type="Button" parent="SafeArea/VBoxLobby/ModeTabs/TabRow"]
@@ -107,7 +106,7 @@ custom_minimum_size = Vector2(0, 64)
 size_flags_horizontal = 3
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 22
 text = "JOIN"
 
 [node name="BtnTabRival" type="Button" parent="SafeArea/VBoxLobby/ModeTabs/TabRow"]
@@ -116,7 +115,7 @@ custom_minimum_size = Vector2(0, 64)
 size_flags_horizontal = 3
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 22
 text = "RIVAL CODE"
 
 [node name="PageScroll" type="ScrollContainer" parent="SafeArea/VBoxLobby"]
@@ -129,28 +128,26 @@ follow_focus = true
 [node name="PageStack" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="PanelCreate" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 
 [node name="CreateIntro" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 8
 
 [node name="CreateTitle" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/CreateIntro"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
 text = "OPEN AN ONLINE ROOM"
 horizontal_alignment = 1
 
 [node name="CreateDescription" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/CreateIntro"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 18
 text = "Create a room. Your friend can scan the QR or enter your code."
 horizontal_alignment = 1
 autowrap_mode = 2
@@ -161,14 +158,14 @@ size_flags_horizontal = 3
 
 [node name="QrMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/QrFrame"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
+theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
+theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 14
 
 [node name="QrSlot" type="CenterContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/QrFrame/QrMargin"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 312)
+custom_minimum_size = Vector2(0, 248)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -177,7 +174,6 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(250, 100)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 19
 text = "YOUR ROOM QR\nAPPEARS HERE"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -190,9 +186,9 @@ size_flags_horizontal = 3
 [node name="RoomCodeMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell"]
 layout_mode = 2
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 12
+theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_bottom = 14
 
 [node name="RoomCodeColumn" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin"]
 layout_mode = 2
@@ -201,20 +197,18 @@ theme_override_constants/separation = 5
 [node name="RoomCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin/RoomCodeColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 17
 text = "YOUR ROOM CODE"
 horizontal_alignment = 1
 
 [node name="LblRoomCode" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin/RoomCodeColumn"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 42
 text = "--------"
 horizontal_alignment = 1
 
 [node name="BtnCopyRoomCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate/RoomCodeWell/RoomCodeMargin/RoomCodeColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 56)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 focus_mode = 0
 text = "COPY ROOM CODE"
@@ -222,9 +216,8 @@ visible = false
 
 [node name="LblCreateStatus" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 46)
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "Create a room to reveal its QR invitation and shareable code."
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -235,24 +228,21 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 27
 text = "CREATE ROOM"
 
 [node name="BtnStartMatch" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 80)
+custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 24
 text = "START THE DUEL"
 visible = false
 
 [node name="BtnEndRoom" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelCreate"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
 text = "END ROOM"
 visible = false
 
@@ -261,22 +251,20 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 18
+theme_override_constants/separation = 16
 
 [node name="JoinIntro" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 8
 
 [node name="JoinTitle" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinIntro"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
 text = "JOIN AN ONLINE ROOM"
 horizontal_alignment = 1
 
 [node name="JoinDescription" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinIntro"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 18
 text = "Enter the 8-character code your friend shared."
 horizontal_alignment = 1
 autowrap_mode = 2
@@ -288,9 +276,9 @@ size_flags_horizontal = 3
 [node name="JoinCodeMargin" type="MarginContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell"]
 layout_mode = 2
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 18
+theme_override_constants/margin_top = 14
 theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_bottom = 14
 
 [node name="JoinCodeColumn" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell/JoinCodeMargin"]
 layout_mode = 2
@@ -299,13 +287,12 @@ theme_override_constants/separation = 8
 [node name="JoinCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell/JoinCodeMargin/JoinCodeColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 18
 text = "ROOM CODE"
 horizontal_alignment = 1
 
 [node name="LineEditRoomCode" type="LineEdit" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin/JoinCodeWell/JoinCodeMargin/JoinCodeColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 82)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 placeholder_text = "XXXXXXXX"
@@ -316,9 +303,8 @@ select_all_on_focus = true
 
 [node name="LblJoinStatus" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 54)
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "QR invitations join automatically. Use a code here when you prefer typing."
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -326,10 +312,9 @@ autowrap_mode = 2
 
 [node name="BtnJoinRoom" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelJoin"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 88)
+custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 27
 text = "JOIN ROOM"
 
 [node name="PanelRival" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack"]
@@ -337,22 +322,20 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 
 [node name="RivalIntro" type="VBoxContainer" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 8
 
 [node name="RivalTitle" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/RivalIntro"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
 text = "PLAY OFFLINE"
 horizontal_alignment = 1
 
 [node name="RivalDescription" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/RivalIntro"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 18
 text = "No internet needed. Both players play the same 10-round run."
 horizontal_alignment = 1
 autowrap_mode = 2
@@ -375,14 +358,12 @@ theme_override_constants/separation = 6
 [node name="MyRivalCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 17
 text = "YOUR RIVAL CODE"
 horizontal_alignment = 1
 
 [node name="LblMyRivalCode" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 34
 text = "XXX-XXX-XXX"
 horizontal_alignment = 1
 
@@ -392,7 +373,7 @@ theme_override_constants/separation = 10
 
 [node name="BtnCopyRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn/RivalCodeActions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 60)
 size_flags_horizontal = 3
 layout_mode = 2
 focus_mode = 0
@@ -400,7 +381,7 @@ text = "COPY MY CODE"
 
 [node name="BtnNewRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/MyRivalCodeWell/MyRivalCodeMargin/MyRivalCodeColumn/RivalCodeActions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 60)
 size_flags_horizontal = 3
 layout_mode = 2
 focus_mode = 0
@@ -408,7 +389,7 @@ text = "NEW CODE"
 
 [node name="BtnPlayMyRivalCode" type="Button" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 78)
+custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 focus_mode = 0
 text = "PLAY MY CODE"
@@ -431,13 +412,12 @@ theme_override_constants/separation = 8
 [node name="FriendRivalCodeCaption" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/FriendRivalCodeWell/FriendRivalCodeMargin/FriendRivalCodeColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.337255, 0.4, 0.541176, 1)
-theme_override_font_sizes/font_size = 17
 text = "ENTER A FRIEND'S CODE"
 horizontal_alignment = 1
 
 [node name="LineEditRivalCode" type="LineEdit" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival/FriendRivalCodeWell/FriendRivalCodeMargin/FriendRivalCodeColumn"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 76)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
 placeholder_text = "XXX-XXX-XXX"
@@ -451,14 +431,12 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 focus_mode = 0
-theme_override_font_sizes/font_size = 26
 text = "PLAY FRIEND'S CODE"
 
 [node name="LblRivalStatus" type="Label" parent="SafeArea/VBoxLobby/PageScroll/PageStack/PanelRival"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
 text = "No internet needed. Both players use the same code to play the same run."
 horizontal_alignment = 1
 vertical_alignment = 1

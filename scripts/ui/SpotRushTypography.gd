@@ -30,23 +30,23 @@ enum Role {
 }
 
 const SIZES := {
-        Role.MICRO: 16,
-        Role.CAPTION: 17,
-        Role.BODY: 19,
-        Role.BODY_STRONG: 20,
-        Role.BUTTON_COMPACT: 18,
-        Role.BUTTON: 20,
-        Role.BUTTON_LARGE: 22,
-        Role.CARD_TITLE: 22,
-        Role.STAT_LABEL: 20,
-        Role.SECTION_TITLE: 24,
-        Role.SCREEN_TITLE: 32,
-        Role.DISPLAY: 44,
+        Role.MICRO: 17,
+        Role.CAPTION: 18,
+        Role.BODY: 20,
+        Role.BODY_STRONG: 21,
+        Role.BUTTON_COMPACT: 19,
+        Role.BUTTON: 22,
+        Role.BUTTON_LARGE: 24,
+        Role.CARD_TITLE: 24,
+        Role.STAT_LABEL: 21,
+        Role.SECTION_TITLE: 26,
+        Role.SCREEN_TITLE: 34,
+        Role.DISPLAY: 46,
         Role.HUD_VALUE: 56,
         Role.COUNTDOWN: 64,
         Role.HERO_SCORE: 84,
         Role.WORDMARK: 76,
-        Role.INPUT_VALUE: 24,
+        Role.INPUT_VALUE: 26,
 }
 
 static func size(role: int) -> int:

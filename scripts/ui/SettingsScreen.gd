@@ -4,6 +4,7 @@ extends Control
 # navigation lifecycle, an independent back handler and room to grow.
 
 const NeuKit = preload("res://scripts/ui/NeuKit.gd")
+const SpotRushLayout = preload("res://scripts/ui/SpotRushLayout.gd")
 const NeuSafe = preload("res://scripts/core/NeuSafe.gd")
 const NeuSwitchScript = preload("res://scripts/ui/NeuSwitch.gd")
 const SpotRushGlyph = preload("res://scripts/ui/SpotRushGlyph.gd")
@@ -82,16 +83,16 @@ func _build_page() -> void:
 		# OS cutout offsets are applied explicitly in _apply_safe_area_insets().
 		# The additional top margin is intentional breathing room BELOW the
 		# status bar / camera island, not a substitute for the actual inset.
-		safe.add_theme_constant_override("margin_left", 24)
-		safe.add_theme_constant_override("margin_right", 24)
-		safe.add_theme_constant_override("margin_top", 30)
-		safe.add_theme_constant_override("margin_bottom", 30)
+		safe.add_theme_constant_override("margin_left", SpotRushLayout.SPACE_XL)
+		safe.add_theme_constant_override("margin_right", SpotRushLayout.SPACE_XL)
+		safe.add_theme_constant_override("margin_top", SpotRushLayout.SPACE_XL)
+		safe.add_theme_constant_override("margin_bottom", SpotRushLayout.SPACE_XL)
 		add_child(safe)
 		_safe_area = safe
 
 		var page := VBoxContainer.new()
 		page.name = "Page"
-		page.add_theme_constant_override("separation", 16)
+		page.add_theme_constant_override("separation", SpotRushLayout.SPACE_LG)
 		safe.add_child(page)
 
 		page.add_child(_build_header())
@@ -109,7 +110,7 @@ func _build_page() -> void:
 		_content.mouse_filter = Control.MOUSE_FILTER_PASS
 		_content.name = "SettingsContent"
 		_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_content.add_theme_constant_override("separation", 30)
+		_content.add_theme_constant_override("separation", SpotRushLayout.SPACE_2XL)
 		scroll.add_child(_content)
 
 		_build_audio_section()
@@ -146,13 +147,13 @@ func _build_header() -> Control:
 		# centred title, equal-width right spacer and 12px control gap.
 		var header := HBoxContainer.new()
 		header.name = "HeaderBar"
-		header.custom_minimum_size.y = 56
-		header.add_theme_constant_override("separation", 12)
+		header.custom_minimum_size.y = SpotRushLayout.HEADER_HEIGHT
+		header.add_theme_constant_override("separation", SpotRushLayout.HEADER_GAP)
 
 		var back := Button.new()
 		back.name = "BtnBack"
 		back.text = "BACK"
-		back.custom_minimum_size = Vector2(100, 56)
+		back.custom_minimum_size = Vector2(SpotRushLayout.HEADER_SIDE_STANDARD, SpotRushLayout.HEADER_HEIGHT)
 		back.focus_mode = Control.FOCUS_NONE
 		back.add_theme_font_override("font", NeuKit.bold_font(back))
 		SpotRushTypography.apply_as(back, SpotRushTypography.Role.BUTTON)
@@ -176,14 +177,14 @@ func _build_header() -> Control:
 
 		var balance := Control.new()
 		balance.name = "HeaderPad"
-		balance.custom_minimum_size = Vector2(100, 0)
+		balance.custom_minimum_size = Vector2(SpotRushLayout.HEADER_SIDE_STANDARD, 0)
 		balance.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		header.add_child(balance)
 		return header
 
 func _section(title_text: String, hint_text: String = "") -> VBoxContainer:
 		var section := VBoxContainer.new()
-		section.add_theme_constant_override("separation", 13)
+		section.add_theme_constant_override("separation", SpotRushLayout.SPACE_MD)
 		var title := Label.new()
 		title.text = title_text.to_upper()
 		title.add_theme_font_override("font", NeuKit.bold_font(title, 0.45))
@@ -203,12 +204,12 @@ func _section(title_text: String, hint_text: String = "") -> VBoxContainer:
 func _make_toggle_row(glyph_name: String, title_text: String, detail_text: String,
 				initial: bool, callback: Callable) -> PanelContainer:
 		var card := PanelContainer.new()
-		card.add_theme_stylebox_override("panel", NeuKit.raised(24.0, 5.0, 12.0))
+		card.add_theme_stylebox_override("panel", NeuKit.card_surface(24.0))
 		var margin := MarginContainer.new()
 		_set_margins(margin, 20, 16, 20, 16)
 		card.add_child(margin)
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 18)
+		row.add_theme_constant_override("separation", SpotRushLayout.SPACE_LG)
 		row.custom_minimum_size.y = 98
 		margin.add_child(row)
 
@@ -666,18 +667,16 @@ func _on_viewport_resized() -> void:
 		if _content == null:
 				return
 		var width := get_viewport_rect().size.x
-		var compact := width < 420.0
+		var compact := SpotRushLayout.is_compact_width(width)
 		var safe := get_node_or_null("SafeArea") as MarginContainer
 		if safe != null:
-				safe.add_theme_constant_override("margin_left", 18 if compact else 24)
-				safe.add_theme_constant_override("margin_right", 18 if compact else 24)
+				safe.add_theme_constant_override("margin_left", 16 if compact else SpotRushLayout.SPACE_XL)
+				safe.add_theme_constant_override("margin_right", 16 if compact else SpotRushLayout.SPACE_XL)
+		var header := get_node_or_null("SafeArea/Page/HeaderBar") as HBoxContainer
 		var header_back := get_node_or_null("SafeArea/Page/HeaderBar/BtnBack") as Button
 		var header_title := get_node_or_null("SafeArea/Page/HeaderBar/LobbyTitle") as Label
 		var header_pad := get_node_or_null("SafeArea/Page/HeaderBar/HeaderPad") as Control
-		if header_back != null:
-				header_back.custom_minimum_size = Vector2(88 if compact else 100, 56)
-		if header_pad != null:
-				header_pad.custom_minimum_size.x = 88 if compact else 100
+		SpotRushLayout.apply_screen_header(header, header_back, header_title, header_pad, compact)
 		if header_title != null:
 				SpotRushTypography.apply_as(header_title, SpotRushTypography.Role.SCREEN_TITLE)
 		for button in _round_buttons.values():
@@ -690,10 +689,10 @@ func _on_viewport_resized() -> void:
 				var glyph := layout["glyph"] as Control
 				var toggle := layout["toggle"] as Control
 				glyph.visible = not compact
-				row.add_theme_constant_override("separation", 12 if compact else 18)
+				row.add_theme_constant_override("separation", SpotRushLayout.SPACE_MD if compact else SpotRushLayout.SPACE_LG)
 				toggle.custom_minimum_size = Vector2(92, 72) if compact else Vector2(108, 76)
-				_set_margins(margin, 14 if compact else 20, 14 if compact else 18,
-						14 if compact else 20, 14 if compact else 18)
+				_set_margins(margin, 12 if compact else 20, 12 if compact else 16,
+						12 if compact else 20, 12 if compact else 16)
 
 func _play_entrance() -> void:
 		if Feel.reduced():

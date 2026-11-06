@@ -10,8 +10,36 @@ const Settings = preload("res://scripts/core/Settings.gd")
 const SpotRushTypography = preload("res://scripts/ui/SpotRushTypography.gd")
 const CommunityQRCodeRect = preload("res://addons/kenyoni/qr_code/qr_code_rect.gd")
 const CommunityQRCode = preload("res://addons/kenyoni/qr_code/qr_code.gd")
+const SpotRushLayout = preload("res://scripts/ui/SpotRushLayout.gd")
 
 enum LobbyTab { CREATE, JOIN, RIVAL }
+
+# Each label here carries a different kind of information (screen title, a
+# panel's own heading, a caption, a status hint, a code readout) and should
+# not all collapse to the same size - this is the one place that decides
+# which Typography role each one gets, so the hierarchy stays intentional
+# instead of every Label ending up the same size by default.
+const LABEL_ROLES := {
+	&"LobbyTitle": SpotRushTypography.Role.SCREEN_TITLE,
+	&"LobbySubtitle": SpotRushTypography.Role.MICRO,
+	&"CreateTitle": SpotRushTypography.Role.SECTION_TITLE,
+	&"CreateDescription": SpotRushTypography.Role.CAPTION,
+	&"QrPlaceholder": SpotRushTypography.Role.CAPTION,
+	&"RoomCodeCaption": SpotRushTypography.Role.CAPTION,
+	&"LblRoomCode": SpotRushTypography.Role.DISPLAY,
+	&"LblCreateStatus": SpotRushTypography.Role.CAPTION,
+	&"JoinTitle": SpotRushTypography.Role.SECTION_TITLE,
+	&"JoinDescription": SpotRushTypography.Role.CAPTION,
+	&"JoinCodeCaption": SpotRushTypography.Role.CAPTION,
+	&"LblJoinStatus": SpotRushTypography.Role.CAPTION,
+	&"RivalTitle": SpotRushTypography.Role.SECTION_TITLE,
+	&"RivalDescription": SpotRushTypography.Role.CAPTION,
+	&"MyRivalCodeCaption": SpotRushTypography.Role.CAPTION,
+	&"LblMyRivalCode": SpotRushTypography.Role.SCREEN_TITLE,
+	&"FriendRivalCodeCaption": SpotRushTypography.Role.CAPTION,
+	&"LblRivalStatus": SpotRushTypography.Role.CAPTION,
+}
+
 
 @onready var btn_back: Button = %BtnBack
 @onready var btn_tab_create: Button = %BtnTabCreate
@@ -75,6 +103,7 @@ func _ready() -> void:
 	Music.play_menu()
 
 	_connect_ui()
+	_style_header()
 	_style_ui()
 	_build_qr()
 	_build_duel_round_section()
@@ -119,15 +148,30 @@ func _connect_ui() -> void:
 	line_edit_rival_code.text_submitted.connect(func(_value: String) -> void: _on_play_rival_code_pressed())
 
 
-func _style_ui() -> void:
-	for label in find_children("*", "Label", true, false):
-		SpotRushTypography.apply_as(label as Label, SpotRushTypography.Role.BODY)
+## Puts this screen's header on the exact same geometry as every other header
+## in the game (56px tall, 96px side columns, 12px gap) instead of the
+## hand-tuned 92x58 the scene shipped with, which only looked identical.
+func _style_header() -> void:
+	var header := get_node_or_null("SafeArea/VBoxLobby/HeaderBar") as HBoxContainer
+	var header_title := get_node_or_null("SafeArea/VBoxLobby/HeaderBar/HeaderTitle") as Control
+	var header_pad := get_node_or_null("SafeArea/VBoxLobby/HeaderBar/HeaderPad") as Control
+	SpotRushLayout.apply_screen_header(header, btn_back, header_title, header_pad)
 
-	for button in [btn_back, btn_tab_create, btn_tab_join, btn_tab_rival,
-			btn_create_room, btn_copy_room_code, btn_end_room, btn_start_match,
-			btn_join_room, btn_copy_rival_code, btn_new_rival_code,
+
+func _style_ui() -> void:
+	# Every label gets the role that matches what it actually is (title, caption,
+	# status hint, code readout) instead of one blanket size for the whole screen.
+	for label in find_children("*", "Label", true, false):
+		var role: int = LABEL_ROLES.get((label as Label).name, SpotRushTypography.Role.BODY)
+		SpotRushTypography.apply_as(label as Label, role)
+
+	for button in [btn_create_room, btn_join_room, btn_start_match,
 			btn_play_my_rival_code, btn_play_rival_code]:
 		SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON_LARGE)
+	for button in [btn_back, btn_tab_create, btn_tab_join, btn_tab_rival]:
+		SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON)
+	for button in [btn_copy_room_code, btn_end_room, btn_copy_rival_code, btn_new_rival_code]:
+		SpotRushTypography.apply_as(button, SpotRushTypography.Role.BUTTON_COMPACT)
 
 	NeuKit.style_line_edit(line_edit_room_code, 18.0)
 	NeuKit.style_line_edit(line_edit_rival_code, 18.0)
@@ -146,7 +190,7 @@ func _build_qr() -> void:
 	_qr_rect.name = "RoomInvitationQR"
 	_qr_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_qr_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_qr_rect.custom_minimum_size = Vector2(292.0, 292.0)
+	_qr_rect.custom_minimum_size = Vector2(232.0, 232.0)
 	_qr_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_qr_rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_qr_rect.set("auto_module_size", true)

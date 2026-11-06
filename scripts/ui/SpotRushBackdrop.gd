@@ -18,15 +18,9 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 func _draw() -> void:
-	if not challenge_focus:
-		NeuKit.draw_backdrop(self, false)
+	if challenge_focus:
+		# Same SpotRush material and light direction, deliberately quieter so
+		# challenge tokens retain clear edge contrast against the playfield.
+		NeuKit.draw_backdrop(self, false, 0.38, 0.16, 0.008)
 		return
-	var w := size.x
-	var h := size.y
-	if w <= 0.0 or h <= 0.0:
-		return
-	# A static, low-contrast light falloff: no extra ornaments or motion behind play.
-	draw_rect(Rect2(Vector2.ZERO, size), NeuKit.SURFACE.darkened(0.008))
-	var big := maxf(w, h) * 1.5
-	draw_texture_rect(NeuKit._glow(Color(1.0, 1.0, 1.0, 0.38)), Rect2(Vector2(-big * 0.5, -big * 0.42), Vector2(big, big)), false)
-	draw_texture_rect(NeuKit._glow(Color(NeuKit.DARK.r, NeuKit.DARK.g, NeuKit.DARK.b, 0.16)), Rect2(Vector2(w - big * 0.45, h - big * 0.45), Vector2(big, big)), false)
+	NeuKit.draw_backdrop(self, false)

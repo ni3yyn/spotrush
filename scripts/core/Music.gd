@@ -2,16 +2,25 @@ extends Node
 
 # The ambient music engine (v21).
 #
-# Both themes are synthesized at boot; no music assets are required.
+# Both themes were composed as pure synthesis (no recorded assets) and that
+# synthesis code is kept below as the source of truth, but it has since been
+# baked once to real .wav loops under res://assets/audio/music/ (see
+# tools/ExtractAudio.gd). build_stream() loads the baked loop when it's
+# present - a cheap asset load instead of forging ~1.4M samples of layered
+# pads/notes/dips/scratches from scratch - and only falls back to synthesizing
+# on the worker thread if the asset is ever missing, so nothing breaks if the
+# composition changes here before the bank is re-baked.
+#
 # The sound palette is intentionally soft and "neumorphic": warm low-mid
 # frequencies, rounded attacks, long overlapping envelopes, almost no bright
 # transients, and very slow movement. The menu gets a sparse felt-like motif;
 # the gameplay bed stays rhythm-free so it never competes with the round clock
 # or the action sounds.
 #
-# Menu and gameplay loops are forged independently on a worker thread. The
-# menu stream is built first and starts as soon as it is ready; gameplay never
-# holds the first audible note hostage while its own longer render completes.
+# Menu and gameplay loops are forged independently on a worker thread when
+# synthesis is needed at all. The menu stream is built first and starts as
+# soon as it is ready; gameplay never holds the first audible note hostage
+# while its own longer render completes.
 
 const Sfx = preload("res://scripts/core/Sfx.gd")
 const Settings = preload("res://scripts/core/Settings.gd")
@@ -20,6 +29,7 @@ const RATE := 44100
 const LOOP_LEN := 32.0
 const FADE_IN := 0.95
 const FADE_OUT := 2.4
+const ASSET_DIR_MUSIC := "res://assets/audio/music/"
 
 # These are intentionally lower than the old bright pad/bell mix. The Music
 # bus and the user's saved volume setting still control the final level.
@@ -147,10 +157,15 @@ func _on_stream_ready(kind: String, stream: AudioStreamWAV) -> void:
 func _stream_is_ready(kind: String) -> bool:
         return _menu_ready if kind == "menu" else _game_ready
 
-## Builds and caches one seamless 32-second ambient loop.
+## Returns (and caches) one seamless 32-second ambient loop: the baked .wav
+## asset when it exists, otherwise synthesized fresh from the maths below.
 static func build_stream(kind: String) -> AudioStreamWAV:
         if _bank.has(kind):
                 return _bank[kind]
+        var baked := _load_baked(kind)
+        if baked != null:
+                _bank[kind] = baked
+                return baked
         var n := int(RATE * LOOP_LEN)
         var samples := PackedFloat32Array()
         samples.resize(n)
@@ -185,6 +200,29 @@ static func build_stream(kind: String) -> AudioStreamWAV:
         wav.loop_begin = 0
         wav.loop_end = n
         _bank[kind] = wav
+        return wav
+
+## Loads the baked loop for "menu"/"game" if it exists. Loop points are forced
+## here regardless of whatever the .wav importer guessed, so looping behaves
+## identically to the synthesized path whether or not the asset's own import
+## metadata ever sets them.
+static func _load_baked(kind: String) -> AudioStreamWAV:
+        var res_path := ASSET_DIR_MUSIC + kind + "_loop.wav"
+        if not ResourceLoader.exists(res_path):
+                return null
+        var wav := load(res_path) as AudioStreamWAV
+        if wav == null:
+                return null
+        wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+        wav.loop_begin = 0
+        # Frame count from the stream's own reported length, not from
+        # data.size() - a byte-size guess assumes uncompressed 16-bit PCM and
+        # silently breaks if Godot's WAV importer ever compresses the asset
+        # (IMA-ADPCM packs ~4 bits/sample instead of 16), which would make
+        # loop_end land at roughly a quarter of the real loop and crop the
+        # track short every repeat. get_length() accounts for the actual
+        # stored format, whatever it is.
+        wav.loop_end = int(round(wav.get_length() * float(wav.mix_rate)))
         return wav
 
 # --- composition -----------------------------------------------------------------------

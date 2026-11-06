@@ -44,6 +44,26 @@ static func inset(radius: float = 20.0, dist: float = 5.0, blur: float = 12.0, s
 		s.gradient = 0.5
 		return s
 
+## Tier 1: quiet card surface. A restrained lift for supporting information;
+## it should sit below focal panels and never compete with primary actions.
+static func card_surface(radius: float = 22.0, surface: Color = SURFACE) -> NeuStyle:
+		var s := raised(radius, 3.0, 8.0, surface)
+		s.depth = 0.48
+		s.depth_rest = 0.48
+		s.depth_hover = 0.66
+		s.depth_press = -0.62
+		return s
+
+## Tier 2: focal surface. The strongest neutral lift, reserved for hero panels,
+## the active playfield and other high-priority content.
+static func feature_surface(radius: float = 28.0, surface: Color = SURFACE) -> NeuStyle:
+		return raised(radius, 8.0, 18.0, surface)
+
+## Tier 3: recessed readout/input surface. A clear inward seat for values,
+## codes and controls that should feel embedded in the surrounding card.
+static func well_surface(radius: float = 20.0, surface: Color = SURFACE) -> NeuStyle:
+		return inset(radius, 4.5, 11.0, surface)
+
 static func accent(color: Color, radius: float = 20.0, dist: float = 7.0, blur: float = 16.0) -> NeuStyle:
 		var s := raised(radius, dist, blur, color)
 		s.colored = true
@@ -477,16 +497,25 @@ static func _glow(color: Color) -> GradientTexture2D:
 		_glow_cache[key] = t
 		return t
 
-## Flat surface with a soft light falloff (lit from top-left) and optional sculpted decor.
-static func draw_backdrop(ci: Control, decor: bool = true) -> void:
+## Shared surface renderer for every screen. The optional intensity values let
+## challenge screens keep extra contrast without introducing a different material.
+static func draw_backdrop(
+		ci: Control,
+		decor: bool = true,
+		light_strength: float = 0.65,
+		shade_strength: float = 0.24,
+		base_darkening: float = 0.0
+) -> void:
 		var w := ci.size.x
 		var h := ci.size.y
 		if w <= 0.0 or h <= 0.0:
 				return
-		ci.draw_rect(Rect2(Vector2.ZERO, ci.size), SURFACE)
+		ci.draw_rect(Rect2(Vector2.ZERO, ci.size), SURFACE.darkened(clampf(base_darkening, 0.0, 0.08)))
 		var big := maxf(w, h) * 1.5
-		ci.draw_texture_rect(_glow(Color(1.0, 1.0, 1.0, 0.65)), Rect2(Vector2(-big * 0.5, -big * 0.42), Vector2(big, big)), false)
-		ci.draw_texture_rect(_glow(Color(DARK.r, DARK.g, DARK.b, 0.24)), Rect2(Vector2(w - big * 0.45, h - big * 0.45), Vector2(big, big)), false)
+		var light_alpha := clampf(light_strength, 0.0, 1.0)
+		var shade_alpha := clampf(shade_strength, 0.0, 0.6)
+		ci.draw_texture_rect(_glow(Color(1.0, 1.0, 1.0, light_alpha)), Rect2(Vector2(-big * 0.5, -big * 0.42), Vector2(big, big)), false)
+		ci.draw_texture_rect(_glow(Color(DARK.r, DARK.g, DARK.b, shade_alpha)), Rect2(Vector2(w - big * 0.45, h - big * 0.45), Vector2(big, big)), false)
 		if not decor:
 				return
 		# Sculpted corners: a raised dial bottom-left, an inset well bottom-right, small satellites.

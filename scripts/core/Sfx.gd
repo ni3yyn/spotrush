@@ -1,11 +1,20 @@
 extends RefCounted
 
-# Soft synthesized sound bank. Everything is generated once from maths (no audio assets),
-# then cached as AudioStreamWAV. The palette is deliberately round and muted - sine/bell
-# tones with quick decays and a gentle low-pass - to match the soft UI instead of the
-# harsh square/saw blips typical of procedural sfx.
+# Sound bank. Every sound here was originally generated purely from maths at
+# runtime (sine/bell tones, quick decays, a gentle low-pass - deliberately
+# round and muted, to match the soft UI instead of the harsh square/saw blips
+# typical of procedural sfx). That synthesis has since been baked once to real
+# .wav files under res://assets/audio/{sfx,notes}/ (see tools/ExtractAudio.gd
+# and the formulas preserved below), so a normal run just loads a tiny static
+# asset instead of re-deriving every sample from scratch on every launch.
+# The maths stays in this file as the source of truth and as a fallback: if an
+# asset is ever missing (a new sound added here before it's been baked, say),
+# that one sound is synthesized on first use exactly as before, so nothing
+# breaks - it just costs that one sound's build time instead of none.
 
 const RATE := 44100
+const ASSET_DIR_SFX := "res://assets/audio/sfx/"
+const ASSET_DIR_NOTES := "res://assets/audio/notes/"
 
 static var _bank: Dictionary = {}
 static var _root: Node = null
@@ -38,8 +47,17 @@ static func play(sound: String, pitch: float = 1.0, gain_db: float = 0.0) -> voi
 
 static func get_stream(sound: String) -> AudioStreamWAV:
         if not _bank.has(sound):
-                _bank[sound] = _build(sound)
+                var baked: AudioStreamWAV = _load_baked(ASSET_DIR_SFX + sound + ".wav")
+                _bank[sound] = baked if baked != null else _build(sound)
         return _bank[sound]
+
+## Tries the pre-baked asset first; returns null (never pushes an error) if
+## it isn't there yet, so the synthesis fallback can quietly take over.
+static func _load_baked(res_path: String) -> AudioStreamWAV:
+        if not ResourceLoader.exists(res_path):
+                return null
+        var res: Resource = load(res_path)
+        return res as AudioStreamWAV
 
 ## Builds every sound up front (about a few ms each) so the first tap never hitches.
 static func warm_up() -> void:
@@ -73,7 +91,8 @@ static func play_note(freq: float, gain_db: float = -3.0) -> void:
 static func note_stream(freq: float) -> AudioStreamWAV:
         var key := "note_%d" % int(round(freq * 100.0))
         if not _bank.has(key):
-                _bank[key] = _build_note(freq)
+                var baked: AudioStreamWAV = _load_baked(ASSET_DIR_NOTES + key + ".wav")
+                _bank[key] = baked if baked != null else _build_note(freq)
         return _bank[key]
 
 # --- voices ---------------------------------------------------------------------------

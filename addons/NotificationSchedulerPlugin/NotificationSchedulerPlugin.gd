@@ -57,12 +57,18 @@ class AndroidExportPlugin extends EditorExportPlugin:
 
 
 	func _export_begin(_features: PackedStringArray, _is_debug: bool, path: String, _flags: int) -> void:
+		# Notification icons are Android APK/Gradle resources. An OTA content
+		# pack (.pck) has no Gradle resource directory and must not require them.
+		if path.get_extension().to_lower() == "pck":
+			GmpLogger.log_info("Skipping Android notification resource staging for OTA PCK export.")
+			return
+
 		if _supports_platform(get_export_platform()):
 			if not DirAccess.dir_exists_absolute(PLUGIN_ASSETS_DIRECTORY):
 				GmpLogger.log_error("Error: %s's assets directory not found! \"%s\""
 						% [PLUGIN_NAME, PLUGIN_ASSETS_DIRECTORY])
 			else:
-				# copy notification assets
+				# copy notification assets for Android APK exports
 				_copy(PLUGIN_ASSETS_DIRECTORY, ANDROID_RES_DIRECTORY)
 
 

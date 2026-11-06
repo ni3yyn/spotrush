@@ -246,31 +246,36 @@ func _apply_responsive_layout() -> void:
 		SpotRushTypography.apply_as(tagline_text, SpotRushTypography.Role.BODY)
 		SpotRushTypography.apply_as(play_text, SpotRushTypography.Role.SCREEN_TITLE)
 		SpotRushTypography.apply_as(play_mode_badge, SpotRushTypography.Role.MICRO)
-		SpotRushTypography.apply_as(friends_text, SpotRushTypography.Role.CARD_TITLE)
-		SpotRushTypography.apply_as(how_text, SpotRushTypography.Role.CARD_TITLE)
+		SpotRushTypography.apply_as(friends_text, SpotRushTypography.Role.BUTTON_LARGE)
+		SpotRushTypography.apply_as(how_text, SpotRushTypography.Role.BUTTON_LARGE)
 		SpotRushTypography.apply_as(best_score_label, SpotRushTypography.Role.CAPTION)
 		SpotRushTypography.apply_as(best_score_value, SpotRushTypography.Role.CARD_TITLE)
 		SpotRushTypography.apply_as(online_label, SpotRushTypography.Role.CAPTION)
 
 		# Expand the pill hit targets on very narrow screens while preserving the poster-like ratios.
-		var play_half_width := 0.325 if narrow else 0.32
+		# Give the main actions a stronger footprint: wider secondary buttons,
+		# taller touch surfaces and enough vertical separation to avoid crowding.
+		var play_half_width := 0.35 if narrow else 0.34
 		btn_solo.anchor_left = 0.5 - play_half_width
 		btn_solo.anchor_right = 0.5 + play_half_width
-		btn_solo.anchor_top = 0.425 if compact_height else 0.438
-		btn_solo.anchor_bottom = 0.54 if compact_height else 0.548
-		btn_solo.custom_minimum_size = Vector2(0, 66 if compact_height else 70)
+		btn_solo.anchor_top = 0.42 if compact_height else 0.425
+		btn_solo.anchor_bottom = 0.545 if compact_height else 0.55
+		btn_solo.custom_minimum_size = Vector2(0, 78 if compact_height else 82)
 
-		var side_half_width := 0.30 if narrow else 0.27
+		var side_half_width := 0.32 if narrow else 0.32
 		btn_multiplayer.anchor_left = 0.5 - side_half_width
 		btn_multiplayer.anchor_right = 0.5 + side_half_width
 		btn_how_to_play.anchor_left = 0.5 - side_half_width
 		btn_how_to_play.anchor_right = 0.5 + side_half_width
-		btn_multiplayer.anchor_top = 0.565 if compact_height else 0.578
-		btn_multiplayer.anchor_bottom = 0.648 if compact_height else 0.658
-		btn_how_to_play.anchor_top = 0.67 if compact_height else 0.686
-		btn_how_to_play.anchor_bottom = 0.753 if compact_height else 0.766
-		btn_multiplayer.custom_minimum_size = Vector2(0, 50 if compact_height else 53)
-		btn_how_to_play.custom_minimum_size = Vector2(0, 50 if compact_height else 53)
+		btn_multiplayer.anchor_top = 0.56 if compact_height else 0.57
+		btn_multiplayer.anchor_bottom = 0.655 if compact_height else 0.66
+		btn_how_to_play.anchor_top = 0.675 if compact_height else 0.68
+		btn_how_to_play.anchor_bottom = 0.77 if compact_height else 0.77
+		btn_multiplayer.custom_minimum_size = Vector2(0, 66 if compact_height else 70)
+		btn_how_to_play.custom_minimum_size = Vector2(0, 66 if compact_height else 70)
+		for glyph in [friends_content.get_node_or_null("FriendsGlyph"), how_content.get_node_or_null("HowGlyph")]:
+			if glyph is Control:
+				glyph.custom_minimum_size = Vector2(44, 44)
 
 		# Optical vertical centring: each pill casts its dark shadow downward, so the
 		# eye reads extra body below the button and the content looks high. Seat the

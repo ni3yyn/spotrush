@@ -392,12 +392,12 @@ mouse_filter = 2
 
 [node name="BtnSolo" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 82)
 layout_mode = 1
-anchor_left = 0.18
-anchor_top = 0.438
-anchor_right = 0.82
-anchor_bottom = 0.548
+anchor_left = 0.16
+anchor_top = 0.425
+anchor_right = 0.84
+anchor_bottom = 0.55
 focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBox_hero_play")
 theme_override_styles/hover = SubResource("StyleBox_hero_hover")
@@ -417,11 +417,11 @@ offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 14
 alignment = 1
 
 [node name="PlayIcon" type="Control" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/PlayContent"]
-custom_minimum_size = Vector2(42, 42)
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -434,7 +434,7 @@ accent_surface = true
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 38
 text = "SOLO PLAY"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -460,12 +460,12 @@ vertical_alignment = 1
 
 [node name="BtnMultiplayer" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 1
-anchor_left = 0.23
-anchor_top = 0.578
-anchor_right = 0.77
-anchor_bottom = 0.658
+anchor_left = 0.18
+anchor_top = 0.57
+anchor_right = 0.82
+anchor_bottom = 0.66
 focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")
 theme_override_styles/hover = SubResource("StyleBox_neu_btn")
@@ -485,11 +485,11 @@ offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 11
+theme_override_constants/separation = 14
 alignment = 1
 
 [node name="FriendsGlyph" type="Control" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/FriendsContent"]
-custom_minimum_size = Vector2(38, 38)
+custom_minimum_size = Vector2(54, 54)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -501,18 +501,18 @@ icon_color = Color(0.356863, 0.423529, 0.54902, 1)
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.356863, 0.423529, 0.54902, 1)
-theme_override_font_sizes/font_size = 25
+theme_override_font_sizes/font_size = 34
 text = "FRIENDS"
 vertical_alignment = 1
 
 [node name="BtnHowToPlay" type="Button" parent="SafeArea/VBoxMain/ActionRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 70)
 layout_mode = 1
-anchor_left = 0.23
-anchor_top = 0.686
-anchor_right = 0.77
-anchor_bottom = 0.766
+anchor_left = 0.18
+anchor_top = 0.68
+anchor_right = 0.82
+anchor_bottom = 0.77
 focus_mode = 0
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")
 theme_override_styles/hover = SubResource("StyleBox_neu_btn")
@@ -532,11 +532,11 @@ offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 11
+theme_override_constants/separation = 14
 alignment = 1
 
 [node name="HowGlyph" type="Control" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/HowContent"]
-custom_minimum_size = Vector2(38, 38)
+custom_minimum_size = Vector2(54, 54)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -548,7 +548,7 @@ icon_color = Color(0.356863, 0.423529, 0.54902, 1)
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.356863, 0.423529, 0.54902, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 34
 text = "HOW TO PLAY"
 vertical_alignment = 1
 
@@ -1445,7 +1445,7 @@ theme_override_constants/separation = 12
 
 [node name="BtnCloseMini" type="Button" parent="MiniGameOverlay/Margin/VBox/TopBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(44, 44)
+custom_minimum_size = Vector2(38, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 theme_override_styles/normal = SubResource("StyleBox_neu_btn")

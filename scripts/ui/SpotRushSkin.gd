@@ -213,7 +213,8 @@ static func _style_button(button: Button, button_name: String) -> void:
 						radius = 999.0
 				"BtnSettings":
 						radius = 999.0
-				"BtnRematch", "BtnMenu", "BtnCreateRoom", "BtnLaunchMatch", "BtnConnect", "BtnShareDaily":
+				"BtnRematch", "BtnMenu", "BtnCreateRoom", "BtnLaunchMatch", "BtnConnect", "BtnShareDaily", \
+				"BtnJoinRoom", "BtnStartMatch", "BtnPlayMyRivalCode", "BtnPlayRivalCode":
 						radius = 36.0
 				"BtnStreak":
 						kind = "well"
@@ -243,7 +244,10 @@ static func _is_primary(button_name: String) -> bool:
 		return button_name in [
 				"BtnSolo", "BtnRematch", "BtnCreateRoom", "BtnLaunchMatch", "BtnConnect",
 				"BtnActionDone", "BtnCloseHowTo", "BtnCloseSettings", "BtnWifiLobby",
-				"BtnPlayDaily", "BtnPlayMine"
+				"BtnPlayDaily", "BtnPlayMine",
+				# Each lobby tab's one "go" action - same treatment as BtnCreateRoom
+				# so every tab reads the same way: one obvious cobalt key per panel.
+				"BtnJoinRoom", "BtnStartMatch", "BtnPlayMyRivalCode", "BtnPlayRivalCode",
 		]
 
 # --- labels --------------------------------------------------------------------------
