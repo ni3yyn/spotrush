@@ -32,10 +32,10 @@ extends Node
 #      instead of buffered, as a second copy of everything print()'d.
 #
 # RETRIEVING THE LOGS after a crash (no root needed):
-#   adb pull /sdcard/Android/data/com.spotrush.game/files/crash_logs
+#   adb pull /sdcard/Android/data/com.wathiq.spotrush/files/crash_logs
 # (that path is OS.get_user_data_dir() on a normal Android install; if the
 # device has no external storage it falls back to internal app storage and
-# you'll need `adb shell run-as com.spotrush.game` instead - the path printed
+# you'll need `adb shell run-as com.wathiq.spotrush` instead - the path printed
 # to logcat at boot, tag "godot", always says exactly where it went.)
 # Each session leaves two files side by side: logcat_<stamp>.txt (full
 # system log tail) and breadcrumbs_<stamp>.txt (just our own trail, in order,

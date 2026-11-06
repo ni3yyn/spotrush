@@ -49,6 +49,6 @@ If you ever want to exclude something (e.g. a future cache file):
 ## How to verify on a device
 
 1. `adb shell bmgr list transports` -> confirm `android/com.google.android.gms` GMS transport exists.
-2. Force a backup: `adb shell bmgr backupnow com.spotrush.game`.
-3. Reinstall the app, then restore: `adb shell bmgr restore com.spotrush.game`.
+2. Force a backup: `adb shell bmgr backupnow com.wathiq.spotrush`.
+3. Reinstall the app, then restore: `adb shell bmgr restore com.wathiq.spotrush`.
 4. Launch: settings toggles, records and the daily streak should all survive.

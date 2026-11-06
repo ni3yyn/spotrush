@@ -125,7 +125,7 @@ WHAT CHANGED IN v20 - THE HARDWARE REALITY PASS
 * ANDROID EXPORT PRESET SHIPPED: the project now carries a complete
   Android export configuration - portrait lock, immersive mode, the
   INTERNET permission duels need, the VIBRATE permission haptics
-  need, arm64+v7a architectures, package name com.spotrush.game,
+  need, arm64+v7a architectures, package name com.wathiq.spotrush,
   version 1.0.0 (code 1) and the launcher icons wired in. Open it in
   the Godot editor with the Android build templates installed and
   export an APK; flip gradle_build/export_format to 1 for an AAB

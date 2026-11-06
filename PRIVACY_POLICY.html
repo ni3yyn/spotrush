@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Privacy Policy for the SpotRush mobile game.">
+  <title>SpotRush Privacy Policy</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17231f;
+      --muted: #63736c;
+      --paper: #f5f7f3;
+      --surface: #ffffff;
+      --line: #e0e8e1;
+      --green: #147a55;
+      --green-soft: #e8f4ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.7 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(860px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 72px; }
+    header { padding: 8px 0 26px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+    .eyebrow { color: var(--green); font-size: .78rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { margin: 8px 0 4px; font-size: clamp(2rem, 6vw, 3rem); line-height: 1.14; letter-spacing: -.04em; }
+    .updated { color: var(--muted); font-size: .94rem; }
+    h2 { margin: 34px 0 10px; font-size: 1.22rem; line-height: 1.35; letter-spacing: -.015em; }
+    p { margin: 10px 0; }
+    ul { padding-left: 1.35rem; }
+    li { margin: 6px 0; }
+    a { color: var(--green); text-decoration-thickness: 1px; text-underline-offset: 3px; overflow-wrap: anywhere; }
+    .intro { background: var(--green-soft); border: 1px solid #cfe7d8; border-radius: 18px; padding: 20px 22px; }
+    .intro p:first-child { margin-top: 0; }
+    .intro p:last-child { margin-bottom: 0; }
+    .details { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+    .small { color: var(--muted); font-size: .93rem; }
+    footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .88rem; }
+    @media (max-width: 560px) { main { padding-top: 30px; } .intro, .details { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">RUN FORGE · Mobile game</div>
+    <h1>SpotRush Privacy Policy</h1>
+    <div class="updated">Last updated: November 6, 2026</div>
+  </header>
+
+  <section class="intro" aria-label="Policy summary">
+    <p><strong>SpotRush does not require you to create a conventional account and does not ask for your name, email address, or phone number to play.</strong> Most game preferences and records are stored on your device.</p>
+    <p>However, when you use online multiplayer, SpotRush connects to Epic Online Services. That service uses an anonymous player identity and processes technical information needed to provide online rooms and peer-to-peer play. SpotRush also checks GitHub for game updates, and Android backup may copy app data to the backup service associated with your Google account. These activities are explained below.</p>
+  </section>
+
+  <h2>1. Who is responsible for SpotRush?</h2>
+  <p>SpotRush is developed and published by <strong>RUN FORGE</strong> ("we", "us", or "our"). For privacy questions, contact us at <a href="mailto:ni3yyn@gmail.com">ni3yyn@gmail.com</a>.</p>
+  <p>Before publishing this policy, make sure the developer or publisher name above matches the name shown on your Google Play listing.</p>
+
+  <h2>2. Information stored locally by SpotRush</h2>
+  <p>SpotRush stores the following information in app-specific storage on your device so that the game can remember your progress and settings:</p>
+  <ul>
+    <li>Game preferences, including sound and music levels, haptics, visual effects, reduced-motion and colour-vision settings, match preferences, and reminder preferences.</li>
+    <li>Local game records, including best scores, best rounds, streaks, Daily Spot results, skill rating, and your locally generated rival challenge code and related results.</li>
+    <li>Local update state and downloaded update packages used to apply verified game updates.</li>
+    <li>Diagnostic files created by the in-app crash logger. These can include timestamps, the current game screen, frame rate, memory and object counts, app log messages, and Android log output associated with the SpotRush process.</li>
+  </ul>
+  <p>SpotRush's crash logger writes diagnostic files on the device to help investigate crashes. SpotRush does not automatically upload these files to a developer-operated server. They remain in app-specific storage unless they are included in an Android backup or you choose to share them yourself.</p>
+
+  <h2>3. Epic Online Services and online multiplayer</h2>
+  <p>Online multiplayer is provided using <strong>Epic Online Services (EOS)</strong>, operated by Epic Games and its relevant affiliates. EOS is initialized when you use SpotRush's online room features; offline play does not need to initialize EOS.</p>
+  <p>To provide online play, the game and EOS process information that includes:</p>
+  <ul>
+    <li><strong>An installation-specific device identifier:</strong> SpotRush asks EOS to create or access a Device ID for the installation. The request includes the device model string reported by Android.</li>
+    <li><strong>An anonymous EOS player identifier:</strong> SpotRush uses EOS Connect with device-ID credentials to obtain a pseudonymous Product User ID. SpotRush does not ask you to enter an Epic account password, email address, or real name. The in-game display name supplied to EOS is the generic name “SpotRush Player”.</li>
+    <li><strong>Online room information:</strong> when you create a room, SpotRush publishes room attributes to EOS, including the SpotRush game identifier, a generated room name and join code, and the room status (for example, open, playing, or full). Rooms are created as publicly advertised EOS lobbies so that other SpotRush players can find and join them. Do not treat a room code as private information.</li>
+    <li><strong>Multiplayer connection and game traffic:</strong> information needed to find, join, maintain, and leave a match, plus game-session messages such as match state, round data, answers, and scores. This traffic is sent to the other player and may be routed through EOS peer-to-peer relay infrastructure when required for connectivity.</li>
+  </ul>
+  <p>Epic may also automatically process technical and service-usage information under its own privacy practices. Epic's published policy describes categories that may include IP address, device identifiers, device make and model, operating system and other technical details, game or service usage information, and general location inferred from an IP address. The exact information processed depends on the Epic service and how it is used. SpotRush does not request GPS location permission.</p>
+  <p>Epic controls its own service-side handling, retention, security, and privacy request processes. Please read the <a href="https://legal.epicgames.com/epicgames/privacy-policy">Epic Games Privacy Policy</a> and the <a href="https://onlineservices.epicgames.com/licensing">Epic Online Services information</a>. Epic's privacy contact details are available in its policy, including <a href="mailto:privacy@support.epicgames.com">privacy@support.epicgames.com</a> and <a href="mailto:dpo@support.epicgames.com">dpo@support.epicgames.com</a>.</p>
+
+  <h2>4. Game updates hosted by GitHub</h2>
+  <p>When the main menu is opened, SpotRush checks a public GitHub Releases address for an update manifest. If an update is available and you choose to install it, SpotRush downloads the update package from the address specified by that manifest. The downloaded package is checked against its published SHA-256 checksum before it is applied.</p>
+  <p>These requests do not intentionally include your name, email address, phone number, or game records. As with ordinary requests to a website, GitHub may receive technical request information such as your IP address, request time, device or browser/app information, and related service logs. GitHub handles that information under its <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">General Privacy Statement</a>.</p>
+
+  <h2>5. Android notifications</h2>
+  <p>Daily Spot reminders are optional and are off by default. If you enable the reminder or request a test notification, Android may ask for notification permission. SpotRush schedules and cancels these reminders locally on your device using Android's notification system. Reminder text is generated from local game state, such as whether you have completed the Daily Spot and your current streak. SpotRush does not use a remote push-notification service for these reminders.</p>
+
+  <h2>6. Android backup</h2>
+  <p>The Android app is configured to allow Android Auto Backup. If backup is enabled on your device, Android may back up app-specific data to the backup service associated with your Google account and may restore it when you reinstall the app or move to another device. This can include local settings, records, streak information, and other app-specific files. Backup availability and encryption depend on your Android version, device configuration, and Google account settings. Google describes Android Auto Backup in its <a href="https://developer.android.com/identity/data/autobackup">Android Auto Backup documentation</a>.</p>
+  <p>You can manage Android backup through your device's Android/Google backup settings. Removing SpotRush from a device does not necessarily remove a backup that was already made to your Google account; manage or delete that backup through Google.</p>
+
+  <h2>7. Clipboard and information you choose to share</h2>
+  <p>SpotRush uses the device clipboard only when you choose a copy or paste action, for example to copy a room or challenge code or paste a code supplied by another player. A code you copy can be seen by other apps that have clipboard access under your Android version and device settings. SpotRush does not read the clipboard continuously.</p>
+  <p>If you share a room code with someone, that person can use it to find or join the associated online room while it is available. Challenge text that you copy is shared only when you choose to send or post it using another app.</p>
+
+  <h2>8. Information SpotRush does not request for its own features</h2>
+  <p>SpotRush does not ask you to provide a real name, email address, phone number, contacts, photos, microphone recordings, or camera content. The Android export configuration does not request GPS location permission. Online multiplayer does use the device and network information described in Section 3, and Epic may infer general location from an IP address under its own policy.</p>
+  <p>SpotRush does not include an advertising network or a separate third-party advertising SDK. The project does not implement a separate analytics or remote crash-reporting service. This does not prevent Epic or GitHub from processing service or request information as described in this policy and their own privacy notices.</p>
+
+  <h2>9. How information is shared</h2>
+  <p>RUN FORGE does not operate a SpotRush account database or a game server that stores player profiles. Information is handled by the following providers when the relevant feature is used:</p>
+  <ul>
+    <li><strong>Epic Games / Epic Online Services:</strong> anonymous player/device identifiers, device model information, room attributes, and online multiplayer traffic for EOS identity, lobby discovery, and peer-to-peer connectivity.</li>
+    <li><strong>GitHub:</strong> technical request information generated when the app checks for or downloads a game update.</li>
+    <li><strong>Google / Android backup infrastructure:</strong> app data that Android includes in a backup when the device's backup feature is enabled.</li>
+    <li><strong>Other players:</strong> room information made available through a public lobby and multiplayer game-session data exchanged with the other participant.</li>
+  </ul>
+  <p>We do not sell personal information. We do not use SpotRush data to serve targeted advertising.</p>
+
+  <h2>10. Retention and deletion</h2>
+  <ul>
+    <li><strong>Local game data:</strong> remains in app-specific storage until it is cleared or removed by you or the Android system. You can clear it using Android Settings → Apps → SpotRush → Storage → Clear data, or uninstall the app. Android backups may remain separately in your Google account and may restore app data later.</li>
+    <li><strong>Local diagnostic files:</strong> are stored on the device. The crash logger keeps a limited number of recent diagnostic sessions and removes older session files as new sessions begin. They are not automatically uploaded by SpotRush.</li>
+    <li><strong>EOS information:</strong> is handled and retained by Epic under Epic's own policies and retention practices. SpotRush does not have direct access to delete records held on Epic's systems. You can direct privacy or deletion requests to Epic using the contact details in Epic's privacy policy.</li>
+    <li><strong>GitHub request logs:</strong> are handled and retained by GitHub under its privacy statement and internal retention practices.</li>
+    <li><strong>Android backups:</strong> are controlled by Android and Google. Manage or delete them through your device or Google backup settings.</li>
+  </ul>
+  <p>SpotRush does not provide a conventional sign-up or sign-in account. Online multiplayer does create/use a pseudonymous EOS player identity. For requests about the data held by EOS, contact Epic directly; for questions about data stored by the SpotRush app itself, contact RUN FORGE using the email below.</p>
+
+  <h2>11. Security</h2>
+  <p>SpotRush stores local files in app-specific storage and does not operate a developer-hosted player database. Network connections to EOS and GitHub are made through their respective services and infrastructure. No method of electronic storage or internet transmission can be guaranteed to be completely secure. Epic, GitHub, and Google describe their own safeguards in the privacy and security information linked above.</p>
+
+  <h2>12. Children</h2>
+  <p>SpotRush is not designed or marketed specifically for children under 13. SpotRush does not ask players to submit a name, email address, or other direct contact information. Online multiplayer is provided by Epic Online Services, which has its own rules and privacy practices for younger users. Parents or guardians with questions about information processed by Epic should contact Epic using the privacy contacts in Epic's policy. Parents or guardians may also contact RUN FORGE at the address below.</p>
+
+  <h2>13. Changes to this policy</h2>
+  <p>We may update this policy when SpotRush's features, service providers, or data practices change. The “Last updated” date at the top of this page will be changed when a revised policy is published. Please review this page periodically and before using online features after a major update.</p>
+
+  <h2>14. Contact</h2>
+  <div class="details">
+    <p><strong>RUN FORGE — SpotRush Privacy</strong></p>
+    <p>Email: <a href="mailto:ni3yyn@gmail.com">ni3yyn@gmail.com</a></p>
+    <p class="small">Please do not send passwords, payment information, or other sensitive information in a privacy inquiry.</p>
+  </div>
+
+  <footer>
+    <p>SpotRush · Developed by RUN FORGE</p>
+    <p>This policy describes the current SpotRush Android project configuration and its integrated services as reviewed on November 6, 2026.</p>
+  </footer>
+</main>
+</body>
+</html>

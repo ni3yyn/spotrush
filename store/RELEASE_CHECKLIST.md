@@ -4,7 +4,7 @@ Project facts this checklist assumes (all already set in the repo):
 
 | Fact | Value |
 |---|---|
-| Package name | `com.spotrush.game` |
+| Package name | `com.wathiq.spotrush` |
 | versionName / versionCode | `1.0.0` / `1` |
 | Permissions | INTERNET, ACCESS_NETWORK_STATE, VIBRATE, POST_NOTIFICATIONS |
 | Orientation / mode | Portrait, immersive |
@@ -90,7 +90,7 @@ For the Play Console you need an **Android App Bundle**, not an APK:
    daily first = no notification. (Until the plugin drop-in from
    `android_extras/NOTIFICATIONS.md` is done, the log line
    `[DailyReminder] (no native bridge)...` is the expected behaviour instead.)
-6. Auto Backup check: `adb shell bmgr backupnow com.spotrush.game`, then
+6. Auto Backup check: `adb shell bmgr backupnow com.wathiq.spotrush`, then
    reinstall and confirm settings/records/streak survive
    (`android_extras/BACKUP.md` has the full command walk-through).
 
