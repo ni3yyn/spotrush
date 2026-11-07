@@ -439,14 +439,24 @@ func _rooms_from_exact_code_search_results(search_results: Array, clean_code: St
 		var lobby_id: String = str(lobby.get("lobby_id"))
 		var bucket_id: String = str(lobby.get("bucket_id"))
 		var available_slots: int = int(lobby.get("available_slots"))
-		var owner_present: bool = not _get_lobby_owner_id(lobby).is_empty()
+		var owner_id: String = _get_lobby_owner_id(lobby)
+		var owner_present: bool = not owner_id.is_empty()
+		var local_puid: String = str(_eos_runtime.get("local_product_user_id")) if _eos_runtime != null else ""
 
 		if inspected_count < 12:
-			print("[EOS ROOM] Exact candidate lobby_id=%s bucket=%s slots=%d owner_present=%s" % [
+			# owner_id vs local_puid is here specifically to catch two Android
+			# installs (commonly cloned emulator images) resolving to the same
+			# EOS Device ID: if they match, this "joiner" IS the host as far as
+			# EOS is concerned, which is why a freshly-created 2-slot lobby can
+			# already read available_slots=0 before any real second player joins.
+			print("[EOS ROOM] Exact candidate lobby_id=%s bucket=%s slots=%d owner_present=%s owner=%s local=%s same_identity_as_owner=%s" % [
 				lobby_id,
 				bucket_id,
 				available_slots,
-				owner_present
+				owner_present,
+				owner_id,
+				local_puid,
+				(not owner_id.is_empty()) and owner_id == local_puid
 			])
 			inspected_count += 1
 

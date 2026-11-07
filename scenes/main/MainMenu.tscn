@@ -417,11 +417,11 @@ offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 18
 alignment = 1
 
 [node name="PlayIcon" type="Control" parent="SafeArea/VBoxMain/ActionRow/BtnSolo/PlayContent"]
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -434,7 +434,7 @@ accent_surface = true
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 38
+theme_override_font_sizes/font_size = 58
 text = "SOLO PLAY"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -485,11 +485,11 @@ offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="FriendsGlyph" type="Control" parent="SafeArea/VBoxMain/ActionRow/BtnMultiplayer/FriendsContent"]
-custom_minimum_size = Vector2(54, 54)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -501,7 +501,7 @@ icon_color = Color(0.356863, 0.423529, 0.54902, 1)
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.356863, 0.423529, 0.54902, 1)
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 44
 text = "FRIENDS"
 vertical_alignment = 1
 
@@ -532,11 +532,11 @@ offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 alignment = 1
 
 [node name="HowGlyph" type="Control" parent="SafeArea/VBoxMain/ActionRow/BtnHowToPlay/HowContent"]
-custom_minimum_size = Vector2(54, 54)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
@@ -548,7 +548,7 @@ icon_color = Color(0.356863, 0.423529, 0.54902, 1)
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.356863, 0.423529, 0.54902, 1)
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 44
 text = "HOW TO PLAY"
 vertical_alignment = 1
 

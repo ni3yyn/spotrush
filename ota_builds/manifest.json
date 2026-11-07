@@ -1,6 +1,6 @@
 ﻿{
-    "version":  "1.0.65",
+    "version":  "1.0.72",
     "pck_url":  "https://github.com/ni3yyn/spotrush/releases/latest/download/content.pck",
-    "sha256":  "5a70c68c1e13d8b4d91b60f5a0ab1fe8db4160151ff3ca9ddb622e6dbe01ce13",
-    "notes":  "fix joinr stuck claude"
+    "sha256":  "278c5489458cd39750c2871e20eb17a7e33e60d7abf84d93d14513298d46a351",
+    "notes":  "fix ttl trnsfrm in wndws"
 }

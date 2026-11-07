@@ -49,7 +49,13 @@ var _finished: bool = false
 func _ready() -> void:
         _build_layers()
         _style_progress()
-        wordmark.add_theme_font_override("bold_font", NeuKit.bold_font(wordmark, 0.34))
+        # Same recipe as MainMenu's hero title - wght=800, no synthetic
+        # embolden - so the brand wordmark is one consistent weight instead of
+        # two different ones depending which screen you're looking at.
+        var _wordmark_base: Font = wordmark.get_theme_default_font()
+        if _wordmark_base == null:
+                _wordmark_base = ThemeDB.fallback_font
+        wordmark.add_theme_font_override("bold_font", NeuKit.weighted_font(_wordmark_base, 800.0, 0.0))
         # Letterpress: the engraved wordmark catches light along its lower edge.
         wordmark.add_theme_color_override("font_shadow_color", Color(1.0, 1.0, 1.0, 0.9))
         wordmark.add_theme_constant_override("shadow_offset_x", 0)

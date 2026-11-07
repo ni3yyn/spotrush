@@ -37,6 +37,8 @@ extends Node
 signal update_available(version: String)
 signal update_applied(version: String)
 signal update_failed(reason: String)
+signal already_up_to_date(version: String)
+signal update_removed()
 
 ## Fill this in before shipping - with scripts/dev/publish_ota.sh publishing
 ## to a GitHub Release, it's:
@@ -52,6 +54,8 @@ const STATE_PATH: String = "user://ota_state.json"
 const DOWNLOAD_DIR: String = "user://ota_downloads"
 
 var current_version: String = "0"
+var is_checking: bool = false
+var is_downloading: bool = false
 var _pending_manifest: Dictionary = {}
 var _state: Dictionary = {}
 
@@ -75,6 +79,10 @@ func _ready() -> void:
 ## "RESTART" button triggers) would otherwise boot straight back to the
 ## base APK's code with no sign anything is wrong.
 func _remount_applied_pack() -> void:
+	if OS.has_feature("editor"):
+		# When running from the editor or test scripts, always run the project's
+		# actual source files rather than shadowing them with an old downloaded pack.
+		return
 	if current_version == "0":
 		return # nothing has ever been applied
 	var expected_sha: String = str(_state.get("sha256", ""))
@@ -108,17 +116,23 @@ func _log(text: String) -> void:
 ## does nothing with no MANIFEST_URL or no network.
 func check_for_update() -> void:
 	if MANIFEST_URL.is_empty():
+		update_failed.emit("manifest URL is empty")
 		return
+	if is_checking:
+		return
+	is_checking = true
 	var http := HTTPRequest.new()
 	add_child(http)
 	http.request_completed.connect(_on_manifest_response.bind(http), CONNECT_ONE_SHOT)
 	var err := http.request(MANIFEST_URL)
 	if err != OK:
+		is_checking = false
 		update_failed.emit("manifest request failed to start (%d)" % err)
 		http.queue_free()
 
 func _on_manifest_response(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest) -> void:
 	http.queue_free()
+	is_checking = false
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		update_failed.emit("manifest fetch failed (result=%d code=%d)" % [result, code])
 		return
@@ -131,6 +145,9 @@ func _on_manifest_response(result: int, code: int, _headers: PackedStringArray, 
 	if remote_version != current_version:
 		_log("OTA update available: %s -> %s" % [current_version, remote_version])
 		update_available.emit(remote_version)
+	else:
+		_log("OTA check: already up to date (%s)" % current_version)
+		already_up_to_date.emit(current_version)
 
 ## Downloads the pending manifest's pack, verifies it, and mounts it. Emits
 ## update_applied(version) on success (still needs a restart to fully take -
@@ -139,6 +156,9 @@ func download_and_apply() -> void:
 	if _pending_manifest.is_empty():
 		update_failed.emit("no pending manifest - call check_for_update() first")
 		return
+	if is_downloading:
+		return
+	is_downloading = true
 	var http := HTTPRequest.new()
 	add_child(http)
 	var dest: String = DOWNLOAD_DIR.path_join("update_%s.pck" % str(_pending_manifest["version"]))
@@ -146,11 +166,13 @@ func download_and_apply() -> void:
 	http.request_completed.connect(_on_download_response.bind(http, dest), CONNECT_ONE_SHOT)
 	var err := http.request(str(_pending_manifest["pck_url"]))
 	if err != OK:
+		is_downloading = false
 		update_failed.emit("download failed to start (%d)" % err)
 		http.queue_free()
 
 func _on_download_response(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray, http: HTTPRequest, dest: String) -> void:
 	http.queue_free()
+	is_downloading = false
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		update_failed.emit("download failed (result=%d code=%d)" % [result, code])
 		return
@@ -170,6 +192,74 @@ func _on_download_response(result: int, code: int, _headers: PackedStringArray, 
 	_save_state(dest, actual_sha)
 	_log("OTA update applied: now on %s (restart needed to fully take)" % current_version)
 	update_applied.emit(current_version)
+
+## Returns true if an OTA patch is recorded in state or downloaded pack files exist.
+func has_applied_update() -> bool:
+	if current_version != "0":
+		return true
+	if FileAccess.file_exists(STATE_PATH):
+		return true
+	var dir := DirAccess.open(DOWNLOAD_DIR)
+	if dir != null:
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		while not file_name.is_empty():
+			if not dir.current_is_dir() and file_name.ends_with(".pck"):
+				dir.list_dir_end()
+				return true
+			file_name = dir.get_next()
+		dir.list_dir_end()
+	return false
+
+## Removes all downloaded OTA packs and resets local state to the base game build ("0").
+## Returns true if updates were found and removed.
+func remove_updates() -> bool:
+	var removed := false
+	if FileAccess.file_exists(STATE_PATH):
+		var err := DirAccess.remove_absolute(ProjectSettings.globalize_path(STATE_PATH))
+		if err != OK:
+			err = DirAccess.remove_absolute(STATE_PATH)
+		if err != OK:
+			var user_dir := DirAccess.open("user://")
+			if user_dir != null:
+				err = user_dir.remove("ota_state.json")
+		if err == OK:
+			removed = true
+		else:
+			# Overwrite state file to reset version even if unlinking is blocked
+			var f := FileAccess.open(STATE_PATH, FileAccess.WRITE)
+			if f != null:
+				f.store_string(JSON.stringify({"version": "0"}))
+				f.close()
+				removed = true
+			else:
+				push_warning("[OtaUpdater] Failed to remove or reset state file: %d" % err)
+
+	var dir := DirAccess.open(DOWNLOAD_DIR)
+	if dir != null:
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		while not file_name.is_empty():
+			if not dir.current_is_dir() and file_name.ends_with(".pck"):
+				var full_path := DOWNLOAD_DIR.path_join(file_name)
+				var err := DirAccess.remove_absolute(ProjectSettings.globalize_path(full_path))
+				if err != OK:
+					err = DirAccess.remove_absolute(full_path)
+				if err == OK:
+					removed = true
+				else:
+					push_warning("[OtaUpdater] Failed to remove pack file %s: %d" % [full_path, err])
+			file_name = dir.get_next()
+		dir.list_dir_end()
+
+	var was_applied := (current_version != "0")
+	var prev_ver := current_version
+	_state.clear()
+	_pending_manifest.clear()
+	current_version = "0"
+	_log("OTA updates removed (was v%s). Restart required to return to base build." % prev_ver)
+	update_removed.emit()
+	return removed or was_applied
 
 func _load_state() -> void:
 	if not FileAccess.file_exists(STATE_PATH):

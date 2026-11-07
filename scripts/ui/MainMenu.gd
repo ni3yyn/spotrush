@@ -221,7 +221,14 @@ func _hero_font() -> Font:
 				var base: Font = title_text.get_theme_default_font()
 				if base == null:
 						base = ThemeDB.fallback_font
-				_hero_font_cache = NeuKit.weighted_font(base, 800.0, 0.44)
+				# No embolden here: wght=800 is real font data, so it renders
+				# identically everywhere. embolden is a synthetic outline
+				# expansion Godot's own rasterizer applies after shaping, which
+				# is exactly the kind of thing that can render a few pixels
+				# differently between platforms/text servers - stacking it on
+				# top of the heaviest weight in the project was the most
+				# likely source of the wordmark drifting off-center.
+				_hero_font_cache = NeuKit.weighted_font(base, 800.0, 0.0)
 		return _hero_font_cache
 
 
@@ -244,10 +251,10 @@ func _apply_responsive_layout() -> void:
 						SpotRushTypography.apply_as(layer as RichTextLabel, SpotRushTypography.Role.WORDMARK)
 						(layer as RichTextLabel).add_theme_font_override("bold_font", _hero_font())
 		SpotRushTypography.apply_as(tagline_text, SpotRushTypography.Role.BODY)
-		SpotRushTypography.apply_as(play_text, SpotRushTypography.Role.SCREEN_TITLE)
+		# PlayText/FriendsText/HowText keep the sizes set on their scene nodes
+		# (38 / 34 / 34) - they used to get reset here on every ready and every
+		# resize, which is what made the buttons look undersized again later.
 		SpotRushTypography.apply_as(play_mode_badge, SpotRushTypography.Role.MICRO)
-		SpotRushTypography.apply_as(friends_text, SpotRushTypography.Role.BUTTON_LARGE)
-		SpotRushTypography.apply_as(how_text, SpotRushTypography.Role.BUTTON_LARGE)
 		SpotRushTypography.apply_as(best_score_label, SpotRushTypography.Role.CAPTION)
 		SpotRushTypography.apply_as(best_score_value, SpotRushTypography.Role.CARD_TITLE)
 		SpotRushTypography.apply_as(online_label, SpotRushTypography.Role.CAPTION)
@@ -273,9 +280,8 @@ func _apply_responsive_layout() -> void:
 		btn_how_to_play.anchor_bottom = 0.77 if compact_height else 0.77
 		btn_multiplayer.custom_minimum_size = Vector2(0, 66 if compact_height else 70)
 		btn_how_to_play.custom_minimum_size = Vector2(0, 66 if compact_height else 70)
-		for glyph in [friends_content.get_node_or_null("FriendsGlyph"), how_content.get_node_or_null("HowGlyph")]:
-			if glyph is Control:
-				glyph.custom_minimum_size = Vector2(44, 44)
+		# FriendsGlyph/HowGlyph keep the 54x54 size set on their scene nodes -
+		# this used to force them back to 44x44 on every ready and every resize.
 
 		# Optical vertical centring: each pill casts its dark shadow downward, so the
 		# eye reads extra body below the button and the content looks high. Seat the

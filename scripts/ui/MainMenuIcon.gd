@@ -87,8 +87,12 @@ func _draw_friends(c: Vector2, s: float, color: Color, shadow: Color, highlight:
 	# offset left, sits behind a larger, full-strength front figure - this
 	# reads clearly as "people" even at small mobile icon sizes, unlike a
 	# three-head cluster which collapses into an indistinct clump of dots.
-	var back_c := c + Vector2(-s * 0.19, -s * 0.045)
-	var front_c := c + Vector2(s * 0.145, s * 0.03)
+	#
+	# The shoulder arcs extend downward, so the reference center is lifted by
+	# ~0.22 * s to align the icon's visual vertical center with the adjacent text.
+	var origin := c + Vector2(0.0, -s * 0.22)
+	var back_c := origin + Vector2(-s * 0.19, -s * 0.045)
+	var front_c := origin + Vector2(s * 0.145, s * 0.03)
 	var back_head_r: float = s * 0.15
 	var front_head_r: float = s * 0.185
 	var stroke: float = maxf(2.6, s * 0.085)

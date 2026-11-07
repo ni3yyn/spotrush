@@ -31,6 +31,10 @@ var _notification_settings_btn: Button = null
 var _diagnostics_status: Label = null
 var _copy_logs_btn: Button = null
 var _export_logs_btn: Button = null
+var _ota_status: Label = null
+var _check_ota_btn: Button = null
+var _remove_ota_btn: Button = null
+var _manual_ota_check: bool = false
 
 func _ready() -> void:
 		BackNav.register(self)
@@ -41,6 +45,19 @@ func _ready() -> void:
 		if not DailyReminder.status_changed.is_connected(_on_reminder_status_changed):
 				DailyReminder.status_changed.connect(_on_reminder_status_changed)
 		_refresh_reminder_status()
+
+		if not OtaUpdater.update_available.is_connected(_on_ota_update_available):
+				OtaUpdater.update_available.connect(_on_ota_update_available)
+		if not OtaUpdater.already_up_to_date.is_connected(_on_ota_already_up_to_date):
+				OtaUpdater.already_up_to_date.connect(_on_ota_already_up_to_date)
+		if not OtaUpdater.update_failed.is_connected(_on_ota_update_failed):
+				OtaUpdater.update_failed.connect(_on_ota_update_failed)
+		if not OtaUpdater.update_applied.is_connected(_on_ota_update_applied):
+				OtaUpdater.update_applied.connect(_on_ota_update_applied)
+		if not OtaUpdater.update_removed.is_connected(_on_ota_update_removed):
+				OtaUpdater.update_removed.connect(_on_ota_update_removed)
+		_refresh_ota_status()
+
 		# Android may report the final cutout/safe-area rectangle one frame
 		# after the scene enters the tree. Read it after layout, then once more
 		# after the platform window settles so the header never sits under a notch.
@@ -56,6 +73,20 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 		BackNav.unregister(self)
+		if DailyReminder.permission_state_changed.is_connected(_on_reminder_permission_state_changed):
+				DailyReminder.permission_state_changed.disconnect(_on_reminder_permission_state_changed)
+		if DailyReminder.status_changed.is_connected(_on_reminder_status_changed):
+				DailyReminder.status_changed.disconnect(_on_reminder_status_changed)
+		if OtaUpdater.update_available.is_connected(_on_ota_update_available):
+				OtaUpdater.update_available.disconnect(_on_ota_update_available)
+		if OtaUpdater.already_up_to_date.is_connected(_on_ota_already_up_to_date):
+				OtaUpdater.already_up_to_date.disconnect(_on_ota_already_up_to_date)
+		if OtaUpdater.update_failed.is_connected(_on_ota_update_failed):
+				OtaUpdater.update_failed.disconnect(_on_ota_update_failed)
+		if OtaUpdater.update_applied.is_connected(_on_ota_update_applied):
+				OtaUpdater.update_applied.disconnect(_on_ota_update_applied)
+		if OtaUpdater.update_removed.is_connected(_on_ota_update_removed):
+				OtaUpdater.update_removed.disconnect(_on_ota_update_removed)
 
 func handle_back() -> bool:
 		if SceneRouter.is_transitioning:
@@ -118,6 +149,7 @@ func _build_page() -> void:
 		_build_accessibility_section()
 		_build_match_section()
 		_build_reminder_section()
+		_build_updates_section()
 		_build_diagnostics_section()
 
 		# Buttons, labels and nested card containers default to MOUSE_FILTER_STOP.
@@ -542,6 +574,140 @@ func _on_test_notification_pressed() -> void:
 func _on_open_notification_settings_pressed() -> void:
 		DailyReminder.open_notification_settings()
 		_refresh_reminder_status()
+
+func _build_updates_section() -> void:
+		var section := _section("Updates", "Check for over-the-air patches or remove downloaded updates to revert to the base build.")
+
+		_ota_status = Label.new()
+		_ota_status.name = "OtaStatus"
+		_ota_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		SpotRushTypography.apply_as(_ota_status, SpotRushTypography.Role.BODY)
+		_ota_status.add_theme_color_override("font_color", NeuKit.SLATE)
+		section.add_child(_ota_status)
+
+		_check_ota_btn = _diagnostics_button("CHECK FOR OTA UPDATES")
+		_check_ota_btn.pressed.connect(_on_check_ota_pressed)
+		section.add_child(_check_ota_btn)
+
+		_remove_ota_btn = _diagnostics_button("REMOVE OTA UPDATES")
+		_remove_ota_btn.pressed.connect(_on_remove_ota_pressed)
+		section.add_child(_remove_ota_btn)
+
+		_refresh_ota_status()
+
+func _refresh_ota_status() -> void:
+		if not is_instance_valid(_ota_status):
+				return
+		if OtaUpdater.has_applied_update():
+				var ver := OtaUpdater.current_version
+				if ver != "0":
+						_ota_status.text = "OTA Patch active: %s (Base build: %s)" % [ver, GameConfig.APP_VERSION]
+				else:
+						_ota_status.text = "OTA patch files detected. Base build: %s" % GameConfig.APP_VERSION
+		else:
+				_ota_status.text = "Running base build: %s (No OTA patch installed)" % GameConfig.APP_VERSION
+
+		if is_instance_valid(_check_ota_btn):
+				_check_ota_btn.disabled = OtaUpdater.is_checking or OtaUpdater.is_downloading
+				if OtaUpdater.is_checking:
+						_check_ota_btn.text = "CHECKING FOR UPDATES..."
+				elif OtaUpdater.is_downloading:
+						_check_ota_btn.text = "DOWNLOADING UPDATE..."
+				else:
+						_check_ota_btn.text = "CHECK FOR OTA UPDATES"
+
+		if is_instance_valid(_remove_ota_btn):
+				var has_update := OtaUpdater.has_applied_update()
+				_remove_ota_btn.disabled = not has_update or OtaUpdater.is_downloading or OtaUpdater.is_checking
+				if has_update:
+						_remove_ota_btn.add_theme_color_override("font_color", NeuKit.CORAL)
+				else:
+						_remove_ota_btn.add_theme_color_override("font_color", NeuKit.SLATE)
+
+func _on_check_ota_pressed() -> void:
+		if not is_instance_valid(_check_ota_btn):
+				return
+		if OtaUpdater.is_checking or OtaUpdater.is_downloading:
+				return
+		_manual_ota_check = true
+		_refresh_ota_status()
+		OtaUpdater.check_for_update()
+
+func _on_remove_ota_pressed() -> void:
+		if not is_instance_valid(_remove_ota_btn):
+				return
+		if not OtaUpdater.has_applied_update():
+				NeuDialog.inform("NO OTA UPDATES", "You are already running the base build (%s). There are no downloaded OTA updates to remove." % GameConfig.APP_VERSION, "GOT IT")
+				return
+
+		var ver_text: String = OtaUpdater.current_version
+		if ver_text == "0":
+				ver_text = "downloaded OTA update files"
+		else:
+				ver_text = "OTA patch %s" % ver_text
+
+		NeuDialog.ask(
+				"REMOVE OTA UPDATES?",
+				"This will delete %s and revert SpotRush to the base build (%s). A restart is required." % [ver_text, GameConfig.APP_VERSION],
+				"REMOVE",
+				"CANCEL",
+				func() -> void:
+						var ok := OtaUpdater.remove_updates()
+						_refresh_ota_status()
+						if ok:
+								NeuDialog.ask(
+										"UPDATES REMOVED",
+										"OTA updates have been removed. Restart SpotRush to finish reverting to the base build.",
+										"RESTART",
+										"LATER",
+										func() -> void: get_tree().quit(),
+										false
+								)
+						else:
+								NeuDialog.inform("NO UPDATES REMOVED", "No active OTA files were found.", "GOT IT"),
+				true
+		)
+
+func _on_ota_update_available(version: String) -> void:
+		_refresh_ota_status()
+		_manual_ota_check = false
+		NeuDialog.ask(
+				"UPDATE AVAILABLE",
+				"A new update (%s) is ready to download." % version,
+				"UPDATE",
+				"LATER",
+				func() -> void:
+						_refresh_ota_status()
+						OtaUpdater.download_and_apply(),
+				false
+		)
+
+func _on_ota_already_up_to_date(version: String) -> void:
+		_refresh_ota_status()
+		if _manual_ota_check:
+				_manual_ota_check = false
+				var display_ver := version if version != "0" else GameConfig.APP_VERSION
+				NeuDialog.inform("UP TO DATE", "SpotRush is already on the latest version (%s)." % display_ver, "GOT IT")
+
+func _on_ota_update_failed(reason: String) -> void:
+		_refresh_ota_status()
+		if _manual_ota_check:
+				_manual_ota_check = false
+				NeuDialog.inform("UPDATE FAILED", "Unable to complete update check:\n%s" % reason, "GOT IT")
+
+func _on_ota_update_applied(version: String) -> void:
+		_refresh_ota_status()
+		NeuDialog.ask(
+				"UPDATE READY",
+				"Restart SpotRush to finish applying %s." % version,
+				"RESTART",
+				"LATER",
+				func() -> void: get_tree().quit(),
+				false
+		)
+
+func _on_ota_update_removed() -> void:
+		_refresh_ota_status()
 
 ## Diagnostics: lets the player (or a tester) get CrashLogger's logs off the
 ## device themselves without needing adb - copy a ready-to-paste report to

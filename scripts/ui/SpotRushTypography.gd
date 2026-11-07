@@ -45,7 +45,11 @@ const SIZES := {
         Role.HUD_VALUE: 56,
         Role.COUNTDOWN: 64,
         Role.HERO_SCORE: 84,
-        Role.WORDMARK: 76,
+        # MainMenu's TitleContainer layers are authored at 94px directly in the
+        # scene; this role used to sit at 76, so applying it on every ready and
+        # resize was quietly shrinking the logo below what was actually designed
+        # - on both MainMenu and BootScreen, since they share this one role.
+        Role.WORDMARK: 94,
         Role.INPUT_VALUE: 26,
 }
 
